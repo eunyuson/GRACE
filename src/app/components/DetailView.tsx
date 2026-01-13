@@ -54,6 +54,25 @@ export const DetailView: React.FC<DetailViewProps> = ({ isOpen, onClose, item, o
   // Find current content
   const currentContent = item.content.find(c => c.keyword === activeTab);
 
+  // Collect all images (main + from content sections)
+  const allImages = React.useMemo(() => {
+    const images: { id: string; image: string; keyword: string; isMain: boolean }[] = [];
+
+    // Main image
+    if (item.image) {
+      images.push({ id: 'main', image: item.image, keyword: 'STORY', isMain: true });
+    }
+
+    // Content section images
+    item.content.forEach(section => {
+      if (section.image) {
+        images.push({ id: section.id, image: section.image, keyword: section.keyword, isMain: false });
+      }
+    });
+
+    return images;
+  }, [item]);
+
   // Get related items (exclude current)
   const relatedItems = items
     .filter((i) => i.id !== item.id)
@@ -115,6 +134,40 @@ export const DetailView: React.FC<DetailViewProps> = ({ isOpen, onClose, item, o
                 </motion.div>
               </div>
             </div>
+
+            {/* Horizontal Image Slider - shows if there are multiple images */}
+            {allImages.length > 1 && (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ ...transition, delay: 0.15 }}
+                className="mb-6 -mx-[5vw] px-[5vw]"
+              >
+                <div className="overflow-x-auto pb-4 scrollbar-hide">
+                  <div className="flex gap-3">
+                    {allImages.map((img) => (
+                      <div
+                        key={img.id}
+                        onClick={() => setActiveTab(img.keyword)}
+                        className={`relative shrink-0 w-24 h-16 cursor-pointer overflow-hidden transition-all duration-300 ${activeTab === img.keyword
+                            ? 'ring-2 ring-white opacity-100'
+                            : 'opacity-50 hover:opacity-80 grayscale hover:grayscale-0'
+                          }`}
+                      >
+                        <img
+                          src={img.image}
+                          alt={img.keyword}
+                          className="w-full h-full object-cover"
+                        />
+                        {img.isMain && (
+                          <span className="absolute bottom-0 left-0 right-0 bg-black/70 text-[8px] text-center py-0.5 tracking-wider">MAIN</span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </motion.div>
+            )}
 
             {/* Main Image/Video - changes based on selected keyword */}
             <motion.div

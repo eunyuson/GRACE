@@ -323,7 +323,7 @@ export const AdminPage: React.FC = () => {
         </button>
       </div>
 
-      <div className="space-y-4 max-h-[300px] overflow-y-auto pr-2">
+      <div className="space-y-4 max-h-[500px] overflow-y-auto pr-2">
         {item.content.length === 0 && (
           <p className="text-xs text-white/30 text-center py-8 border border-dashed border-white/10">
             No content sections yet. Add one to start.
