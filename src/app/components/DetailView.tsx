@@ -120,21 +120,26 @@ export const DetailView: React.FC<DetailViewProps> = ({ isOpen, onClose, item, o
               </div>
             </div>
 
-            {/* Main Image */}
+            {/* Main Image/Video - changes based on selected keyword */}
             <motion.div
               initial={{ scale: 0.95, opacity: 0, y: 50 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}
               transition={{ ...transition, delay: 0.2 }}
               className="w-full h-[70vh] mb-[8vh] bg-[#111] overflow-hidden relative"
             >
-              {item.type === 'video' && item.videoUrl ? (
-                (() => {
-                  const ytId = item.videoUrl.match(/^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/)?.[2];
+              {(() => {
+                // Use content section's media if available
+                const displayVideoUrl = currentContent?.videoUrl || (item.type === 'video' ? item.videoUrl : undefined);
+                const displayImage = currentContent?.image || item.image;
+
+                if (displayVideoUrl) {
+                  const ytId = displayVideoUrl.match(/^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/)?.[2];
                   if (ytId && ytId.length === 11) {
                     return (
                       <iframe
+                        key={activeTab + '-video'}
                         className="w-full h-full object-cover"
-                        src={`https://www.youtube.com/embed/${ytId}?autoplay=1&mute=1&loop=1&playlist=${ytId}&controls=0&showinfo=0&rel=0`}
+                        src={`https://www.youtube.com/embed/${ytId}?autoplay=1&mute=1&loop=1&playlist=${ytId}&controls=1&showinfo=0&rel=0`}
                         title="YouTube video player"
                         frameBorder="0"
                         allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
@@ -144,7 +149,8 @@ export const DetailView: React.FC<DetailViewProps> = ({ isOpen, onClose, item, o
                   }
                   return (
                     <video
-                      src={item.videoUrl}
+                      key={activeTab + '-video'}
+                      src={displayVideoUrl}
                       className="w-full h-full object-cover"
                       autoPlay
                       muted
@@ -152,14 +158,16 @@ export const DetailView: React.FC<DetailViewProps> = ({ isOpen, onClose, item, o
                       playsInline
                     />
                   );
-                })()
-              ) : (
-                <img
-                  src={item.image}
-                  alt={item.title}
-                  className="w-full h-full object-contain"
-                />
-              )}
+                }
+                return (
+                  <img
+                    key={activeTab + '-img'}
+                    src={displayImage}
+                    alt={item.title}
+                    className="w-full h-full object-contain"
+                  />
+                );
+              })()}
             </motion.div>
 
             {/* Content Grid */}
@@ -177,7 +185,7 @@ export const DetailView: React.FC<DetailViewProps> = ({ isOpen, onClose, item, o
                 </div>
                 <div>
                   <h3 className="text-[10px] tracking-[2px] opacity-40 uppercase mb-2">Date</h3>
-                  <p className="text-sm">JAN 12, 2026</p>
+                  <p className="text-sm">{currentContent?.date || 'N/A'}</p>
                 </div>
               </motion.div>
 

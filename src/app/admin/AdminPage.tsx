@@ -351,6 +351,35 @@ export const AdminPage: React.FC = () => {
               />
             </div>
             <div className="mb-3">
+              <label className="text-[10px] text-white/40 block mb-1 tracking-widest">DATE</label>
+              <input
+                type="date"
+                value={section.date || ''}
+                onChange={(e) => updateContentSection(section.id, 'date', e.target.value, isNew)}
+                className="w-full bg-black border border-white/20 p-2 text-xs focus:border-white outline-none"
+              />
+            </div>
+            <div className="mb-3">
+              <label className="text-[10px] text-white/40 block mb-1 tracking-widest">IMAGE URL</label>
+              <input
+                type="text"
+                value={section.image || ''}
+                onChange={(e) => updateContentSection(section.id, 'image', e.target.value, isNew)}
+                className="w-full bg-black border border-white/20 p-2 text-xs focus:border-white outline-none"
+                placeholder="https://..."
+              />
+            </div>
+            <div className="mb-3">
+              <label className="text-[10px] text-white/40 block mb-1 tracking-widest">VIDEO URL (YouTube)</label>
+              <input
+                type="text"
+                value={section.videoUrl || ''}
+                onChange={(e) => updateContentSection(section.id, 'videoUrl', e.target.value, isNew)}
+                className="w-full bg-black border border-white/20 p-2 text-xs focus:border-white outline-none"
+                placeholder="https://youtu.be/..."
+              />
+            </div>
+            <div className="mb-3">
               <label className="text-[10px] text-white/40 block mb-1 tracking-widest">CONTENT</label>
               <textarea
                 value={section.text}

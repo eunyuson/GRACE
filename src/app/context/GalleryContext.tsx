@@ -16,6 +16,7 @@ export interface GalleryContentSection {
   id: string;
   keyword: string;
   text: string;
+  date?: string;
   image?: string;
   videoUrl?: string;
 }

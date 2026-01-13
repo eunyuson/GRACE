@@ -2,6 +2,7 @@ export interface GalleryContentSection {
   id: string; // Unique ID for key prop
   keyword: string;
   text: string;
+  date?: string;
   image?: string;
   videoUrl?: string;
 }
