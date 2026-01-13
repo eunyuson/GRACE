@@ -139,7 +139,7 @@ export const DetailView: React.FC<DetailViewProps> = ({ isOpen, onClose, item, o
                       <iframe
                         key={activeTab + '-video'}
                         className="w-full h-full object-cover"
-                        src={`https://www.youtube.com/embed/${ytId}?autoplay=1&mute=1&loop=1&playlist=${ytId}&controls=1&showinfo=0&rel=0`}
+                        src={`https://www.youtube.com/embed/${ytId}?autoplay=0&loop=1&playlist=${ytId}&controls=1&rel=0`}
                         title="YouTube video player"
                         frameBorder="0"
                         allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
