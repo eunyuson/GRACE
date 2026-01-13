@@ -1,0 +1,32 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 갤러리 컬렉션 규칙
+    match /gallery/{document=**} {
+      // 누구나 읽기 가능 (공개 갤러리)
+      allow read: if true;
+      
+      // 로그인된 사용자만 쓰기 가능 (관리자)
+      allow write: if request.auth != null;
+    }
+
+    // 방명록 컬렉션 규칙
+    match /guestbook/{document=**} {
+      // 누구나 읽기 및 작성 가능
+      allow read, create: if true;
+      
+      // 수정 및 삭제는 관리자만 가능
+      allow update, delete: if request.auth != null;
+    }
+
+    // 댓글 컬렉션 규칙
+    match /comments/{document=**} {
+      // 누구나 읽기 및 작성 가능
+      allow read, create: if true;
+      
+      // 삭제는 관리자만 가능
+      allow delete: if request.auth != null;
+    }
+  }
+}
