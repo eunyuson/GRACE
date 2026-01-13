@@ -360,13 +360,10 @@ export const AdminPage: React.FC = () => {
               />
             </div>
             <div className="mb-3">
-              <label className="text-[10px] text-white/40 block mb-1 tracking-widest">IMAGE URL</label>
-              <input
-                type="text"
-                value={section.image || ''}
-                onChange={(e) => updateContentSection(section.id, 'image', e.target.value, isNew)}
-                className="w-full bg-black border border-white/20 p-2 text-xs focus:border-white outline-none"
-                placeholder="https://..."
+              <ImageUploader
+                label="SECTION IMAGE"
+                currentUrl={section.image || ''}
+                onUpload={(url) => updateContentSection(section.id, 'image', url, isNew)}
               />
             </div>
             <div className="mb-3">

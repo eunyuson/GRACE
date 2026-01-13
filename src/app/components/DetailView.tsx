@@ -37,12 +37,8 @@ export const DetailView: React.FC<DetailViewProps> = ({ isOpen, onClose, item, o
     if (contentRef.current) {
       contentRef.current.scrollTop = 0;
     }
-    // Set initial active tab to the first content item's keyword if available
-    if (item && item.content && item.content.length > 0) {
-      setActiveTab(item.content[0].keyword);
-    } else {
-      setActiveTab('');
-    }
+    // Reset to default view (show main description) when item changes
+    setActiveTab('STORY');
   }, [item]);
 
   // Reset cursor on unmount or close
