@@ -563,7 +563,16 @@ export const AdminPage: React.FC = () => {
           {items.map(item => (
             <div key={item.id} className="bg-[#161616] p-4 flex gap-6 items-center border border-white/5 hover:border-white/20 transition-all">
               <div className="w-16 h-16 bg-[#222] shrink-0 overflow-hidden">
-                <img src={item.image} alt={item.title} className="w-full h-full object-cover opacity-70" />
+                {(() => {
+                  // YouTube 썸네일 지원
+                  if (item.type === 'video' && item.videoUrl) {
+                    const ytId = item.videoUrl.match(/^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/)?.[2];
+                    if (ytId && ytId.length === 11) {
+                      return <img src={`https://img.youtube.com/vi/${ytId}/hqdefault.jpg`} alt={item.title} className="w-full h-full object-cover opacity-70" />;
+                    }
+                  }
+                  return <img src={item.image} alt={item.title} className="w-full h-full object-cover opacity-70" />;
+                })()}
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-baseline gap-4 mb-1">
