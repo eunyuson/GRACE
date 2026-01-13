@@ -49,13 +49,9 @@ export const DetailView: React.FC<DetailViewProps> = ({ isOpen, onClose, item, o
     };
   }, [isOpen, setIsHovered, setCursorText]);
 
-  if (!item) return null;
-
-  // Find current content
-  const currentContent = item.content.find(c => c.keyword === activeTab);
-
-  // Collect all images (main + from content sections)
+  // Collect all images (main + from content sections) - moved before early return for hooks rules
   const allImages = React.useMemo(() => {
+    if (!item) return [];
     const images: { id: string; image: string; keyword: string; isMain: boolean }[] = [];
 
     // Main image
@@ -64,7 +60,7 @@ export const DetailView: React.FC<DetailViewProps> = ({ isOpen, onClose, item, o
     }
 
     // Content section images
-    item.content.forEach(section => {
+    item.content?.forEach(section => {
       if (section.image) {
         images.push({ id: section.id, image: section.image, keyword: section.keyword, isMain: false });
       }
@@ -72,6 +68,11 @@ export const DetailView: React.FC<DetailViewProps> = ({ isOpen, onClose, item, o
 
     return images;
   }, [item]);
+
+  if (!item) return null;
+
+  // Find current content
+  const currentContent = item.content.find(c => c.keyword === activeTab);
 
   // Get related items (exclude current)
   const relatedItems = items
@@ -150,8 +151,8 @@ export const DetailView: React.FC<DetailViewProps> = ({ isOpen, onClose, item, o
                         key={img.id}
                         onClick={() => setActiveTab(img.keyword)}
                         className={`relative shrink-0 w-24 h-16 cursor-pointer overflow-hidden transition-all duration-300 ${activeTab === img.keyword
-                            ? 'ring-2 ring-white opacity-100'
-                            : 'opacity-50 hover:opacity-80 grayscale hover:grayscale-0'
+                          ? 'ring-2 ring-white opacity-100'
+                          : 'opacity-50 hover:opacity-80 grayscale hover:grayscale-0'
                           }`}
                       >
                         <img
