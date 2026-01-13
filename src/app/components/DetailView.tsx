@@ -206,25 +206,6 @@ export const DetailView: React.FC<DetailViewProps> = ({ isOpen, onClose, item, o
                     transition={{ duration: 0.3 }}
                     className="text-[#a0a0a0] leading-[1.8] font-light space-y-6 whitespace-pre-line"
                   >
-                    {currentContent?.videoUrl && (
-                      <div className="w-full aspect-video mb-6 bg-black">
-                        <iframe
-                          width="100%"
-                          height="100%"
-                          src={currentContent.videoUrl.includes('watch?v=') ? currentContent.videoUrl.replace('watch?v=', 'embed/') : currentContent.videoUrl}
-                          title="YouTube video player"
-                          frameBorder="0"
-                          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                          allowFullScreen
-                          className="w-full h-full"
-                        ></iframe>
-                      </div>
-                    )}
-                    {!currentContent?.videoUrl && currentContent?.image && (
-                      <div className="w-full mb-6 bg-black overflow-hidden">
-                        <img src={currentContent.image} alt="Content" className="w-full h-auto object-cover" />
-                      </div>
-                    )}
                     {currentContent ? currentContent.text : item.desc}
                   </motion.div>
                 </AnimatePresence>
@@ -240,6 +221,14 @@ export const DetailView: React.FC<DetailViewProps> = ({ isOpen, onClose, item, o
                 <div className="sticky top-24">
                   <h3 className="text-[10px] tracking-[2px] opacity-40 uppercase mb-8">KEYWORDS</h3>
                   <ul className="space-y-6 text-sm text-[#888] max-h-[60vh] overflow-y-auto pr-2 custom-scrollbar">
+                    {/* STORY (Main description) */}
+                    <li
+                      onClick={() => setActiveTab('STORY')}
+                      className={`cursor-pointer transition-all duration-300 flex items-center group ${activeTab === 'STORY' ? 'text-white' : 'hover:text-white/60'}`}
+                    >
+                      <span className={`w-1.5 h-1.5 bg-white rounded-full mr-3 transition-transform duration-300 ${activeTab === 'STORY' ? 'scale-100 opacity-100' : 'scale-0 opacity-0'}`} />
+                      <span className="tracking-[2px] uppercase">STORY</span>
+                    </li>
                     {item.content.map((contentItem) => (
                       <li
                         key={contentItem.id}
