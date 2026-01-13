@@ -127,15 +127,25 @@ export const DetailView: React.FC<DetailViewProps> = ({ isOpen, onClose, item, o
                 // Use content section's media if available
                 const displayVideoUrl = currentContent?.videoUrl || (item.type === 'video' ? item.videoUrl : undefined);
                 const displayImage = currentContent?.image || item.image;
+                const playMode = currentContent?.videoPlayMode || item.videoPlayMode || 'manual';
 
                 if (displayVideoUrl) {
                   const ytId = displayVideoUrl.match(/^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/)?.[2];
                   if (ytId && ytId.length === 11) {
+                    // Build embed URL based on play mode
+                    let embedParams = `loop=1&playlist=${ytId}&rel=0&controls=1`;
+                    if (playMode === 'muted-autoplay') {
+                      embedParams = `autoplay=1&mute=1&${embedParams}`;
+                    } else if (playMode === 'autoplay') {
+                      embedParams = `autoplay=1&${embedParams}`;
+                    }
+                    // manual mode: no autoplay, controls shown
+
                     return (
                       <iframe
                         key={activeTab + '-video'}
                         className="w-full h-full object-cover"
-                        src={`https://www.youtube.com/embed/${ytId}?autoplay=0&loop=1&playlist=${ytId}&controls=1&rel=0`}
+                        src={`https://www.youtube.com/embed/${ytId}?${embedParams}`}
                         title="YouTube video player"
                         frameBorder="0"
                         allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"

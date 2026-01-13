@@ -490,11 +490,21 @@ export const AdminPage: React.FC = () => {
                         <label className="text-[10px] text-white/40 block tracking-widest">VIDEO URL</label>
                         <input
                           type="text"
-                          placeholder="VIDEO URL (MP4)"
+                          placeholder="YouTube URL"
                           className="w-full bg-[#111] border border-white/20 p-3 text-sm focus:border-white outline-none"
                           value={newItem.videoUrl}
                           onChange={(e) => handleChange('videoUrl', e.target.value, true)}
                         />
+                        <label className="text-[10px] text-white/40 block tracking-widest mt-2">PLAY MODE</label>
+                        <select
+                          className="w-full bg-[#111] border border-white/20 p-2 text-xs focus:border-white outline-none"
+                          value={newItem.videoPlayMode || 'manual'}
+                          onChange={(e) => handleChange('videoPlayMode', e.target.value, true)}
+                        >
+                          <option value="manual">🎬 수동 재생 (컨트롤 표시)</option>
+                          <option value="muted-autoplay">🔇 음소거 자동재생</option>
+                          <option value="autoplay">🔊 소리 자동재생</option>
+                        </select>
                       </div>
                     ) : (
                       <ImageUploader

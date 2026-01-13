@@ -21,14 +21,35 @@ export const GalleryItem = forwardRef<HTMLDivElement, GalleryItemProps>(({ item,
     return (match && match[2].length === 11) ? match[2] : null;
   };
 
-  const getThumbnail = () => {
+  // YouTube 썸네일 품질 순서: maxresdefault -> hqdefault -> mqdefault -> default
+  const [thumbnailUrl, setThumbnailUrl] = React.useState<string>('');
+
+  React.useEffect(() => {
     if (item.type === 'video' && item.videoUrl) {
       const ytId = getYoutubeId(item.videoUrl);
       if (ytId) {
-        return `https://img.youtube.com/vi/${ytId}/maxresdefault.jpg`;
+        // 먼저 hqdefault 시도 (대부분의 영상에서 사용 가능)
+        setThumbnailUrl(`https://img.youtube.com/vi/${ytId}/hqdefault.jpg`);
+      } else {
+        setThumbnailUrl(item.image);
       }
+    } else {
+      setThumbnailUrl(item.image);
     }
-    return item.image;
+  }, [item]);
+
+  const handleThumbnailError = (e: React.SyntheticEvent<HTMLImageElement>) => {
+    const target = e.target as HTMLImageElement;
+    const currentSrc = target.src;
+
+    if (currentSrc.includes('hqdefault')) {
+      target.src = currentSrc.replace('hqdefault', 'mqdefault');
+    } else if (currentSrc.includes('mqdefault')) {
+      target.src = currentSrc.replace('mqdefault', 'default');
+    } else if (currentSrc.includes('/default.jpg')) {
+      // 모든 YouTube 썸네일 실패시 기본 이미지 사용
+      target.src = item.image || '/placeholder.jpg';
+    }
   };
 
   return (
@@ -51,15 +72,9 @@ export const GalleryItem = forwardRef<HTMLDivElement, GalleryItemProps>(({ item,
 
       <div className="image-wrapper w-full h-full overflow-hidden relative bg-[#111] rounded-[2px]">
         <img
-          src={getThumbnail()}
+          src={thumbnailUrl}
           alt={item.title}
-          onError={(e) => {
-            // Fallback for maxresdefault if not available
-            const target = e.target as HTMLImageElement;
-            if (target.src.includes('maxresdefault')) {
-              target.src = target.src.replace('maxresdefault', 'hqdefault');
-            }
-          }}
+          onError={handleThumbnailError}
           className="gallery-img w-[140%] h-full object-cover absolute -left-[20%] grayscale brightness-[0.6] transition-[filter] duration-[800ms] ease-out group-hover:grayscale-0 group-hover:brightness-100 will-change-transform"
         />
         {item.type === 'video' && (

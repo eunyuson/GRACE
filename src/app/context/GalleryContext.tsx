@@ -19,6 +19,7 @@ export interface GalleryContentSection {
   date?: string;
   image?: string;
   videoUrl?: string;
+  videoPlayMode?: 'muted-autoplay' | 'manual' | 'autoplay';
 }
 
 export interface GalleryItemType {
@@ -29,6 +30,7 @@ export interface GalleryItemType {
   image: string;
   type?: 'image' | 'video';
   videoUrl?: string;
+  videoPlayMode?: 'muted-autoplay' | 'manual' | 'autoplay';
   descTitle: string;
   desc: string;
   content: GalleryContentSection[];
