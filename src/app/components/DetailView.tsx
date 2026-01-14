@@ -249,6 +249,33 @@ export const DetailView: React.FC<DetailViewProps> = ({ isOpen, onClose, item, o
                 </div>
               </motion.div>
 
+              {/* Mobile Keywords Navigation - horizontal scroll */}
+              <div className="md:hidden mb-6 -mx-4 px-4 overflow-x-auto">
+                <div className="flex gap-3 pb-2">
+                  <button
+                    onClick={() => setActiveTab('STORY')}
+                    className={`shrink-0 px-4 py-2 text-xs tracking-[2px] uppercase border transition-all ${activeTab === 'STORY'
+                        ? 'border-white text-white bg-white/10'
+                        : 'border-white/20 text-white/50 hover:text-white/80'
+                      }`}
+                  >
+                    STORY
+                  </button>
+                  {item.content.map((contentItem) => (
+                    <button
+                      key={contentItem.id}
+                      onClick={() => setActiveTab(contentItem.keyword)}
+                      className={`shrink-0 px-4 py-2 text-xs tracking-[2px] uppercase border transition-all ${activeTab === contentItem.keyword
+                          ? 'border-white text-white bg-white/10'
+                          : 'border-white/20 text-white/50 hover:text-white/80'
+                        }`}
+                    >
+                      {contentItem.keyword}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
               {/* Main Text */}
               <div className="md:col-span-6 md:pr-12 min-h-[300px]">
                 <motion.h3
