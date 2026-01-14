@@ -151,8 +151,8 @@ export const DetailView: React.FC<DetailViewProps> = ({ isOpen, onClose, item, o
                         key={img.id}
                         onClick={() => setActiveTab(img.keyword)}
                         className={`relative shrink-0 cursor-pointer overflow-hidden transition-all duration-500 group ${activeTab === img.keyword
-                            ? 'opacity-100'
-                            : 'opacity-40 grayscale hover:opacity-70 hover:grayscale-0'
+                          ? 'opacity-100'
+                          : 'opacity-40 grayscale hover:opacity-70 hover:grayscale-0'
                           }`}
                         style={{ width: '35vw', maxWidth: '400px', height: '50vh' }}
                       >
@@ -181,65 +181,63 @@ export const DetailView: React.FC<DetailViewProps> = ({ isOpen, onClose, item, o
               </motion.div>
             )}
 
-            {/* Main Image/Video - changes based on selected keyword */}
-            <motion.div
-              initial={{ scale: 0.95, opacity: 0, y: 50 }}
-              animate={{ scale: 1, opacity: 1, y: 0 }}
-              transition={{ ...transition, delay: 0.2 }}
-              className="w-full h-[70vh] mb-[8vh] bg-[#111] overflow-hidden relative"
-            >
-              {(() => {
-                // Use content section's media if available
-                const displayVideoUrl = currentContent?.videoUrl || (item.type === 'video' ? item.videoUrl : undefined);
-                const displayImage = currentContent?.image || item.image;
-                const playMode = currentContent?.videoPlayMode || item.videoPlayMode || 'manual';
+            {/* Single Main Image/Video - only shows if there's 1 or no gallery images */}
+            {allImages.length <= 1 && (
+              <motion.div
+                initial={{ scale: 0.95, opacity: 0, y: 50 }}
+                animate={{ scale: 1, opacity: 1, y: 0 }}
+                transition={{ ...transition, delay: 0.2 }}
+                className="w-full h-[70vh] mb-[8vh] bg-[#111] overflow-hidden relative"
+              >
+                {(() => {
+                  const displayVideoUrl = currentContent?.videoUrl || (item.type === 'video' ? item.videoUrl : undefined);
+                  const displayImage = currentContent?.image || item.image;
+                  const playMode = currentContent?.videoPlayMode || item.videoPlayMode || 'manual';
 
-                if (displayVideoUrl) {
-                  const ytId = displayVideoUrl.match(/^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/)?.[2];
-                  if (ytId && ytId.length === 11) {
-                    // Build embed URL based on play mode
-                    let embedParams = `loop=1&playlist=${ytId}&rel=0&controls=1`;
-                    if (playMode === 'muted-autoplay') {
-                      embedParams = `autoplay=1&mute=1&${embedParams}`;
-                    } else if (playMode === 'autoplay') {
-                      embedParams = `autoplay=1&${embedParams}`;
+                  if (displayVideoUrl) {
+                    const ytId = displayVideoUrl.match(/^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/)?.[2];
+                    if (ytId && ytId.length === 11) {
+                      let embedParams = `loop=1&playlist=${ytId}&rel=0&controls=1`;
+                      if (playMode === 'muted-autoplay') {
+                        embedParams = `autoplay=1&mute=1&${embedParams}`;
+                      } else if (playMode === 'autoplay') {
+                        embedParams = `autoplay=1&${embedParams}`;
+                      }
+                      return (
+                        <iframe
+                          key={activeTab + '-video'}
+                          className="w-full h-full object-cover"
+                          src={`https://www.youtube.com/embed/${ytId}?${embedParams}`}
+                          title="YouTube video player"
+                          frameBorder="0"
+                          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                          allowFullScreen
+                        />
+                      );
                     }
-                    // manual mode: no autoplay, controls shown
-
                     return (
-                      <iframe
+                      <video
                         key={activeTab + '-video'}
+                        src={displayVideoUrl}
                         className="w-full h-full object-cover"
-                        src={`https://www.youtube.com/embed/${ytId}?${embedParams}`}
-                        title="YouTube video player"
-                        frameBorder="0"
-                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                        allowFullScreen
+                        autoPlay
+                        muted
+                        loop
+                        playsInline
                       />
                     );
                   }
                   return (
-                    <video
-                      key={activeTab + '-video'}
-                      src={displayVideoUrl}
-                      className="w-full h-full object-cover"
-                      autoPlay
-                      muted
-                      loop
-                      playsInline
+                    <img
+                      key={activeTab + '-img'}
+                      src={displayImage}
+                      alt={item.title}
+                      className="w-full h-full object-contain"
                     />
                   );
-                }
-                return (
-                  <img
-                    key={activeTab + '-img'}
-                    src={displayImage}
-                    alt={item.title}
-                    className="w-full h-full object-contain"
-                  />
-                );
-              })()}
-            </motion.div>
+                })()}
+              </motion.div>
+            )}
 
             {/* Content Grid */}
             <div className="grid grid-cols-1 md:grid-cols-12 gap-8 mb-[15vh] text-[#f0f0f0] font-['Inter']">
