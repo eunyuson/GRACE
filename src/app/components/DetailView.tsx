@@ -23,6 +23,22 @@ export const DetailView: React.FC<DetailViewProps> = ({ isOpen, onClose, item, o
   const { items } = useGallery();
 
   const [activeTab, setActiveTab] = React.useState<string>('');
+  const galleryScrollRef = React.useRef<HTMLDivElement>(null);
+
+  // Auto-scroll to center the selected image
+  React.useEffect(() => {
+    if (galleryScrollRef.current && activeTab) {
+      const container = galleryScrollRef.current;
+      const selectedElement = container.querySelector(`[data-keyword="${activeTab}"]`) as HTMLElement;
+      if (selectedElement) {
+        const containerWidth = container.offsetWidth;
+        const elementLeft = selectedElement.offsetLeft;
+        const elementWidth = selectedElement.offsetWidth;
+        const scrollPosition = elementLeft - (containerWidth / 2) + (elementWidth / 2);
+        container.scrollTo({ left: scrollPosition, behavior: 'smooth' });
+      }
+    }
+  }, [activeTab]);
 
   const [isAdmin, setIsAdmin] = React.useState(false);
 
@@ -136,7 +152,7 @@ export const DetailView: React.FC<DetailViewProps> = ({ isOpen, onClose, item, o
               </div>
             </div>
 
-            {/* Horizontal Image Gallery - like homepage style */}
+            {/* Horizontal Image Gallery - like homepage style with center focus */}
             {allImages.length > 1 && (
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
@@ -144,17 +160,28 @@ export const DetailView: React.FC<DetailViewProps> = ({ isOpen, onClose, item, o
                 transition={{ ...transition, delay: 0.15 }}
                 className="mb-8 -mx-[5vw]"
               >
-                <div className="overflow-x-auto scrollbar-hide">
-                  <div className="flex gap-4 px-[5vw]">
-                    {allImages.map((img) => (
+                <div
+                  ref={galleryScrollRef}
+                  className="overflow-x-auto scrollbar-hide scroll-smooth"
+                  style={{ scrollSnapType: 'x mandatory' }}
+                >
+                  <div className="flex gap-4 px-[calc(50vw-17.5vw)]">
+                    {/* Repeat images for infinite scroll effect */}
+                    {[...allImages, ...allImages, ...allImages].map((img, index) => (
                       <div
-                        key={img.id}
+                        key={`${img.id}-${index}`}
+                        data-keyword={img.keyword}
                         onClick={() => setActiveTab(img.keyword)}
                         className={`relative shrink-0 cursor-pointer overflow-hidden transition-all duration-500 group ${activeTab === img.keyword
-                          ? 'opacity-100'
-                          : 'opacity-40 grayscale hover:opacity-70 hover:grayscale-0'
+                          ? 'opacity-100 scale-100'
+                          : 'opacity-40 grayscale hover:opacity-70 hover:grayscale-0 scale-95'
                           }`}
-                        style={{ width: '35vw', maxWidth: '400px', height: '50vh' }}
+                        style={{
+                          width: '35vw',
+                          maxWidth: '400px',
+                          height: '50vh',
+                          scrollSnapAlign: 'center'
+                        }}
                       >
                         <img
                           src={img.image}
