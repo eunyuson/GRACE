@@ -165,11 +165,11 @@ export const DetailView: React.FC<DetailViewProps> = ({ isOpen, onClose, item, o
                   className="overflow-x-auto scrollbar-hide scroll-smooth"
                   style={{ scrollSnapType: 'x mandatory' }}
                 >
-                  <div className="flex gap-4 px-[calc(50vw-17.5vw)]">
-                    {/* Repeat images for infinite scroll effect */}
-                    {[...allImages, ...allImages, ...allImages].map((img, index) => (
+                  <div className="flex gap-4 px-[5vw]">
+                    {/* Single set of images - finite scroll */}
+                    {allImages.map((img) => (
                       <div
-                        key={`${img.id}-${index}`}
+                        key={img.id}
                         data-keyword={img.keyword}
                         onClick={() => setActiveTab(img.keyword)}
                         className={`relative shrink-0 cursor-pointer overflow-hidden transition-all duration-500 group ${activeTab === img.keyword
