@@ -25,7 +25,31 @@ export const DetailView: React.FC<DetailViewProps> = ({ isOpen, onClose, item, o
   const [activeTab, setActiveTab] = React.useState<string>('');
   const galleryScrollRef = React.useRef<HTMLDivElement>(null);
 
-  // Auto-scroll to center the selected image
+  // Custom smooth scroll with easing
+  const smoothScrollTo = React.useCallback((container: HTMLElement, targetPosition: number, duration: number = 600) => {
+    const start = container.scrollLeft;
+    const distance = targetPosition - start;
+    const startTime = performance.now();
+
+    // Ease out cubic for smooth deceleration
+    const easeOutCubic = (t: number) => 1 - Math.pow(1 - t, 3);
+
+    const animateScroll = (currentTime: number) => {
+      const elapsed = currentTime - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+      const easeProgress = easeOutCubic(progress);
+
+      container.scrollLeft = start + (distance * easeProgress);
+
+      if (progress < 1) {
+        requestAnimationFrame(animateScroll);
+      }
+    };
+
+    requestAnimationFrame(animateScroll);
+  }, []);
+
+  // Auto-scroll to center the selected image with smooth animation
   React.useEffect(() => {
     if (galleryScrollRef.current && activeTab) {
       const container = galleryScrollRef.current;
@@ -35,10 +59,10 @@ export const DetailView: React.FC<DetailViewProps> = ({ isOpen, onClose, item, o
         const elementLeft = selectedElement.offsetLeft;
         const elementWidth = selectedElement.offsetWidth;
         const scrollPosition = elementLeft - (containerWidth / 2) + (elementWidth / 2);
-        container.scrollTo({ left: scrollPosition, behavior: 'smooth' });
+        smoothScrollTo(container, scrollPosition, 500);
       }
     }
-  }, [activeTab]);
+  }, [activeTab, smoothScrollTo]);
 
   const [isAdmin, setIsAdmin] = React.useState(false);
 
