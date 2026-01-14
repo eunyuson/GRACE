@@ -136,32 +136,43 @@ export const DetailView: React.FC<DetailViewProps> = ({ isOpen, onClose, item, o
               </div>
             </div>
 
-            {/* Horizontal Image Slider - shows if there are multiple images */}
+            {/* Horizontal Image Gallery - like homepage style */}
             {allImages.length > 1 && (
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ ...transition, delay: 0.15 }}
-                className="mb-6 -mx-[5vw] px-[5vw]"
+                className="mb-8 -mx-[5vw]"
               >
-                <div className="overflow-x-auto pb-4 scrollbar-hide">
-                  <div className="flex gap-3">
+                <div className="overflow-x-auto scrollbar-hide">
+                  <div className="flex gap-4 px-[5vw]">
                     {allImages.map((img) => (
                       <div
                         key={img.id}
                         onClick={() => setActiveTab(img.keyword)}
-                        className={`relative shrink-0 w-24 h-16 cursor-pointer overflow-hidden transition-all duration-300 ${activeTab === img.keyword
-                          ? 'ring-2 ring-white opacity-100'
-                          : 'opacity-50 hover:opacity-80 grayscale hover:grayscale-0'
+                        className={`relative shrink-0 cursor-pointer overflow-hidden transition-all duration-500 group ${activeTab === img.keyword
+                            ? 'opacity-100'
+                            : 'opacity-40 grayscale hover:opacity-70 hover:grayscale-0'
                           }`}
+                        style={{ width: '35vw', maxWidth: '400px', height: '50vh' }}
                       >
                         <img
                           src={img.image}
                           alt={img.keyword}
-                          className="w-full h-full object-cover"
+                          className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
                         />
-                        {img.isMain && (
-                          <span className="absolute bottom-0 left-0 right-0 bg-black/70 text-[8px] text-center py-0.5 tracking-wider">MAIN</span>
+                        {/* Title overlay at bottom */}
+                        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-4">
+                          <span className="font-['Anton'] text-lg tracking-wider text-white uppercase">
+                            {img.keyword}
+                          </span>
+                          {img.isMain && (
+                            <span className="ml-2 text-[10px] text-white/50 tracking-widest">MAIN</span>
+                          )}
+                        </div>
+                        {/* Selection indicator */}
+                        {activeTab === img.keyword && (
+                          <div className="absolute top-4 right-4 w-3 h-3 bg-white rounded-full"></div>
                         )}
                       </div>
                     ))}
@@ -255,8 +266,8 @@ export const DetailView: React.FC<DetailViewProps> = ({ isOpen, onClose, item, o
                   <button
                     onClick={() => setActiveTab('STORY')}
                     className={`shrink-0 px-4 py-2 text-xs tracking-[2px] uppercase border transition-all ${activeTab === 'STORY'
-                        ? 'border-white text-white bg-white/10'
-                        : 'border-white/20 text-white/50 hover:text-white/80'
+                      ? 'border-white text-white bg-white/10'
+                      : 'border-white/20 text-white/50 hover:text-white/80'
                       }`}
                   >
                     STORY
@@ -266,8 +277,8 @@ export const DetailView: React.FC<DetailViewProps> = ({ isOpen, onClose, item, o
                       key={contentItem.id}
                       onClick={() => setActiveTab(contentItem.keyword)}
                       className={`shrink-0 px-4 py-2 text-xs tracking-[2px] uppercase border transition-all ${activeTab === contentItem.keyword
-                          ? 'border-white text-white bg-white/10'
-                          : 'border-white/20 text-white/50 hover:text-white/80'
+                        ? 'border-white text-white bg-white/10'
+                        : 'border-white/20 text-white/50 hover:text-white/80'
                         }`}
                     >
                       {contentItem.keyword}
