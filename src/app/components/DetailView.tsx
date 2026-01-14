@@ -165,7 +165,7 @@ export const DetailView: React.FC<DetailViewProps> = ({ isOpen, onClose, item, o
                   className="overflow-x-auto scrollbar-hide scroll-smooth"
                   style={{ scrollSnapType: 'x mandatory' }}
                 >
-                  <div className="flex gap-4 px-[5vw]">
+                  <div className="flex gap-6 px-[calc(50vw-22.5vw)]">
                     {/* Single set of images - finite scroll */}
                     {allImages.map((img) => (
                       <div
@@ -177,9 +177,9 @@ export const DetailView: React.FC<DetailViewProps> = ({ isOpen, onClose, item, o
                           : 'opacity-40 grayscale hover:opacity-70 hover:grayscale-0 scale-95'
                           }`}
                         style={{
-                          width: '35vw',
-                          maxWidth: '400px',
-                          height: '50vh',
+                          width: '45vw',
+                          maxWidth: '550px',
+                          height: '60vh',
                           scrollSnapAlign: 'center'
                         }}
                       >
