@@ -166,6 +166,136 @@ const ImageUploader: React.FC<{
   );
 };
 
+// PDF 업로드 컴포넌트
+const PdfUploader: React.FC<{
+  currentUrl: string;
+  onUpload: (url: string) => void;
+  label?: string;
+}> = ({ currentUrl, onUpload, label = "PDF" }) => {
+  const [uploading, setUploading] = useState(false);
+  const [status, setStatus] = useState('');
+  const [progress, setProgress] = useState(0);
+  const [urlInput, setUrlInput] = useState(currentUrl);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    setUrlInput(currentUrl);
+  }, [currentUrl]);
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // PDF 파일 검증
+    if (file.type !== 'application/pdf' && !file.name.toLowerCase().endsWith('.pdf')) {
+      alert('PDF 파일만 업로드 가능합니다.');
+      return;
+    }
+
+    setUploading(true);
+    setProgress(0);
+    setStatus('업로드 시작...');
+
+    try {
+      const timestamp = Date.now();
+      const storageFileName = `documents/${timestamp}_${file.name}`;
+      const storageRef = ref(storage, storageFileName);
+
+      const metadata = {
+        contentType: 'application/pdf'
+      };
+
+      const uploadTask = uploadBytesResumable(storageRef, file, metadata);
+
+      uploadTask.on('state_changed',
+        (snapshot: UploadTaskSnapshot) => {
+          const p = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+          setProgress(Math.round(p));
+          setStatus(`업로드 중... ${Math.round(p)}%`);
+        },
+        (error: Error) => {
+          console.error('Upload error:', error);
+          alert('업로드 중 오류가 발생했습니다: ' + error.message);
+          setUploading(false);
+          setStatus('');
+        },
+        async () => {
+          try {
+            const downloadUrl = await getDownloadURL(uploadTask.snapshot.ref);
+            onUpload(downloadUrl);
+            setUrlInput(downloadUrl);
+            setStatus('완료!');
+            setTimeout(() => {
+              setStatus('');
+              setUploading(false);
+            }, 1000);
+          } catch (urlError) {
+            console.error('Get URL error:', urlError);
+            setUploading(false);
+          }
+        }
+      );
+    } catch (error) {
+      console.error('Process error:', error);
+      setUploading(false);
+      setStatus('오류 발생');
+    }
+  };
+
+  const handleUrlSubmit = () => {
+    if (urlInput.trim()) {
+      onUpload(urlInput.trim());
+    }
+  };
+
+  return (
+    <div className="space-y-2">
+      <label className="text-[10px] text-white/40 block tracking-widest">{label}</label>
+      <div className="flex gap-2">
+        <input
+          type="text"
+          value={urlInput}
+          onChange={(e) => setUrlInput(e.target.value)}
+          onBlur={handleUrlSubmit}
+          placeholder="https://... 또는 파일 업로드"
+          className="flex-1 bg-[#111] border border-white/20 p-2 text-xs focus:border-white outline-none"
+        />
+        <input
+          type="file"
+          ref={fileInputRef}
+          onChange={handleFileChange}
+          accept=".pdf,application/pdf"
+          className="hidden"
+        />
+        <button
+          type="button"
+          onClick={() => fileInputRef.current?.click()}
+          disabled={uploading}
+          className="px-3 py-2 bg-white/10 border border-white/20 text-[10px] tracking-widest hover:bg-white/20 disabled:opacity-50 min-w-[60px]"
+        >
+          {uploading ? `${progress}%` : '📄'}
+        </button>
+      </div>
+      {status && (
+        <p className="text-[10px] text-white/50 tracking-widest animate-pulse">{status}</p>
+      )}
+      {currentUrl && (
+        <div className="flex items-center gap-2 p-2 bg-black border border-white/10">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-red-500">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+            <polyline points="14 2 14 8 20 8" />
+            <line x1="16" y1="13" x2="8" y2="13" />
+            <line x1="16" y1="17" x2="8" y2="17" />
+            <polyline points="10 9 9 9 8 9" />
+          </svg>
+          <span className="text-xs text-white/70 truncate flex-1">PDF 첨부됨</span>
+          <a href={currentUrl} target="_blank" rel="noopener noreferrer" className="text-[10px] text-blue-400 hover:underline">미리보기</a>
+        </div>
+      )}
+    </div>
+  );
+};
+
 export const AdminPage: React.FC = () => {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
   const { items, loading, error, addItem, updateItem, deleteItem } = useGallery();
@@ -375,6 +505,73 @@ export const AdminPage: React.FC = () => {
                 className="w-full bg-black border border-white/20 p-2 text-xs focus:border-white outline-none"
                 placeholder="https://youtu.be/..."
               />
+              {section.videoUrl && (
+                <div className="mt-2 flex gap-2">
+                  <select
+                    value={section.videoPlayMode || 'manual'}
+                    onChange={(e) => updateContentSection(section.id, 'videoPlayMode', e.target.value, isNew)}
+                    className="flex-1 bg-black border border-white/20 p-2 text-[10px] focus:border-white outline-none"
+                  >
+                    <option value="manual">🎬 수동 재생</option>
+                    <option value="muted-autoplay">🔇 음소거 자동</option>
+                    <option value="autoplay">🔊 소리 자동</option>
+                  </select>
+                  <select
+                    value={section.videoDisplayMode || 'inline'}
+                    onChange={(e) => updateContentSection(section.id, 'videoDisplayMode', e.target.value, isNew)}
+                    className="flex-1 bg-black border border-white/20 p-2 text-[10px] focus:border-white outline-none"
+                  >
+                    <option value="inline">📺 메인 화면 재생</option>
+                    <option value="pip">🎵 미니 플레이어 (음악용)</option>
+                  </select>
+                </div>
+              )}
+            </div>
+            <div className="mb-3">
+              <PdfUploader
+                label="PDF 문서"
+                currentUrl={section.pdfUrl || ''}
+                onUpload={(url) => updateContentSection(section.id, 'pdfUrl', url, isNew)}
+              />
+              {/* 일일 묵상(큐티) 설정 */}
+              {section.pdfUrl && (
+                <div className="mt-3 p-3 border border-white/10 bg-black/30 space-y-3">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={section.isDailyReading === true || section.isDailyReading === 'true'}
+                      onChange={(e) => updateContentSection(section.id, 'isDailyReading', e.target.checked ? 'true' : '', isNew)}
+                      className="w-4 h-4 accent-blue-500"
+                    />
+                    <span className="text-[11px] text-white/70 tracking-wide">📅 일일 묵상(큐티) - 오늘 날짜에 맞는 페이지로 자동 이동</span>
+                  </label>
+
+                  {(section.isDailyReading || (section as any).isDailyReading === 'true') && (
+                    <div className="grid grid-cols-2 gap-3 pl-6">
+                      <div>
+                        <label className="text-[10px] text-white/40 block mb-1 tracking-widest">시작일 (MM-DD)</label>
+                        <input
+                          type="text"
+                          value={section.pdfStartDate || '01-01'}
+                          onChange={(e) => updateContentSection(section.id, 'pdfStartDate', e.target.value, isNew)}
+                          placeholder="01-01"
+                          className="w-full bg-black border border-white/20 p-2 text-xs focus:border-white outline-none"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[10px] text-white/40 block mb-1 tracking-widest">하루당 페이지 수</label>
+                        <input
+                          type="number"
+                          value={section.pagesPerDay || 2}
+                          onChange={(e) => updateContentSection(section.id, 'pagesPerDay', e.target.value, isNew)}
+                          min="1"
+                          className="w-full bg-black border border-white/20 p-2 text-xs focus:border-white outline-none"
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
             <div className="mb-3">
               <label className="text-[10px] text-white/40 block mb-1 tracking-widest">CONTENT</label>
@@ -495,16 +692,31 @@ export const AdminPage: React.FC = () => {
                           value={newItem.videoUrl}
                           onChange={(e) => handleChange('videoUrl', e.target.value, true)}
                         />
-                        <label className="text-[10px] text-white/40 block tracking-widest mt-2">PLAY MODE</label>
-                        <select
-                          className="w-full bg-[#111] border border-white/20 p-2 text-xs focus:border-white outline-none"
-                          value={newItem.videoPlayMode || 'manual'}
-                          onChange={(e) => handleChange('videoPlayMode', e.target.value, true)}
-                        >
-                          <option value="manual">🎬 수동 재생 (컨트롤 표시)</option>
-                          <option value="muted-autoplay">🔇 음소거 자동재생</option>
-                          <option value="autoplay">🔊 소리 자동재생</option>
-                        </select>
+                        <div className="flex gap-2">
+                          <div className="flex-1">
+                            <label className="text-[10px] text-white/40 block tracking-widest mb-1">재생 방식</label>
+                            <select
+                              className="w-full bg-[#111] border border-white/20 p-2 text-xs focus:border-white outline-none"
+                              value={newItem.videoPlayMode || 'manual'}
+                              onChange={(e) => handleChange('videoPlayMode', e.target.value, true)}
+                            >
+                              <option value="manual">🎬 수동 재생</option>
+                              <option value="muted-autoplay">🔇 음소거 자동</option>
+                              <option value="autoplay">🔊 소리 자동</option>
+                            </select>
+                          </div>
+                          <div className="flex-1">
+                            <label className="text-[10px] text-white/40 block tracking-widest mb-1">표시 방식</label>
+                            <select
+                              className="w-full bg-[#111] border border-white/20 p-2 text-xs focus:border-white outline-none"
+                              value={newItem.videoDisplayMode || 'inline'}
+                              onChange={(e) => handleChange('videoDisplayMode', e.target.value, true)}
+                            >
+                              <option value="inline">📺 메인 화면</option>
+                              <option value="pip">🎵 미니 플레이어 (음악)</option>
+                            </select>
+                          </div>
+                        </div>
                       </div>
                     ) : (
                       <ImageUploader
@@ -658,6 +870,31 @@ export const AdminPage: React.FC = () => {
                           value={editingItem.videoUrl || ''}
                           onChange={(e) => handleChange('videoUrl', e.target.value)}
                         />
+                        <div className="flex gap-2">
+                          <div className="flex-1">
+                            <label className="text-[10px] text-white/40 block tracking-widest mb-1">재생 방식</label>
+                            <select
+                              className="w-full bg-[#111] border border-white/20 p-2 text-xs focus:border-white outline-none"
+                              value={editingItem.videoPlayMode || 'manual'}
+                              onChange={(e) => handleChange('videoPlayMode', e.target.value)}
+                            >
+                              <option value="manual">🎬 수동 재생</option>
+                              <option value="muted-autoplay">🔇 음소거 자동</option>
+                              <option value="autoplay">🔊 소리 자동</option>
+                            </select>
+                          </div>
+                          <div className="flex-1">
+                            <label className="text-[10px] text-white/40 block tracking-widest mb-1">표시 방식</label>
+                            <select
+                              className="w-full bg-[#111] border border-white/20 p-2 text-xs focus:border-white outline-none"
+                              value={editingItem.videoDisplayMode || 'inline'}
+                              onChange={(e) => handleChange('videoDisplayMode', e.target.value)}
+                            >
+                              <option value="inline">📺 메인 화면</option>
+                              <option value="pip">🎵 미니 플레이어 (음악)</option>
+                            </select>
+                          </div>
+                        </div>
                       </div>
                     ) : (
                       <ImageUploader

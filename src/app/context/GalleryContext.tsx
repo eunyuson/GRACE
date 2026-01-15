@@ -20,6 +20,12 @@ export interface GalleryContentSection {
   image?: string;
   videoUrl?: string;
   videoPlayMode?: 'muted-autoplay' | 'manual' | 'autoplay';
+  videoDisplayMode?: 'pip' | 'inline'; // pip: 미니 플레이어 (음악용), inline: 메인 화면 재생
+  pdfUrl?: string; // PDF 문서 URL
+  // 일일 묵상(큐티) PDF 설정
+  isDailyReading?: boolean | string; // 날짜별 페이지 자동 이동 활성화
+  pdfStartDate?: string; // 책 시작일 (예: '01-01' 또는 '2026-01-01')
+  pagesPerDay?: number | string; // 하루당 페이지 수 (기본값: 1)
 }
 
 export interface GalleryItemType {
@@ -28,9 +34,15 @@ export interface GalleryItemType {
   title: string;
   subtitle: string;
   image: string;
-  type?: 'image' | 'video';
+  type?: 'image' | 'video' | 'pdf';
   videoUrl?: string;
   videoPlayMode?: 'muted-autoplay' | 'manual' | 'autoplay';
+  videoDisplayMode?: 'pip' | 'inline'; // pip: 미니 플레이어 (음악용), inline: 메인 화면 재생
+  pdfUrl?: string; // PDF 문서 URL
+  // 일일 묵상(큐티) PDF 설정
+  isDailyReading?: boolean | string;
+  pdfStartDate?: string;
+  pagesPerDay?: number | string;
   descTitle: string;
   desc: string;
   content: GalleryContentSection[];
