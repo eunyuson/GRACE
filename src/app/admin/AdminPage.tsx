@@ -679,6 +679,7 @@ export const AdminPage: React.FC = () => {
                     >
                       <option value="image">IMAGE</option>
                       <option value="video">VIDEO</option>
+                      <option value="pdf">PDF</option>
                     </select>
                   </div>
                   <div className="flex-1">
@@ -718,6 +719,57 @@ export const AdminPage: React.FC = () => {
                           </div>
                         </div>
                       </div>
+                    ) : newItem.type === 'pdf' ? (
+                      <div className="space-y-2">
+                        <PdfUploader
+                          currentUrl={newItem.pdfUrl || ''}
+                          onUpload={(url) => handleChange('pdfUrl', url, true)}
+                          label="PDF 문서"
+                        />
+                        {newItem.pdfUrl && (
+                          <div className="p-3 border border-white/10 bg-black/30 space-y-3">
+                            <label className="flex items-center gap-2 cursor-pointer">
+                              <input
+                                type="checkbox"
+                                checked={newItem.isDailyReading === true || newItem.isDailyReading === 'true'}
+                                onChange={(e) => handleChange('isDailyReading', e.target.checked ? 'true' : '', true)}
+                                className="w-4 h-4 accent-blue-500"
+                              />
+                              <span className="text-[11px] text-white/70 tracking-wide">📅 일일 묵상(큐티)</span>
+                            </label>
+                            {(newItem.isDailyReading === true || newItem.isDailyReading === 'true') && (
+                              <div className="grid grid-cols-2 gap-3 pl-6">
+                                <div>
+                                  <label className="text-[10px] text-white/40 block mb-1 tracking-widest">시작일 (MM-DD)</label>
+                                  <input
+                                    type="text"
+                                    value={newItem.pdfStartDate || '01-01'}
+                                    onChange={(e) => handleChange('pdfStartDate', e.target.value, true)}
+                                    placeholder="01-01"
+                                    className="w-full bg-black border border-white/20 p-2 text-xs focus:border-white outline-none"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="text-[10px] text-white/40 block mb-1 tracking-widest">하루당 페이지 수</label>
+                                  <input
+                                    type="number"
+                                    value={newItem.pagesPerDay || 2}
+                                    onChange={(e) => handleChange('pagesPerDay', e.target.value, true)}
+                                    min="1"
+                                    className="w-full bg-black border border-white/20 p-2 text-xs focus:border-white outline-none"
+                                  />
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                        {/* 썸네일 이미지 (PDF용) */}
+                        <ImageUploader
+                          currentUrl={newItem.image}
+                          onUpload={(url) => handleChange('image', url, true)}
+                          label="썸네일 이미지"
+                        />
+                      </div>
                     ) : (
                       <ImageUploader
                         currentUrl={newItem.image}
@@ -748,6 +800,17 @@ export const AdminPage: React.FC = () => {
                         <video src={newItem.videoUrl} className="w-full h-full object-cover" controls />
                       );
                     })()
+                  ) : newItem.type === 'pdf' && newItem.pdfUrl ? (
+                    <div className="flex flex-col items-center justify-center gap-2 text-white/50">
+                      <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-red-500">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                        <polyline points="14 2 14 8 20 8" />
+                        <line x1="16" y1="13" x2="8" y2="13" />
+                        <line x1="16" y1="17" x2="8" y2="17" />
+                        <polyline points="10 9 9 9 8 9" />
+                      </svg>
+                      <span className="text-xs tracking-widest">PDF DOCUMENT</span>
+                    </div>
                   ) : newItem.image ? (
                     <img src={newItem.image} alt="Preview" className="w-full h-full object-cover" />
                   ) : (
@@ -858,6 +921,7 @@ export const AdminPage: React.FC = () => {
                     >
                       <option value="image">IMAGE</option>
                       <option value="video">VIDEO</option>
+                      <option value="pdf">PDF</option>
                     </select>
                   </div>
                   <div className="flex-1">
@@ -896,6 +960,57 @@ export const AdminPage: React.FC = () => {
                           </div>
                         </div>
                       </div>
+                    ) : editingItem.type === 'pdf' ? (
+                      <div className="space-y-2">
+                        <PdfUploader
+                          currentUrl={editingItem.pdfUrl || ''}
+                          onUpload={(url) => handleChange('pdfUrl', url)}
+                          label="PDF 문서"
+                        />
+                        {editingItem.pdfUrl && (
+                          <div className="p-3 border border-white/10 bg-black/30 space-y-3">
+                            <label className="flex items-center gap-2 cursor-pointer">
+                              <input
+                                type="checkbox"
+                                checked={editingItem.isDailyReading === true || editingItem.isDailyReading === 'true'}
+                                onChange={(e) => handleChange('isDailyReading', e.target.checked ? 'true' : '')}
+                                className="w-4 h-4 accent-blue-500"
+                              />
+                              <span className="text-[11px] text-white/70 tracking-wide">📅 일일 묵상(큐티)</span>
+                            </label>
+                            {(editingItem.isDailyReading === true || editingItem.isDailyReading === 'true') && (
+                              <div className="grid grid-cols-2 gap-3 pl-6">
+                                <div>
+                                  <label className="text-[10px] text-white/40 block mb-1 tracking-widest">시작일 (MM-DD)</label>
+                                  <input
+                                    type="text"
+                                    value={editingItem.pdfStartDate || '01-01'}
+                                    onChange={(e) => handleChange('pdfStartDate', e.target.value)}
+                                    placeholder="01-01"
+                                    className="w-full bg-black border border-white/20 p-2 text-xs focus:border-white outline-none"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="text-[10px] text-white/40 block mb-1 tracking-widest">하루당 페이지 수</label>
+                                  <input
+                                    type="number"
+                                    value={editingItem.pagesPerDay || 2}
+                                    onChange={(e) => handleChange('pagesPerDay', e.target.value)}
+                                    min="1"
+                                    className="w-full bg-black border border-white/20 p-2 text-xs focus:border-white outline-none"
+                                  />
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                        {/* 썸네일 이미지 (PDF용) */}
+                        <ImageUploader
+                          currentUrl={editingItem.image}
+                          onUpload={(url) => handleChange('image', url)}
+                          label="썸네일 이미지"
+                        />
+                      </div>
                     ) : (
                       <ImageUploader
                         currentUrl={editingItem.image}
@@ -926,8 +1041,21 @@ export const AdminPage: React.FC = () => {
                         <video src={editingItem.videoUrl} className="w-full h-full object-cover" controls />
                       );
                     })()
-                  ) : (
+                  ) : editingItem.type === 'pdf' && editingItem.pdfUrl ? (
+                    <div className="flex flex-col items-center justify-center gap-2 text-white/50">
+                      <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-red-500">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                        <polyline points="14 2 14 8 20 8" />
+                        <line x1="16" y1="13" x2="8" y2="13" />
+                        <line x1="16" y1="17" x2="8" y2="17" />
+                        <polyline points="10 9 9 9 8 9" />
+                      </svg>
+                      <span className="text-xs tracking-widest">PDF DOCUMENT</span>
+                    </div>
+                  ) : editingItem.image ? (
                     <img src={editingItem.image} alt="Preview" className="w-full h-full object-cover" />
+                  ) : (
+                    <span className="text-xs opacity-30">PREVIEW</span>
                   )}
                 </div>
               </div>
