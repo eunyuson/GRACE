@@ -1,4 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Document, Page, pdfjs } from 'react-pdf';
+import 'react-pdf/dist/Page/AnnotationLayer.css';
+import 'react-pdf/dist/Page/TextLayer.css';
+
+// Configure worker using CDN to ensure compatibility without complex build setup
+pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
 
 interface PDFViewerProps {
     url: string;
@@ -9,73 +15,170 @@ interface PDFViewerProps {
 
 export const PDFViewer: React.FC<PDFViewerProps> = ({
     url,
+    initialPage = 1,
     isDailyReading = false,
     todayInfo = ''
 }) => {
-    const [loading, setLoading] = useState(true);
+    const [numPages, setNumPages] = useState<number | null>(null);
+    const [pageNumber, setPageNumber] = useState(initialPage);
+    const [scale, setScale] = useState(1);
+    const [containerWidth, setContainerWidth] = useState<number>(0);
+    const containerRef = useRef<HTMLDivElement>(null);
 
-    // Google Docs Viewer URL 생성
-    // embedded=true: 임베디드 모드
-    // url: PDF 파일 주소 (반드시 인코딩 필요)
-    const gdocsUrl = `https://docs.google.com/gview?embedded=true&url=${encodeURIComponent(url)}`;
+    // Sync page number when props change (e.g. opening different file or calculated daily page)
+    useEffect(() => {
+        setPageNumber(initialPage);
+    }, [initialPage, url]);
+
+    // Measure container for responsive PDF rendering
+    useEffect(() => {
+        if (!containerRef.current) return;
+
+        const resizeObserver = new ResizeObserver((entries) => {
+            for (const entry of entries) {
+                if (entry.contentBoxSize) {
+                    setContainerWidth(entry.contentBoxSize[0].inlineSize);
+                } else {
+                    setContainerWidth(entry.contentRect.width);
+                }
+            }
+        });
+
+        resizeObserver.observe(containerRef.current);
+        return () => resizeObserver.disconnect();
+    }, []);
+
+    const onDocumentLoadSuccess = ({ numPages }: { numPages: number }) => {
+        setNumPages(numPages);
+    };
+
+    const changePage = (offset: number) => {
+        setPageNumber(prevPageNumber => {
+            const newPage = prevPageNumber + offset;
+            return Math.max(1, Math.min(newPage, numPages || 1));
+        });
+    };
+
+    const previousPage = () => changePage(-1);
+    const nextPage = () => changePage(1);
 
     return (
         <div className="w-full h-full flex flex-col bg-[#1a1a1a]">
-            {/* Header */}
+            {/* Header / Controls */}
             <div className="flex items-center justify-between px-4 py-3 bg-black/50 border-b border-white/10 shrink-0 flex-wrap gap-2">
                 <div className="flex items-center gap-3 flex-wrap">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-red-500">
-                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                        <polyline points="14 2 14 8 20 8" />
-                        <line x1="16" y1="13" x2="8" y2="13" />
-                        <line x1="16" y1="17" x2="8" y2="17" />
-                        <polyline points="10 9 9 9 8 9" />
-                    </svg>
-                    <span className="text-sm text-white/70 tracking-wider uppercase">PDF Document</span>
+                    <span className="text-sm text-white/70 font-medium tracking-wide">
+                        {numPages ? `PAGE ${pageNumber} / ${numPages}` : 'LOADING...'}
+                    </span>
                     {isDailyReading && todayInfo && (
                         <span className="text-xs text-blue-400 tracking-wide">{todayInfo}</span>
                     )}
                 </div>
-                <div className="flex items-center gap-2">
-                    <a
-                        href={url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="px-3 py-1.5 text-[10px] tracking-widest border border-white/20 hover:bg-white/10 transition-colors"
-                    >
-                        원본 보기
-                    </a>
+
+                <div className="flex items-center gap-3">
+                    <div className="flex items-center bg-white/5 rounded-lg overflow-hidden border border-white/5">
+                        <button
+                            onClick={() => setScale(s => Math.max(0.5, s - 0.1))}
+                            className="px-3 py-1 text-white/70 hover:text-white hover:bg-white/10 transition-colors"
+                            title="Zoom Out"
+                        >
+                            -
+                        </button>
+                        <span className="text-xs text-white/50 w-12 text-center border-l border-r border-white/5 py-1">
+                            {Math.round(scale * 100)}%
+                        </span>
+                        <button
+                            onClick={() => setScale(s => Math.min(2.0, s + 0.1))}
+                            className="px-3 py-1 text-white/70 hover:text-white hover:bg-white/10 transition-colors"
+                            title="Zoom In"
+                        >
+                            +
+                        </button>
+                    </div>
+
                     <a
                         href={url}
                         download
-                        className="px-3 py-1.5 text-[10px] tracking-widest bg-white/10 border border-white/20 hover:bg-white/20 transition-colors"
+                        className="px-3 py-1 text-[10px] tracking-widest bg-white/10 hover:bg-white/20 border border-white/20 transition-colors rounded"
                     >
-                        다운로드
+                        DOWNLOAD
                     </a>
                 </div>
             </div>
 
-            {/* Viewer Container */}
+            {/* Main Viewer Area */}
             <div
-                className="flex-1 w-full relative bg-white"
-                style={{ minHeight: isDailyReading ? '85vh' : '65vh' }}
+                className="flex-1 w-full relative bg-[#111] overflow-auto flex justify-center p-4"
+                ref={containerRef}
             >
-                {loading && (
-                    <div className="absolute inset-0 flex items-center justify-center bg-[#1a1a1a] z-10">
-                        <div className="text-center">
-                            <div className="w-8 h-8 border-2 border-white/20 border-t-white rounded-full animate-spin mb-4 mx-auto"></div>
-                            <p className="text-sm text-white/50 tracking-widest">문서 로딩중...</p>
+                <Document
+                    file={url}
+                    onLoadSuccess={onDocumentLoadSuccess}
+                    loading={
+                        <div className="absolute inset-0 flex items-center justify-center text-white/50">
+                            <div className="flex flex-col items-center gap-4">
+                                <div className="w-8 h-8 border-2 border-white/20 border-t-white rounded-full animate-spin"></div>
+                                <span className="text-xs tracking-widest opacity-70">LOADING DOCUMENT...</span>
+                            </div>
                         </div>
+                    }
+                    error={
+                        <div className="flex flex-col items-center justify-center h-full text-red-400 text-sm gap-2">
+                            <p>Unable to load PDF directly.</p>
+                            <a href={url} target="_blank" rel="noreferrer" className="px-4 py-2 bg-white/10 rounded hover:bg-white/20 transition-colors text-white">
+                                Open Original File
+                            </a>
+                        </div>
+                    }
+                    className="flex flex-col items-center shadow-2xl"
+                >
+                    {/* Render current page */}
+                    {containerWidth > 0 && (
+                        <Page
+                            pageNumber={pageNumber}
+                            width={Math.min(containerWidth * 0.95, 1200) * scale}
+                            renderTextLayer={true}
+                            renderAnnotationLayer={true}
+                            className="bg-white shadow-2xl"
+                            loading={
+                                <div className="h-[60vh] w-full flex items-center justify-center text-white/20">
+                                    <div className="animate-pulse">Loading Page...</div>
+                                </div>
+                            }
+                        />
+                    )}
+                </Document>
+
+                {/* Floating Navigation Buttons (Bottom Center) - Only show when loaded */}
+                {numPages && (
+                    <div className="fixed bottom-10 left-1/2 -translate-x-1/2 flex items-center gap-6 bg-[#1a1a1a]/90 backdrop-blur-md px-8 py-3 rounded-full border border-white/10 shadow-2xl z-20 transition-all duration-300 hover:scale-105">
+                        <button
+                            onClick={previousPage}
+                            disabled={pageNumber <= 1}
+                            className="text-white hover:text-blue-400 disabled:opacity-30 disabled:hover:text-white transition-colors"
+                            title="Previous Page"
+                        >
+                            <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 19l-7-7 7-7" />
+                            </svg>
+                        </button>
+
+                        <span className="text-white font-['Anton'] tracking-wider min-w-[3ch] text-center text-lg">
+                            {pageNumber}
+                        </span>
+
+                        <button
+                            onClick={nextPage}
+                            disabled={pageNumber >= (numPages || 1)}
+                            className="text-white hover:text-blue-400 disabled:opacity-30 disabled:hover:text-white transition-colors"
+                            title="Next Page"
+                        >
+                            <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" />
+                            </svg>
+                        </button>
                     </div>
                 )}
-
-                <iframe
-                    src={gdocsUrl}
-                    className="w-full h-full border-0"
-                    title="PDF Viewer"
-                    onLoad={() => setLoading(false)}
-                    allow="autoplay"
-                />
             </div>
         </div>
     );
