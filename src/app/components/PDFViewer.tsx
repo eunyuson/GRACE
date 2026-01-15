@@ -290,7 +290,7 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
             <div
                 ref={containerRef}
                 className="flex-1 overflow-auto flex justify-center p-4 bg-[#2a2a2a]"
-                style={{ minHeight: '60vh' }}
+                style={{ minHeight: isDailyReading ? '85vh' : '60vh' }}
             >
                 <div className="relative">
                     {rendering && (
