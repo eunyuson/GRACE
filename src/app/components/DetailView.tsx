@@ -300,13 +300,18 @@ export const DetailView: React.FC<DetailViewProps> = ({ isOpen, onClose, item, o
               </motion.div>
             )}
 
-            {/* Single Main Image/Video - only shows if there's 1 or no gallery images */}
+            {/* Single Main Image/Video/PDF - only shows if there's 1 or no gallery images */}
             {allImages.length <= 1 && (
               <motion.div
                 initial={{ scale: 0.95, opacity: 0, y: 50 }}
                 animate={{ scale: 1, opacity: 1, y: 0 }}
                 transition={{ ...transition, delay: 0.2 }}
-                className="w-full h-[70vh] mb-[8vh] bg-[#111] overflow-hidden relative"
+                className={`w-full mb-[8vh] bg-[#111] overflow-hidden relative ${
+                  // PDF인 경우 높이를 더 크게 설정
+                  (currentContent?.pdfUrl || (item.type === 'pdf' && item.pdfUrl))
+                    ? 'min-h-[85vh]'
+                    : 'h-[70vh]'
+                  }`}
               >
                 {(() => {
                   const displayVideoUrl = currentContent?.videoUrl || (item.type === 'video' ? item.videoUrl : undefined);
@@ -403,9 +408,11 @@ export const DetailView: React.FC<DetailViewProps> = ({ isOpen, onClose, item, o
                   // PDF document viewer
                   const displayPdfUrl = currentContent?.pdfUrl || (item.type === 'pdf' ? item.pdfUrl : undefined);
                   if (displayPdfUrl) {
-                    // 일일 묵상(큐티) 페이지 계산
-                    const isDailyReading = currentContent?.isDailyReading || currentContent?.isDailyReading === 'true' as any ||
-                      (item.type === 'pdf' && item.isDailyReading);
+                    // 일일 묵상(큐티) 페이지 계산 - true 또는 'true' 모두 체크
+                    const isDailyReading =
+                      currentContent?.isDailyReading === true ||
+                      currentContent?.isDailyReading === 'true' ||
+                      (item.type === 'pdf' && (item.isDailyReading === true || item.isDailyReading === 'true'));
                     const pdfStartDate = currentContent?.pdfStartDate || item.pdfStartDate || '01-01';
                     const pagesPerDay = Number(currentContent?.pagesPerDay || item.pagesPerDay) || 2;
 
@@ -443,14 +450,14 @@ export const DetailView: React.FC<DetailViewProps> = ({ isOpen, onClose, item, o
                     }
 
                     const pdfUrlWithPage = isDailyReading
-                      ? `${displayPdfUrl}#page=${pdfPage}&toolbar=1&navpanes=1&scrollbar=1`
-                      : `${displayPdfUrl}#toolbar=1&navpanes=1&scrollbar=1`;
+                      ? `${displayPdfUrl}#page=${pdfPage}&toolbar=1&navpanes=0&scrollbar=1&view=FitH`
+                      : `${displayPdfUrl}#toolbar=1&navpanes=0&scrollbar=1&view=FitH`;
 
                     return (
                       <div key={activeTab + '-pdf'} className="w-full h-full flex flex-col bg-[#1a1a1a]">
                         {/* PDF Viewer Header */}
-                        <div className="flex items-center justify-between px-4 py-3 bg-black/50 border-b border-white/10">
-                          <div className="flex items-center gap-3">
+                        <div className="flex items-center justify-between px-4 py-3 bg-black/50 border-b border-white/10 shrink-0">
+                          <div className="flex items-center gap-3 flex-wrap">
                             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-red-500">
                               <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
                               <polyline points="14 2 14 8 20 8" />
@@ -460,7 +467,7 @@ export const DetailView: React.FC<DetailViewProps> = ({ isOpen, onClose, item, o
                             </svg>
                             <span className="text-sm text-white/70 tracking-wider uppercase">PDF Document</span>
                             {isDailyReading && todayInfo && (
-                              <span className="text-xs text-blue-400 tracking-wide ml-2">{todayInfo}</span>
+                              <span className="text-xs text-blue-400 tracking-wide">{todayInfo}</span>
                             )}
                           </div>
                           <div className="flex items-center gap-2">
@@ -481,12 +488,12 @@ export const DetailView: React.FC<DetailViewProps> = ({ isOpen, onClose, item, o
                             </a>
                           </div>
                         </div>
-                        {/* PDF Embed */}
+                        {/* PDF Embed - 전체 높이 사용 */}
                         <iframe
                           src={pdfUrlWithPage}
                           className="flex-1 w-full bg-white"
                           title="PDF Viewer"
-                          style={{ minHeight: '60vh' }}
+                          style={{ minHeight: '80vh' }}
                         />
                       </div>
                     );
