@@ -25,7 +25,8 @@ export interface GalleryContentSection {
   // 일일 묵상(큐티) PDF 설정
   isDailyReading?: boolean | string; // 날짜별 페이지 자동 이동 활성화
   pdfStartDate?: string; // 책 시작일 (예: '01-01' 또는 '2026-01-01')
-  pagesPerDay?: number | string; // 하루당 페이지 수 (기본값: 1)
+  pagesPerDay?: number | string; // 하루당 페이지 수 (기본값: 2)
+  pdfFirstPage?: number | string; // 북의 실제 시작 페이지 (예: 표지/목차 제외, 기본값: 1)
 }
 
 export interface GalleryItemType {
@@ -43,6 +44,7 @@ export interface GalleryItemType {
   isDailyReading?: boolean | string;
   pdfStartDate?: string;
   pagesPerDay?: number | string;
+  pdfFirstPage?: number | string; // 북의 실제 시작 페이지
   descTitle: string;
   desc: string;
   content: GalleryContentSection[];

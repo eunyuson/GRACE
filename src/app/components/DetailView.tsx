@@ -415,6 +415,8 @@ export const DetailView: React.FC<DetailViewProps> = ({ isOpen, onClose, item, o
                       (item.type === 'pdf' && (item.isDailyReading === true || item.isDailyReading === 'true'));
                     const pdfStartDate = currentContent?.pdfStartDate || item.pdfStartDate || '01-01';
                     const pagesPerDay = Number(currentContent?.pagesPerDay || item.pagesPerDay) || 2;
+                    // PDF 시작 페이지 (표지/목차 제외, 실제 본문 시작 페이지)
+                    const pdfFirstPage = Number(currentContent?.pdfFirstPage || item.pdfFirstPage) || 1;
 
                     let pdfPage = 1;
                     let todayInfo = '';
@@ -440,9 +442,10 @@ export const DetailView: React.FC<DetailViewProps> = ({ isOpen, onClose, item, o
                       const diffTime = today.getTime() - startOfYear.getTime();
                       const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
 
-                      // 시작일 이전이면 1페이지
+                      // 시작일 이전이면 첫 페이지
                       const dayNumber = Math.max(0, diffDays) + 1;
-                      pdfPage = ((dayNumber - 1) * pagesPerDay) + 1;
+                      // pdfFirstPage부터 시작하여 계산
+                      pdfPage = pdfFirstPage + ((dayNumber - 1) * pagesPerDay);
 
                       // 오늘 날짜 정보 표시
                       const monthDay = `${today.getMonth() + 1}월 ${today.getDate()}일`;
@@ -450,8 +453,8 @@ export const DetailView: React.FC<DetailViewProps> = ({ isOpen, onClose, item, o
                     }
 
                     const pdfUrlWithPage = isDailyReading
-                      ? `${displayPdfUrl}#page=${pdfPage}&toolbar=1&navpanes=0&scrollbar=1&view=FitH`
-                      : `${displayPdfUrl}#toolbar=1&navpanes=0&scrollbar=1&view=FitH`;
+                      ? `${displayPdfUrl}#page=${pdfPage}&toolbar=1&navpanes=0&scrollbar=1&view=FitV`
+                      : `${displayPdfUrl}#toolbar=1&navpanes=0&scrollbar=1&view=FitV`;
 
                     return (
                       <div key={activeTab + '-pdf'} className="w-full h-full flex flex-col bg-[#1a1a1a]">

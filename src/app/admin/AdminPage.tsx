@@ -547,7 +547,7 @@ export const AdminPage: React.FC = () => {
                   </label>
 
                   {(section.isDailyReading || (section as any).isDailyReading === 'true') && (
-                    <div className="grid grid-cols-2 gap-3 pl-6">
+                    <div className="grid grid-cols-3 gap-3 pl-6">
                       <div>
                         <label className="text-[10px] text-white/40 block mb-1 tracking-widest">시작일 (MM-DD)</label>
                         <input
@@ -559,7 +559,19 @@ export const AdminPage: React.FC = () => {
                         />
                       </div>
                       <div>
-                        <label className="text-[10px] text-white/40 block mb-1 tracking-widest">하루당 페이지 수</label>
+                        <label className="text-[10px] text-white/40 block mb-1 tracking-widest">시작 페이지</label>
+                        <input
+                          type="number"
+                          value={section.pdfFirstPage || 1}
+                          onChange={(e) => updateContentSection(section.id, 'pdfFirstPage', e.target.value, isNew)}
+                          min="1"
+                          placeholder="1"
+                          className="w-full bg-black border border-white/20 p-2 text-xs focus:border-white outline-none"
+                        />
+                        <span className="text-[8px] text-white/30 block mt-1">본문 시작 페이지</span>
+                      </div>
+                      <div>
+                        <label className="text-[10px] text-white/40 block mb-1 tracking-widest">하루당 페이지</label>
                         <input
                           type="number"
                           value={section.pagesPerDay || 2}
@@ -738,7 +750,7 @@ export const AdminPage: React.FC = () => {
                               <span className="text-[11px] text-white/70 tracking-wide">📅 일일 묵상(큐티)</span>
                             </label>
                             {(newItem.isDailyReading === true || newItem.isDailyReading === 'true') && (
-                              <div className="grid grid-cols-2 gap-3 pl-6">
+                              <div className="grid grid-cols-3 gap-3 pl-6">
                                 <div>
                                   <label className="text-[10px] text-white/40 block mb-1 tracking-widest">시작일 (MM-DD)</label>
                                   <input
@@ -750,7 +762,19 @@ export const AdminPage: React.FC = () => {
                                   />
                                 </div>
                                 <div>
-                                  <label className="text-[10px] text-white/40 block mb-1 tracking-widest">하루당 페이지 수</label>
+                                  <label className="text-[10px] text-white/40 block mb-1 tracking-widest">시작 페이지</label>
+                                  <input
+                                    type="number"
+                                    value={newItem.pdfFirstPage || 1}
+                                    onChange={(e) => handleChange('pdfFirstPage', e.target.value, true)}
+                                    min="1"
+                                    placeholder="1"
+                                    className="w-full bg-black border border-white/20 p-2 text-xs focus:border-white outline-none"
+                                  />
+                                  <span className="text-[8px] text-white/30 block mt-1">본문 시작 페이지</span>
+                                </div>
+                                <div>
+                                  <label className="text-[10px] text-white/40 block mb-1 tracking-widest">하루당 페이지</label>
                                   <input
                                     type="number"
                                     value={newItem.pagesPerDay || 2}
@@ -979,7 +1003,7 @@ export const AdminPage: React.FC = () => {
                               <span className="text-[11px] text-white/70 tracking-wide">📅 일일 묵상(큐티)</span>
                             </label>
                             {(editingItem.isDailyReading === true || editingItem.isDailyReading === 'true') && (
-                              <div className="grid grid-cols-2 gap-3 pl-6">
+                              <div className="grid grid-cols-3 gap-3 pl-6">
                                 <div>
                                   <label className="text-[10px] text-white/40 block mb-1 tracking-widest">시작일 (MM-DD)</label>
                                   <input
@@ -991,7 +1015,19 @@ export const AdminPage: React.FC = () => {
                                   />
                                 </div>
                                 <div>
-                                  <label className="text-[10px] text-white/40 block mb-1 tracking-widest">하루당 페이지 수</label>
+                                  <label className="text-[10px] text-white/40 block mb-1 tracking-widest">시작 페이지</label>
+                                  <input
+                                    type="number"
+                                    value={editingItem.pdfFirstPage || 1}
+                                    onChange={(e) => handleChange('pdfFirstPage', e.target.value)}
+                                    min="1"
+                                    placeholder="1"
+                                    className="w-full bg-black border border-white/20 p-2 text-xs focus:border-white outline-none"
+                                  />
+                                  <span className="text-[8px] text-white/30 block mt-1">본문 시작 페이지</span>
+                                </div>
+                                <div>
+                                  <label className="text-[10px] text-white/40 block mb-1 tracking-widest">하루당 페이지</label>
                                   <input
                                     type="number"
                                     value={editingItem.pagesPerDay || 2}

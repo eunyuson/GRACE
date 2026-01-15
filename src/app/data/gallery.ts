@@ -12,6 +12,7 @@ export interface GalleryContentSection {
   isDailyReading?: boolean | string;
   pdfStartDate?: string;
   pagesPerDay?: number | string;
+  pdfFirstPage?: number | string; // 북의 실제 시작 페이지 (예: 표지/목차 제외)
 }
 
 export interface GalleryItemType {
@@ -29,6 +30,7 @@ export interface GalleryItemType {
   isDailyReading?: boolean | string;
   pdfStartDate?: string;
   pagesPerDay?: number | string;
+  pdfFirstPage?: number | string; // 북의 실제 시작 페이지 (예: 표지/목차 제외)
   descTitle: string;
   desc: string;
   content: GalleryContentSection[];
