@@ -44,6 +44,10 @@ export const DetailView: React.FC<DetailViewProps> = ({ isOpen, onClose, item, o
   // Whether the video is in PiP mode (mini player) or main display
   const [isInPipMode, setIsInPipMode] = React.useState(false);
 
+  // URL viewer state
+  const [urlInput, setUrlInput] = React.useState('');
+  const [displayUrl, setDisplayUrl] = React.useState('');
+
   // Custom smooth scroll with easing
   const smoothScrollTo = React.useCallback((container: HTMLElement, targetPosition: number, duration: number = 600) => {
     const start = container.scrollLeft;
@@ -101,6 +105,9 @@ export const DetailView: React.FC<DetailViewProps> = ({ isOpen, onClose, item, o
     // Clear persistent video when item changes
     setPersistentVideo(null);
     setIsInPipMode(false);
+    // Clear URL viewer when item changes
+    setUrlInput('');
+    setDisplayUrl('');
   }, [item]);
 
   // Reset cursor on unmount or close
@@ -468,6 +475,46 @@ export const DetailView: React.FC<DetailViewProps> = ({ isOpen, onClose, item, o
                     );
                   }
 
+                  // Link type - display external URL in iframe
+                  const displayLinkUrl = currentContent?.externalUrl || (item.type === 'link' ? item.externalUrl : undefined);
+                  if (displayLinkUrl) {
+                    return (
+                      <div className="relative w-full h-full">
+                        <iframe
+                          key={activeTab + '-link'}
+                          src={displayLinkUrl}
+                          title="External Website"
+                          className="w-full h-full bg-white"
+                          sandbox="allow-same-origin allow-scripts allow-popups allow-forms allow-popups-to-escape-sandbox"
+                        />
+                        {/* Direct link button overlay */}
+                        <a
+                          href={displayLinkUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="absolute top-4 right-4 px-4 py-2 bg-black/70 hover:bg-black/90 backdrop-blur-sm border border-white/20 hover:border-white/40 rounded-lg text-white text-xs tracking-wider transition-all duration-300 flex items-center gap-2 uppercase z-10"
+                        >
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            width="14"
+                            height="14"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          >
+                            <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+                            <polyline points="15 3 21 3 21 9"></polyline>
+                            <line x1="10" y1="14" x2="21" y2="3"></line>
+                          </svg>
+                          새 창에서 열기
+                        </a>
+                      </div>
+                    );
+                  }
+
                   // Image fallback
                   return (
                     <img
@@ -618,6 +665,111 @@ export const DetailView: React.FC<DetailViewProps> = ({ isOpen, onClose, item, o
                 </div>
               </motion.div>
             </div>
+
+            {/* URL Viewer Section */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ ...transition, delay: 0.55 }}
+              className="mb-[8vh]"
+            >
+              <h3 className="text-[10px] tracking-[2px] opacity-40 uppercase mb-6">External Website Viewer</h3>
+
+              {/* URL Input */}
+              <div className="flex gap-3 mb-6">
+                <input
+                  type="text"
+                  value={urlInput}
+                  onChange={(e) => setUrlInput(e.target.value)}
+                  placeholder="https://example.com 형식으로 URL을 입력하세요"
+                  className="flex-1 px-4 py-3 bg-white/5 border border-white/10 rounded-lg text-white placeholder:text-white/30 focus:outline-none focus:border-white/30 transition-all duration-300"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && urlInput.trim()) {
+                      // Ensure URL has a protocol
+                      const url = urlInput.trim();
+                      const validUrl = url.match(/^https?:\/\//) ? url : `https://${url}`;
+                      setDisplayUrl(validUrl);
+                    }
+                  }}
+                />
+                <button
+                  onClick={() => {
+                    if (urlInput.trim()) {
+                      const url = urlInput.trim();
+                      const validUrl = url.match(/^https?:\/\//) ? url : `https://${url}`;
+                      setDisplayUrl(validUrl);
+                    }
+                  }}
+                  className="px-6 py-3 bg-white/10 hover:bg-white/20 border border-white/20 hover:border-white/40 rounded-lg text-white text-sm tracking-wider transition-all duration-300 uppercase"
+                  onMouseEnter={() => { setIsHovered(true); setCursorText('LOAD'); }}
+                  onMouseLeave={() => { setIsHovered(false); setCursorText(''); }}
+                >
+                  사이트 열기
+                </button>
+                {displayUrl && (
+                  <button
+                    onClick={() => {
+                      setDisplayUrl('');
+                      setUrlInput('');
+                    }}
+                    className="px-6 py-3 bg-red-500/20 hover:bg-red-500/30 border border-red-500/30 hover:border-red-500/50 rounded-lg text-white text-sm tracking-wider transition-all duration-300 uppercase"
+                    onMouseEnter={() => { setIsHovered(true); setCursorText('CLOSE'); }}
+                    onMouseLeave={() => { setIsHovered(false); setCursorText(''); }}
+                  >
+                    닫기
+                  </button>
+                )}
+              </div>
+
+              {/* URL Display Iframe */}
+              <AnimatePresence>
+                {displayUrl && (
+                  <motion.div
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    exit={{ opacity: 0, height: 0 }}
+                    transition={{ duration: 0.4 }}
+                    className="overflow-hidden rounded-lg border border-white/20"
+                  >
+                    <div className="relative w-full bg-[#111]" style={{ height: '80vh' }}>
+                      <iframe
+                        src={displayUrl}
+                        title="External Website Viewer"
+                        className="w-full h-full"
+                        sandbox="allow-same-origin allow-scripts allow-popups allow-forms"
+                        onError={() => {
+                          alert('이 사이트는 iframe에서 표시할 수 없습니다. 새 창에서 열어주세요.');
+                        }}
+                      />
+                      {/* Direct link button */}
+                      <a
+                        href={displayUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="absolute top-4 right-4 px-4 py-2 bg-black/70 hover:bg-black/90 border border-white/20 hover:border-white/40 rounded-lg text-white text-xs tracking-wider transition-all duration-300 flex items-center gap-2 uppercase"
+                      >
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          width="14"
+                          height="14"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        >
+                          <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+                          <polyline points="15 3 21 3 21 9"></polyline>
+                          <line x1="10" y1="14" x2="21" y2="3"></line>
+                        </svg>
+                        새 창에서 열기
+                      </a>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </motion.div>
 
             {/* Comments Section */}
             <Comments galleryItem={item} />
