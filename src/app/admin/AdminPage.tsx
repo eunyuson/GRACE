@@ -586,6 +586,21 @@ export const AdminPage: React.FC = () => {
               )}
             </div>
             <div className="mb-3">
+              <label className="text-[10px] text-white/40 block mb-1 tracking-widest">외부 링크 URL</label>
+              <input
+                type="text"
+                value={section.externalUrl || ''}
+                onChange={(e) => updateContentSection(section.id, 'externalUrl', e.target.value, isNew)}
+                className="w-full bg-black border border-white/20 p-2 text-xs focus:border-white outline-none"
+                placeholder="https://example.com"
+              />
+              {section.externalUrl && (
+                <p className="text-[10px] text-blue-400/70 mt-1">
+                  🔗 클릭 시 새 탭에서 열림
+                </p>
+              )}
+            </div>
+            <div className="mb-3">
               <label className="text-[10px] text-white/40 block mb-1 tracking-widest">CONTENT</label>
               <textarea
                 value={section.text}

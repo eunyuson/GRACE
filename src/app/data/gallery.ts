@@ -8,6 +8,7 @@ export interface GalleryContentSection {
   videoPlayMode?: 'muted-autoplay' | 'manual' | 'autoplay'; // 음소거 자동재생 / 수동 / 소리 자동재생
   videoDisplayMode?: 'pip' | 'inline'; // pip: 미니 플레이어 (음악용), inline: 메인 화면 재생 (동영상용)
   pdfUrl?: string; // PDF 문서 URL
+  externalUrl?: string; // 외부 링크 URL (클릭 시 새 탭에서 열림)
   // 일일 묵상(큐티) PDF 설정
   isDailyReading?: boolean | string;
   pdfStartDate?: string;

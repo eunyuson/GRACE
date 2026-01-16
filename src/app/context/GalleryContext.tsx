@@ -22,6 +22,7 @@ export interface GalleryContentSection {
   videoPlayMode?: 'muted-autoplay' | 'manual' | 'autoplay';
   videoDisplayMode?: 'pip' | 'inline'; // pip: 미니 플레이어 (음악용), inline: 메인 화면 재생
   pdfUrl?: string; // PDF 문서 URL
+  externalUrl?: string; // 외부 링크 URL (클릭 시 새 탭에서 열림)
   // 일일 묵상(큐티) PDF 설정
   isDailyReading?: boolean | string; // 날짜별 페이지 자동 이동 활성화
   pdfStartDate?: string; // 책 시작일 (예: '01-01' 또는 '2026-01-01')

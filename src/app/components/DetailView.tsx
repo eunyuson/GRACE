@@ -549,6 +549,39 @@ export const DetailView: React.FC<DetailViewProps> = ({ isOpen, onClose, item, o
                     className="text-[#a0a0a0] leading-[1.8] font-light space-y-6 whitespace-pre-line"
                   >
                     {currentContent ? currentContent.text : item.desc}
+
+                    {/* 외부 링크 버튼 */}
+                    {currentContent?.externalUrl && (
+                      <motion.a
+                        href={currentContent.externalUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.3, delay: 0.1 }}
+                        className="inline-flex items-center gap-2 mt-6 px-5 py-3 bg-white/10 hover:bg-white/20 border border-white/20 hover:border-white/40 rounded-lg text-white/90 hover:text-white text-sm tracking-wider transition-all duration-300 group"
+                        onMouseEnter={() => { setIsHovered(true); setCursorText('OPEN'); }}
+                        onMouseLeave={() => { setIsHovered(false); setCursorText(''); }}
+                      >
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          width="18"
+                          height="18"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          className="transition-transform duration-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5"
+                        >
+                          <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+                          <polyline points="15 3 21 3 21 9"></polyline>
+                          <line x1="10" y1="14" x2="21" y2="3"></line>
+                        </svg>
+                        <span>사이트 바로가기</span>
+                      </motion.a>
+                    )}
                   </motion.div>
                 </AnimatePresence>
               </div>
