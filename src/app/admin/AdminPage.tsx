@@ -692,6 +692,7 @@ export const AdminPage: React.FC = () => {
                       <option value="image">IMAGE</option>
                       <option value="video">VIDEO</option>
                       <option value="pdf">PDF</option>
+                      <option value="link">LINK (외부 URL)</option>
                     </select>
                   </div>
                   <div className="flex-1">
@@ -788,6 +789,23 @@ export const AdminPage: React.FC = () => {
                           </div>
                         )}
                         {/* 썸네일 이미지 (PDF용) */}
+                        <ImageUploader
+                          currentUrl={newItem.image}
+                          onUpload={(url) => handleChange('image', url, true)}
+                          label="썸네일 이미지"
+                        />
+                      </div>
+                    ) : newItem.type === 'link' ? (
+                      <div className="space-y-2">
+                        <label className="text-[10px] text-white/40 block tracking-widest">외부 링크 URL</label>
+                        <input
+                          type="text"
+                          placeholder="https://example.com"
+                          className="w-full bg-[#111] border border-white/20 p-3 text-sm focus:border-white outline-none"
+                          value={newItem.externalUrl || ''}
+                          onChange={(e) => handleChange('externalUrl', e.target.value, true)}
+                        />
+                        <p className="text-[10px] text-white/30">클릭 시 이 URL로 바로 이동합니다</p>
                         <ImageUploader
                           currentUrl={newItem.image}
                           onUpload={(url) => handleChange('image', url, true)}
@@ -946,6 +964,7 @@ export const AdminPage: React.FC = () => {
                       <option value="image">IMAGE</option>
                       <option value="video">VIDEO</option>
                       <option value="pdf">PDF</option>
+                      <option value="link">LINK (외부 URL)</option>
                     </select>
                   </div>
                   <div className="flex-1">
@@ -1041,6 +1060,23 @@ export const AdminPage: React.FC = () => {
                           </div>
                         )}
                         {/* 썸네일 이미지 (PDF용) */}
+                        <ImageUploader
+                          currentUrl={editingItem.image}
+                          onUpload={(url) => handleChange('image', url)}
+                          label="썸네일 이미지"
+                        />
+                      </div>
+                    ) : editingItem.type === 'link' ? (
+                      <div className="space-y-2">
+                        <label className="text-[10px] text-white/40 block tracking-widest">외부 링크 URL</label>
+                        <input
+                          type="text"
+                          placeholder="https://example.com"
+                          className="w-full bg-[#111] border border-white/20 p-3 text-sm focus:border-white outline-none"
+                          value={editingItem.externalUrl || ''}
+                          onChange={(e) => handleChange('externalUrl', e.target.value)}
+                        />
+                        <p className="text-[10px] text-white/30">클릭 시 이 URL로 바로 이동합니다</p>
                         <ImageUploader
                           currentUrl={editingItem.image}
                           onUpload={(url) => handleChange('image', url)}

@@ -52,14 +52,23 @@ export const GalleryItem = forwardRef<HTMLDivElement, GalleryItemProps>(({ item,
     }
   };
 
+  // Handle click - external link opens in new tab, others open detail view
+  const handleClick = () => {
+    if (item.type === 'link' && item.externalUrl) {
+      window.open(item.externalUrl, '_blank', 'noopener,noreferrer');
+    } else {
+      onClick();
+    }
+  };
+
   return (
     <article
       ref={QX}
       className="gallery-item group relative mr-[5vw] w-[35vw] max-w-[600px] h-[65vh] shrink-0 cursor-pointer will-change-transform"
-      onClick={onClick}
+      onClick={handleClick}
       onMouseEnter={() => {
         setIsHovered(true);
-        setCursorText('OPEN');
+        setCursorText(item.type === 'link' ? 'LINK' : 'OPEN');
       }}
       onMouseLeave={() => {
         setIsHovered(false);
@@ -81,6 +90,17 @@ export const GalleryItem = forwardRef<HTMLDivElement, GalleryItemProps>(({ item,
           <div className="absolute inset-0 flex items-center justify-center opacity-50 group-hover:opacity-100 transition-opacity">
             <div className="w-16 h-16 rounded-full bg-white/10 backdrop-blur-sm border border-white/20 flex items-center justify-center">
               <div className="w-0 h-0 border-t-[8px] border-t-transparent border-l-[14px] border-l-white border-b-[8px] border-b-transparent ml-1"></div>
+            </div>
+          </div>
+        )}
+        {item.type === 'link' && (
+          <div className="absolute inset-0 flex items-center justify-center opacity-50 group-hover:opacity-100 transition-opacity">
+            <div className="w-16 h-16 rounded-full bg-white/10 backdrop-blur-sm border border-white/20 flex items-center justify-center">
+              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+                <polyline points="15 3 21 3 21 9"></polyline>
+                <line x1="10" y1="14" x2="21" y2="3"></line>
+              </svg>
             </div>
           </div>
         )}

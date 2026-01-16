@@ -35,7 +35,8 @@ export interface GalleryItemType {
   title: string;
   subtitle: string;
   image: string;
-  type?: 'image' | 'video' | 'pdf';
+  type?: 'image' | 'video' | 'pdf' | 'link';
+  externalUrl?: string; // 외부 링크 URL (type이 'link'인 경우)
   videoUrl?: string;
   videoPlayMode?: 'muted-autoplay' | 'manual' | 'autoplay';
   videoDisplayMode?: 'pip' | 'inline'; // pip: 미니 플레이어 (음악용), inline: 메인 화면 재생
