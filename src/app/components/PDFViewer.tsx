@@ -137,8 +137,8 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
                         <Page
                             pageNumber={pageNumber}
                             width={Math.min(containerWidth * 0.95, 1200) * scale}
-                            renderTextLayer={true}
-                            renderAnnotationLayer={true}
+                            renderTextLayer={false}
+                            renderAnnotationLayer={false}
                             className="bg-white shadow-2xl"
                             loading={
                                 <div className="h-[60vh] w-full flex items-center justify-center text-white/20">
