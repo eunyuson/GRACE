@@ -893,35 +893,48 @@ export const AdminPage: React.FC = () => {
 
         <div className="grid gap-4">
           {items.map(item => (
-            <div key={item.id} className="bg-[#161616] p-4 flex gap-6 items-center border border-white/5 hover:border-white/20 transition-all">
+            <div
+              key={item.id}
+              className="bg-[#161616] p-4 flex gap-6 items-center border border-white/5 hover:border-white/20 transition-all cursor-pointer group"
+              onClick={() => {
+                // Navigate to home page with the item selected
+                window.location.href = `/?item=${item.id}`;
+              }}
+            >
               <div className="w-16 h-16 bg-[#222] shrink-0 overflow-hidden">
                 {(() => {
                   // YouTube 썸네일 지원
                   if (item.type === 'video' && item.videoUrl) {
-                    const ytId = item.videoUrl.match(/^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/)?.[2];
+                    const ytId = item.videoUrl.match(/^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&?]*).*/)?.[2];
                     if (ytId && ytId.length === 11) {
-                      return <img src={`https://img.youtube.com/vi/${ytId}/hqdefault.jpg`} alt={item.title} className="w-full h-full object-cover opacity-70" />;
+                      return <img src={`https://img.youtube.com/vi/${ytId}/hqdefault.jpg`} alt={item.title} className="w-full h-full object-cover opacity-70 group-hover:opacity-100 transition-opacity" />;
                     }
                   }
-                  return <img src={item.image} alt={item.title} className="w-full h-full object-cover opacity-70" />;
+                  return <img src={item.image} alt={item.title} className="w-full h-full object-cover opacity-70 group-hover:opacity-100 transition-opacity" />;
                 })()}
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-baseline gap-4 mb-1">
-                  <span className="font-['Anton'] text-lg text-white/40">{item.index}</span>
-                  <h3 className="font-bold text-lg">{item.title}</h3>
+                  <span className="font-['Anton'] text-lg text-white/40 group-hover:text-white/60 transition-colors">{item.index}</span>
+                  <h3 className="font-bold text-lg group-hover:text-white transition-colors">{item.title}</h3>
                 </div>
                 <p className="text-xs text-white/50 truncate">{item.subtitle}</p>
               </div>
               <div className="flex gap-4">
                 <button
-                  onClick={() => setEditingItem(item)}
+                  onClick={(e) => {
+                    e.stopPropagation(); // Prevent navigation when clicking EDIT
+                    setEditingItem(item);
+                  }}
                   className="px-4 py-2 border border-white/20 text-[10px] tracking-widest hover:bg-white hover:text-black transition-colors"
                 >
                   EDIT
                 </button>
                 <button
-                  onClick={() => handleDelete(item.id)}
+                  onClick={(e) => {
+                    e.stopPropagation(); // Prevent navigation when clicking DELETE
+                    handleDelete(item.id);
+                  }}
                   className="px-4 py-2 border border-red-900/50 text-[10px] tracking-widest text-red-500 hover:bg-red-900/20 transition-colors"
                 >
                   DELETE
