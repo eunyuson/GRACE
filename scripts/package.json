@@ -1,0 +1,8 @@
+{
+  "name": "sheets-sync",
+  "type": "module",
+  "dependencies": {
+    "googleapis": "^140.0.0",
+    "firebase-admin": "^12.0.0"
+  }
+}
