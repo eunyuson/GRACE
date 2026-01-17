@@ -195,6 +195,9 @@ export const DetailView: React.FC<DetailViewProps> = ({ isOpen, onClose, item, o
     .filter((i) => i.id !== item.id)
     .slice(0, 3);
 
+  // Check if current view is PDF (to hide metadata)
+  const isPdfView = !!(currentContent?.pdfUrl || (item.type === 'pdf' ? item.pdfUrl : undefined));
+
   return (
     <AnimatePresence>
       {isOpen && (
@@ -542,51 +545,55 @@ export const DetailView: React.FC<DetailViewProps> = ({ isOpen, onClose, item, o
             {/* Content Grid */}
             <div className="grid grid-cols-1 md:grid-cols-12 gap-8 mb-[15vh] text-[#f0f0f0] font-['Inter']">
               {/* Metadata */}
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ ...transition, delay: 0.3 }}
-                className="md:col-span-3 space-y-8"
-              >
-                <div>
-                  <h3 className="text-[10px] tracking-[2px] opacity-40 uppercase mb-2">Collection</h3>
-                  <p className="text-sm">Grace Surf Daily</p>
-                </div>
-                <div>
-                  <h3 className="text-[10px] tracking-[2px] opacity-40 uppercase mb-2">Date</h3>
-                  <p className="text-sm">{currentContent?.date || 'N/A'}</p>
-                </div>
-              </motion.div>
+              {!isPdfView && (
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ ...transition, delay: 0.3 }}
+                  className="md:col-span-3 space-y-8"
+                >
+                  <div>
+                    <h3 className="text-[10px] tracking-[2px] opacity-40 uppercase mb-2">Collection</h3>
+                    <p className="text-sm">Grace Surf Daily</p>
+                  </div>
+                  <div>
+                    <h3 className="text-[10px] tracking-[2px] opacity-40 uppercase mb-2">Date</h3>
+                    <p className="text-sm">{currentContent?.date || 'N/A'}</p>
+                  </div>
+                </motion.div>
+              )}
 
               {/* Mobile Keywords Navigation - horizontal scroll */}
-              <div className="md:hidden mb-6 -mx-4 px-4 overflow-x-auto">
-                <div className="flex gap-3 pb-2">
-                  <button
-                    onClick={() => handleTabChange('STORY')}
-                    className={`shrink-0 px-4 py-2 text-xs tracking-[2px] uppercase border transition-all ${activeTab === 'STORY'
-                      ? 'border-white text-white bg-white/10'
-                      : 'border-white/20 text-white/50 hover:text-white/80'
-                      }`}
-                  >
-                    STORY
-                  </button>
-                  {item.content.map((contentItem) => (
+              {!isPdfView && (
+                <div className="md:hidden mb-6 -mx-4 px-4 overflow-x-auto">
+                  <div className="flex gap-3 pb-2">
                     <button
-                      key={contentItem.id}
-                      onClick={() => handleTabChange(contentItem.keyword)}
-                      className={`shrink-0 px-4 py-2 text-xs tracking-[2px] uppercase border transition-all ${activeTab === contentItem.keyword
+                      onClick={() => handleTabChange('STORY')}
+                      className={`shrink-0 px-4 py-2 text-xs tracking-[2px] uppercase border transition-all ${activeTab === 'STORY'
                         ? 'border-white text-white bg-white/10'
                         : 'border-white/20 text-white/50 hover:text-white/80'
                         }`}
                     >
-                      {contentItem.keyword}
+                      STORY
                     </button>
-                  ))}
+                    {item.content.map((contentItem) => (
+                      <button
+                        key={contentItem.id}
+                        onClick={() => handleTabChange(contentItem.keyword)}
+                        className={`shrink-0 px-4 py-2 text-xs tracking-[2px] uppercase border transition-all ${activeTab === contentItem.keyword
+                          ? 'border-white text-white bg-white/10'
+                          : 'border-white/20 text-white/50 hover:text-white/80'
+                          }`}
+                      >
+                        {contentItem.keyword}
+                      </button>
+                    ))}
+                  </div>
                 </div>
-              </div>
+              )}
 
               {/* Main Text */}
-              <div className="md:col-span-6 md:pr-12 min-h-[300px]">
+              <div className={`${isPdfView ? 'md:col-span-12' : 'md:col-span-6'} md:pr-12 min-h-[300px]`}>
                 <motion.h3
                   key={`title-${activeTab}`}
                   initial={{ opacity: 0, y: 10 }}
@@ -645,36 +652,38 @@ export const DetailView: React.FC<DetailViewProps> = ({ isOpen, onClose, item, o
               </div>
 
               {/* Keywords Navigation */}
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ ...transition, delay: 0.5 }}
-                className="md:col-span-3 border-l border-white/10 pl-8 hidden md:block"
-              >
-                <div className="sticky top-24">
-                  <h3 className="text-[10px] tracking-[2px] opacity-40 uppercase mb-8">KEYWORDS</h3>
-                  <ul className="space-y-6 text-sm text-[#888] max-h-[60vh] overflow-y-auto pr-2 custom-scrollbar">
-                    {/* STORY (Main description) */}
-                    <li
-                      onClick={() => handleTabChange('STORY')}
-                      className={`cursor-pointer transition-all duration-300 flex items-center group ${activeTab === 'STORY' ? 'text-white' : 'hover:text-white/60'}`}
-                    >
-                      <span className={`w-1.5 h-1.5 bg-white rounded-full mr-3 transition-transform duration-300 ${activeTab === 'STORY' ? 'scale-100 opacity-100' : 'scale-0 opacity-0'}`} />
-                      <span className="tracking-[2px] uppercase">STORY</span>
-                    </li>
-                    {item.content.map((contentItem) => (
+              {!isPdfView && (
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ ...transition, delay: 0.5 }}
+                  className="md:col-span-3 border-l border-white/10 pl-8 hidden md:block"
+                >
+                  <div className="sticky top-24">
+                    <h3 className="text-[10px] tracking-[2px] opacity-40 uppercase mb-8">KEYWORDS</h3>
+                    <ul className="space-y-6 text-sm text-[#888] max-h-[60vh] overflow-y-auto pr-2 custom-scrollbar">
+                      {/* STORY (Main description) */}
                       <li
-                        key={contentItem.id}
-                        onClick={() => handleTabChange(contentItem.keyword)}
-                        className={`cursor-pointer transition-all duration-300 flex items-center group ${activeTab === contentItem.keyword ? 'text-white' : 'hover:text-white/60'}`}
+                        onClick={() => handleTabChange('STORY')}
+                        className={`cursor-pointer transition-all duration-300 flex items-center group ${activeTab === 'STORY' ? 'text-white' : 'hover:text-white/60'}`}
                       >
-                        <span className={`w-1.5 h-1.5 bg-white rounded-full mr-3 transition-transform duration-300 ${activeTab === contentItem.keyword ? 'scale-100 opacity-100' : 'scale-0 opacity-0'}`} />
-                        <span className="tracking-[2px] uppercase">{contentItem.keyword}</span>
+                        <span className={`w-1.5 h-1.5 bg-white rounded-full mr-3 transition-transform duration-300 ${activeTab === 'STORY' ? 'scale-100 opacity-100' : 'scale-0 opacity-0'}`} />
+                        <span className="tracking-[2px] uppercase">STORY</span>
                       </li>
-                    ))}
-                  </ul>
-                </div>
-              </motion.div>
+                      {item.content.map((contentItem) => (
+                        <li
+                          key={contentItem.id}
+                          onClick={() => handleTabChange(contentItem.keyword)}
+                          className={`cursor-pointer transition-all duration-300 flex items-center group ${activeTab === contentItem.keyword ? 'text-white' : 'hover:text-white/60'}`}
+                        >
+                          <span className={`w-1.5 h-1.5 bg-white rounded-full mr-3 transition-transform duration-300 ${activeTab === contentItem.keyword ? 'scale-100 opacity-100' : 'scale-0 opacity-0'}`} />
+                          <span className="tracking-[2px] uppercase">{contentItem.keyword}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </motion.div>
+              )}
             </div>
 
             {/* Comments Section */}
