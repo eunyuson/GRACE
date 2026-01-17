@@ -206,21 +206,35 @@ export const DetailView: React.FC<DetailViewProps> = ({ isOpen, onClose, item, o
           transition={{ duration: 0.4 }}
           className="fixed top-0 left-0 w-full h-full bg-[#050505] z-[1000] overflow-y-auto overflow-x-hidden"
         >
-          <div className="min-h-screen p-[5vw] pt-[22vh]">
+          {/* Fixed Close Button for Mobile */}
+          <motion.button
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.3, delay: 0.3 }}
+            onClick={onClose}
+            className="fixed top-4 right-4 md:hidden z-[1100] w-10 h-10 flex items-center justify-center bg-black/60 backdrop-blur-md rounded-full border border-white/20 text-white"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="18" y1="6" x2="6" y2="18"></line>
+              <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
+          </motion.button>
+
+          <div className="min-h-screen p-4 pt-16 md:p-[5vw] md:pt-[22vh]">
             {/* Header */}
-            <div className="flex justify-between items-end mb-[5vh]">
+            <div className="flex flex-col md:flex-row md:justify-between md:items-end gap-4 mb-6 md:mb-[5vh]">
               <motion.div
                 initial={{ y: 20, opacity: 0 }}
                 animate={{ y: 0, opacity: 1 }}
                 transition={{ ...transition, delay: 0.1 }}
                 className="overflow-hidden"
               >
-                <h2 className="font-['Anton'] text-[clamp(3.5rem,10vw,8rem)] leading-[0.85] uppercase tracking-[-2px] text-white">
+                <h2 className="font-['Anton'] text-[clamp(2.5rem,10vw,8rem)] leading-[0.9] uppercase tracking-[-1px] md:tracking-[-2px] text-white">
                   {item.descTitle}
                 </h2>
               </motion.div>
 
-              <div className="flex items-center gap-8">
+              <div className="hidden md:flex items-center gap-8">
                 {isAdmin && (
                   <motion.div
                     initial={{ opacity: 0 }}
@@ -265,21 +279,18 @@ export const DetailView: React.FC<DetailViewProps> = ({ isOpen, onClose, item, o
                   className="overflow-x-auto scrollbar-hide scroll-smooth"
                   style={{ scrollSnapType: 'x mandatory' }}
                 >
-                  <div className="flex gap-6 px-[calc(50vw-22.5vw)]">
+                  <div className="flex gap-3 md:gap-6 px-[10vw] md:px-[calc(50vw-22.5vw)]">
                     {/* Single set of images - finite scroll */}
                     {allImages.map((img) => (
                       <div
                         key={img.id}
                         data-keyword={img.keyword}
                         onClick={() => handleTabChange(img.keyword)}
-                        className={`relative shrink-0 cursor-pointer overflow-hidden transition-all duration-500 group ${activeTab === img.keyword
+                        className={`relative shrink-0 cursor-pointer overflow-hidden transition-all duration-500 group w-[75vw] md:w-[45vw] max-w-[550px] h-[45vh] md:h-[60vh] ${activeTab === img.keyword
                           ? 'opacity-100 scale-100'
                           : 'opacity-40 grayscale hover:opacity-70 hover:grayscale-0 scale-95'
                           }`}
                         style={{
-                          width: '45vw',
-                          maxWidth: '550px',
-                          height: '60vh',
                           scrollSnapAlign: 'center'
                         }}
                       >

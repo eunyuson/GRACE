@@ -9,10 +9,10 @@ import { AdminPage } from './admin/AdminPage';
 const Home = () => {
   return (
     <>
-      <nav className="fixed top-10 left-10 z-[2100] text-white mix-blend-difference">
+      <nav className="fixed top-6 left-4 md:top-10 md:left-10 z-[2100] text-white mix-blend-difference">
         <Link to="/" className="pointer-events-auto cursor-pointer hover:opacity-100 transition-opacity">
-          <h1 className="font-bold text-xs tracking-[0.3em] opacity-80 font-['Inter'] hover:opacity-100">GRACE SURF DAILY</h1>
-          <p className="text-[9px] tracking-[0.4em] opacity-40 mt-1 uppercase font-['Inter']">매일 은혜 서핑</p>
+          <h1 className="font-bold text-[10px] md:text-xs tracking-[0.2em] md:tracking-[0.3em] opacity-80 font-['Inter'] hover:opacity-100">GRACE SURF DAILY</h1>
+          <p className="text-[8px] md:text-[9px] tracking-[0.3em] md:tracking-[0.4em] opacity-40 mt-1 uppercase font-['Inter']">매일 은혜 서핑</p>
         </Link>
       </nav>
       <Gallery />
