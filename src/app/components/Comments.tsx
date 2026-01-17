@@ -17,6 +17,7 @@ interface Comment {
 
 interface CommentsProps {
     galleryItem: GalleryItemType;
+    variant?: 'bottom-fixed' | 'side-panel';
 }
 
 // YouTube ID 추출 헬퍼
@@ -38,7 +39,7 @@ const getThumbnail = (item: GalleryItemType) => {
     return item.image;
 };
 
-export const Comments: React.FC<CommentsProps> = ({ galleryItem }) => {
+export const Comments: React.FC<CommentsProps> = ({ galleryItem, variant = 'bottom-fixed' }) => {
     const [comments, setComments] = useState<Comment[]>([]);
     const [user, setUser] = useState<User | null>(null);
     const [name, setName] = useState('');
@@ -124,6 +125,83 @@ export const Comments: React.FC<CommentsProps> = ({ galleryItem }) => {
             handleSubmit();
         }
     };
+
+    const isSidePanel = variant === 'side-panel';
+
+    if (isSidePanel) {
+        return (
+            <div className="flex flex-col h-full bg-black/40 backdrop-blur-md border-l border-white/10 relative">
+                <div className="flex-1 overflow-y-auto p-4 pb-20 scrollbar-thin scrollbar-thumb-white/20 scrollbar-track-transparent">
+                    <h3 className="text-[10px] tracking-[2px] opacity-40 uppercase mb-6 sticky top-0 bg-black/0 backdrop-blur-sm py-2 z-10">
+                        📌 Memos ({comments.length})
+                    </h3>
+
+                    <div className="space-y-4">
+                        {comments.length === 0 ? (
+                            <p className="text-sm text-white/30 tracking-wide py-8 text-center">
+                                아직 메모가 없습니다.
+                            </p>
+                        ) : (
+                            comments.map((comment) => (
+                                <motion.div
+                                    key={comment.id}
+                                    initial={{ opacity: 0, x: 10 }}
+                                    animate={{ opacity: 1, x: 0 }}
+                                    className="group bg-white/5 p-3 rounded-lg hover:bg-white/10 transition-colors border border-white/5"
+                                >
+                                    <div className="flex items-baseline gap-2 mb-1">
+                                        <span className="text-xs font-medium text-white/90">{comment.name}</span>
+                                        <span className="text-[9px] text-white/30">{formatDate(comment.createdAt)}</span>
+                                        {user && (
+                                            <button
+                                                onClick={() => handleDelete(comment.id)}
+                                                className="ml-auto opacity-0 group-hover:opacity-100 transition-opacity text-[9px] text-red-500 hover:text-red-400"
+                                            >
+                                                ×
+                                            </button>
+                                        )}
+                                    </div>
+                                    <p className="text-xs text-white/70 leading-relaxed whitespace-pre-wrap break-words">{comment.message}</p>
+                                </motion.div>
+                            ))
+                        )}
+                    </div>
+                </div>
+
+                <div className="p-3 bg-black/60 border-t border-white/10 mt-auto">
+                    <form onSubmit={handleSubmit} className="flex flex-col gap-2">
+                        <input
+                            type="text"
+                            placeholder="이름"
+                            value={name}
+                            onChange={(e) => setName(e.target.value)}
+                            className="w-full bg-black/40 border border-white/20 px-3 py-2 text-xs text-white rounded-lg focus:border-white/50 outline-none placeholder:text-white/40"
+                            maxLength={20}
+                            required
+                        />
+                        <div className="relative">
+                            <textarea
+                                placeholder="메모 입력..."
+                                value={message}
+                                onChange={(e) => setMessage(e.target.value)}
+                                onKeyDown={handleKeyDown}
+                                className="w-full bg-black/40 border border-white/20 px-3 py-2 text-xs text-white rounded-lg focus:border-white/50 outline-none placeholder:text-white/40 resize-none h-[80px]"
+                                maxLength={1000}
+                                required
+                            />
+                            <button
+                                type="submit"
+                                disabled={submitting || !message.trim() || !name.trim()}
+                                className="absolute bottom-2 right-2 px-3 py-1 bg-white/90 hover:bg-white text-black text-[10px] font-bold tracking-wider rounded transition-all disabled:opacity-50"
+                            >
+                                {submitting ? '...' : '저장'}
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <>

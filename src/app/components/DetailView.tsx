@@ -198,6 +198,13 @@ export const DetailView: React.FC<DetailViewProps> = ({ isOpen, onClose, item, o
   // Check if current view is PDF (to hide metadata)
   const isPdfView = !!(currentContent?.pdfUrl || (item.type === 'pdf' ? item.pdfUrl : undefined));
 
+  // Determine if this is a Daily Meditation QT item
+  // This logic was previously only inside the PDF viewer block
+  const isDailyReading =
+    currentContent?.isDailyReading === true ||
+    currentContent?.isDailyReading === 'true' ||
+    (item.type === 'pdf' && (item.isDailyReading === true || item.isDailyReading === 'true'));
+
   return (
     <AnimatePresence>
       {isOpen && (
@@ -328,366 +335,387 @@ export const DetailView: React.FC<DetailViewProps> = ({ isOpen, onClose, item, o
                 initial={{ scale: 0.95, opacity: 0, y: 50 }}
                 animate={{ scale: 1, opacity: 1, y: 0 }}
                 transition={{ ...transition, delay: 0.2 }}
-                className={`w-full mb-[8vh] bg-[#111] overflow-hidden relative ${
-                  // PDF인 경우 높이를 더 크게 설정
-                  (currentContent?.pdfUrl || (item.type === 'pdf' && item.pdfUrl))
-                    ? 'min-h-[85vh]'
-                    : 'h-[70vh]'
-                  }`}
+                className={`w-full ${isDailyReading ? 'mb-0 h-[85vh] md:h-[80vh]' : 'mb-[8vh] min-h-[70vh]'} bg-[#111] overflow-hidden relative`}
               >
-                {(() => {
-                  const displayVideoUrl = currentContent?.videoUrl || (item.type === 'video' ? item.videoUrl : undefined);
-                  const displayImage = currentContent?.image || item.image;
-                  const playMode = currentContent?.videoPlayMode || item.videoPlayMode || 'manual';
-                  const displayMode = currentContent?.videoDisplayMode || item.videoDisplayMode || 'inline';
-                  const ytId = getYouTubeId(displayVideoUrl);
+                {isDailyReading ? (
+                  /* Daily Meditation QT Special Layout */
+                  <div className="flex flex-col lg:flex-row h-full">
+                    {/* Left: PDF Viewer */}
+                    <div className="flex-1 h-[55vh] lg:h-full relative border-b lg:border-b-0 lg:border-r border-white/10">
+                      {(() => {
+                        const displayPdfUrl = currentContent?.pdfUrl || (item.type === 'pdf' ? item.pdfUrl : undefined);
+                        if (!displayPdfUrl) return null;
 
-                  // Check if this tab's video is currently playing
-                  const isCurrentlyPlaying = persistentVideo && persistentVideo.keyword === activeTab;
-                  // Check if playing in main screen (not PiP)
-                  const isPlayingInline = isCurrentlyPlaying && !isInPipMode;
+                        const pdfStartDate = currentContent?.pdfStartDate || item.pdfStartDate || '01-01';
+                        const pagesPerDay = Number(currentContent?.pagesPerDay || item.pagesPerDay) || 2;
+                        const pdfFirstPage = Number(currentContent?.pdfFirstPage || item.pdfFirstPage) || 1;
 
-                  // YouTube video
-                  if (ytId) {
-                    // If playing inline (in main screen), show the iframe
-                    if (isPlayingInline) {
+                        let pdfPage = 1;
+                        let todayInfo = '';
+
+                        const today = new Date();
+                        const currentYear = today.getFullYear();
+
+                        let startMonth = 1, startDay = 1;
+                        if (pdfStartDate.includes('-')) {
+                          const parts = pdfStartDate.split('-');
+                          if (parts.length === 2) {
+                            startMonth = parseInt(parts[0], 10);
+                            startDay = parseInt(parts[1], 10);
+                          } else if (parts.length === 3) {
+                            startMonth = parseInt(parts[1], 10);
+                            startDay = parseInt(parts[2], 10);
+                          }
+                        }
+
+                        const startOfYear = new Date(currentYear, startMonth - 1, startDay);
+                        const diffTime = today.getTime() - startOfYear.getTime();
+                        const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+                        const dayNumber = Math.max(0, diffDays) + 1;
+                        pdfPage = pdfFirstPage + ((dayNumber - 1) * pagesPerDay);
+
+                        const monthDay = `${today.getMonth() + 1}월 ${today.getDate()}일`;
+                        todayInfo = `📅 ${monthDay} (${dayNumber}일차) → ${pdfPage}~${pdfPage + pagesPerDay - 1}페이지`;
+
+                        return (
+                          <PDFViewer
+                            key={activeTab + '-pdf-qt'}
+                            url={displayPdfUrl}
+                            initialPage={pdfPage}
+                            isDailyReading={true}
+                            todayInfo={todayInfo}
+                          />
+                        );
+                      })()}
+                    </div>
+
+                    {/* Right: Comments Panel */}
+                    <div className="h-[45vh] lg:h-full lg:w-[400px] bg-[#0a0a0a]">
+                      <Comments galleryItem={item} variant="side-panel" />
+                    </div>
+                  </div>
+                ) : (
+                  /* Standard Layout */
+                  (() => {
+                    const displayVideoUrl = currentContent?.videoUrl || (item.type === 'video' ? item.videoUrl : undefined);
+                    const displayImage = currentContent?.image || item.image;
+                    const playMode = currentContent?.videoPlayMode || item.videoPlayMode || 'manual';
+                    const displayMode = currentContent?.videoDisplayMode || item.videoDisplayMode || 'inline';
+                    const ytId = getYouTubeId(displayVideoUrl);
+
+                    // Check if this tab's video is currently playing
+                    const isCurrentlyPlaying = persistentVideo && persistentVideo.keyword === activeTab;
+                    // Check if playing in main screen (not PiP)
+                    const isPlayingInline = isCurrentlyPlaying && !isInPipMode;
+
+                    // YouTube video
+                    if (ytId) {
+                      // If playing inline (in main screen), show the iframe
+                      if (isPlayingInline) {
+                        return (
+                          <iframe
+                            className="w-full h-full bg-black"
+                            src={`https://www.youtube.com/embed/${persistentVideo!.ytId}?autoplay=1&loop=1&playlist=${persistentVideo!.ytId}&rel=0&controls=1&enablejsapi=1${persistentVideo!.playMode === 'muted-autoplay' ? '&mute=1' : ''}`}
+                            title="YouTube video player"
+                            frameBorder="0"
+                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                            allowFullScreen
+                          />
+                        );
+                      }
+
+                      // If playing in PiP, show "playing in mini player" overlay
+                      if (isCurrentlyPlaying && isInPipMode) {
+                        return (
+                          <div className="relative w-full h-full">
+                            <img
+                              src={displayImage || `https://img.youtube.com/vi/${ytId}/hqdefault.jpg`}
+                              alt={item.title}
+                              className="w-full h-full object-cover"
+                            />
+                            <div className="absolute inset-0 flex items-center justify-center bg-black/50">
+                              <div className="text-center">
+                                <div className="flex items-center justify-center gap-2 mb-2">
+                                  <div className="w-3 h-3 bg-red-500 rounded-full animate-pulse"></div>
+                                  <span className="text-white text-lg tracking-wider uppercase">Playing in Mini Player</span>
+                                </div>
+                                <p className="text-white/60 text-sm">Look at the bottom-right corner</p>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      }
+
+                      // Not playing - show thumbnail with play button
                       return (
-                        <iframe
-                          className="w-full h-full bg-black"
-                          src={`https://www.youtube.com/embed/${persistentVideo!.ytId}?autoplay=1&loop=1&playlist=${persistentVideo!.ytId}&rel=0&controls=1&enablejsapi=1${persistentVideo!.playMode === 'muted-autoplay' ? '&mute=1' : ''}`}
-                          title="YouTube video player"
-                          frameBorder="0"
-                          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                          allowFullScreen
-                        />
-                      );
-                    }
-
-                    // If playing in PiP, show "playing in mini player" overlay
-                    if (isCurrentlyPlaying && isInPipMode) {
-                      return (
-                        <div className="relative w-full h-full">
+                        <div
+                          className="relative w-full h-full group cursor-pointer"
+                          onClick={() => startVideo(activeTab, displayVideoUrl!, playMode, displayMode)}
+                        >
                           <img
                             src={displayImage || `https://img.youtube.com/vi/${ytId}/hqdefault.jpg`}
                             alt={item.title}
                             className="w-full h-full object-cover"
                           />
-                          <div className="absolute inset-0 flex items-center justify-center bg-black/50">
-                            <div className="text-center">
-                              <div className="flex items-center justify-center gap-2 mb-2">
-                                <div className="w-3 h-3 bg-red-500 rounded-full animate-pulse"></div>
-                                <span className="text-white text-lg tracking-wider uppercase">Playing in Mini Player</span>
-                              </div>
-                              <p className="text-white/60 text-sm">Look at the bottom-right corner</p>
+                          <div className="absolute inset-0 flex items-center justify-center bg-black/30 group-hover:bg-black/50 transition-all duration-300">
+                            <div className="w-20 h-20 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
+                              <svg className="w-10 h-10 text-white ml-1" fill="currentColor" viewBox="0 0 24 24">
+                                <path d="M8 5v14l11-7z" />
+                              </svg>
                             </div>
+                          </div>
+                          <div className="absolute bottom-4 left-4 flex items-center gap-2">
+                            <span className="text-white/70 text-sm tracking-wider uppercase">
+                              {displayMode === 'pip' ? '🎵 Play as Music' : '🎬 Play Video'}
+                            </span>
                           </div>
                         </div>
                       );
                     }
 
-                    // Not playing - show thumbnail with play button
-                    return (
-                      <div
-                        className="relative w-full h-full group cursor-pointer"
-                        onClick={() => startVideo(activeTab, displayVideoUrl!, playMode, displayMode)}
-                      >
-                        <img
-                          src={displayImage || `https://img.youtube.com/vi/${ytId}/hqdefault.jpg`}
-                          alt={item.title}
+                    // Regular video (non-YouTube)
+                    if (displayVideoUrl && !ytId) {
+                      return (
+                        <video
+                          key={activeTab + '-video'}
+                          src={displayVideoUrl}
                           className="w-full h-full object-cover"
+                          autoPlay
+                          muted
+                          loop
+                          playsInline
                         />
-                        <div className="absolute inset-0 flex items-center justify-center bg-black/30 group-hover:bg-black/50 transition-all duration-300">
-                          <div className="w-20 h-20 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
-                            <svg className="w-10 h-10 text-white ml-1" fill="currentColor" viewBox="0 0 24 24">
-                              <path d="M8 5v14l11-7z" />
-                            </svg>
-                          </div>
-                        </div>
-                        <div className="absolute bottom-4 left-4 flex items-center gap-2">
-                          <span className="text-white/70 text-sm tracking-wider uppercase">
-                            {displayMode === 'pip' ? '🎵 Play as Music' : '🎬 Play Video'}
-                          </span>
-                        </div>
-                      </div>
-                    );
-                  }
-
-                  // Regular video (non-YouTube)
-                  if (displayVideoUrl && !ytId) {
-                    return (
-                      <video
-                        key={activeTab + '-video'}
-                        src={displayVideoUrl}
-                        className="w-full h-full object-cover"
-                        autoPlay
-                        muted
-                        loop
-                        playsInline
-                      />
-                    );
-                  }
-
-                  // PDF document viewer
-                  const displayPdfUrl = currentContent?.pdfUrl || (item.type === 'pdf' ? item.pdfUrl : undefined);
-                  if (displayPdfUrl) {
-                    // 일일 묵상(큐티) 페이지 계산 - true 또는 'true' 모두 체크
-                    const isDailyReading =
-                      currentContent?.isDailyReading === true ||
-                      currentContent?.isDailyReading === 'true' ||
-                      (item.type === 'pdf' && (item.isDailyReading === true || item.isDailyReading === 'true'));
-                    const pdfStartDate = currentContent?.pdfStartDate || item.pdfStartDate || '01-01';
-                    const pagesPerDay = Number(currentContent?.pagesPerDay || item.pagesPerDay) || 2;
-                    // PDF 시작 페이지 (표지/목차 제외, 실제 본문 시작 페이지)
-                    const pdfFirstPage = Number(currentContent?.pdfFirstPage || item.pdfFirstPage) || 1;
-
-                    let pdfPage = 1;
-                    let todayInfo = '';
-
-                    if (isDailyReading) {
-                      const today = new Date();
-                      const currentYear = today.getFullYear();
-
-                      // 시작일 파싱 (MM-DD 또는 YYYY-MM-DD 형식 지원)
-                      let startMonth = 1, startDay = 1;
-                      if (pdfStartDate.includes('-')) {
-                        const parts = pdfStartDate.split('-');
-                        if (parts.length === 2) {
-                          startMonth = parseInt(parts[0], 10);
-                          startDay = parseInt(parts[1], 10);
-                        } else if (parts.length === 3) {
-                          startMonth = parseInt(parts[1], 10);
-                          startDay = parseInt(parts[2], 10);
-                        }
-                      }
-
-                      const startOfYear = new Date(currentYear, startMonth - 1, startDay);
-                      const diffTime = today.getTime() - startOfYear.getTime();
-                      const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-
-                      // 시작일 이전이면 첫 페이지
-                      const dayNumber = Math.max(0, diffDays) + 1;
-                      // pdfFirstPage부터 시작하여 계산
-                      pdfPage = pdfFirstPage + ((dayNumber - 1) * pagesPerDay);
-
-                      // 오늘 날짜 정보 표시
-                      const monthDay = `${today.getMonth() + 1}월 ${today.getDate()}일`;
-                      todayInfo = `📅 ${monthDay} (${dayNumber}일차) → ${pdfPage}~${pdfPage + pagesPerDay - 1}페이지`;
+                      );
                     }
 
-                    const pdfUrlWithPage = isDailyReading
-                      ? `${displayPdfUrl}#page=${pdfPage}&toolbar=1&navpanes=0&scrollbar=1&view=FitV`
-                      : `${displayPdfUrl}#toolbar=1&navpanes=0&scrollbar=1&view=FitV`;
+                    // PDF document viewer
+                    const displayPdfUrl = currentContent?.pdfUrl || (item.type === 'pdf' ? item.pdfUrl : undefined);
+                    if (displayPdfUrl) {
+                      // 일일 묵상(큐티) 페이지 계산 - true 또는 'true' 모두 체크
+                      // isDailyReading is now calculated above
+                      const pdfStartDate = currentContent?.pdfStartDate || item.pdfStartDate || '01-01';
+                      const pagesPerDay = Number(currentContent?.pagesPerDay || item.pagesPerDay) || 2;
+                      // PDF 시작 페이지 (표지/목차 제외, 실제 본문 시작 페이지)
+                      const pdfFirstPage = Number(currentContent?.pdfFirstPage || item.pdfFirstPage) || 1;
 
+                      let pdfPage = 1;
+                      let todayInfo = '';
+
+                      const pdfUrlWithPage = `${displayPdfUrl}#toolbar=1&navpanes=0&scrollbar=1&view=FitV`;
+
+                      return (
+                        <PDFViewer
+                          key={activeTab + '-pdf'}
+                          url={displayPdfUrl}
+                          initialPage={pdfPage}
+                          isDailyReading={false}
+                          todayInfo={todayInfo}
+                        />
+                      );
+                    }
+
+                    // Link type - display external URL in iframe
+                    const displayLinkUrl = currentContent?.externalUrl || (item.type === 'link' ? item.externalUrl : undefined);
+                    if (displayLinkUrl) {
+                      return (
+                        <div className="relative w-full h-full">
+                          <iframe
+                            key={activeTab + '-link'}
+                            src={displayLinkUrl}
+                            title="External Website"
+                            className="w-full h-full bg-white"
+                            sandbox="allow-same-origin allow-scripts allow-popups allow-forms allow-popups-to-escape-sandbox"
+                          />
+                          {/* Direct link button overlay */}
+                          <a
+                            href={displayLinkUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="absolute top-4 right-4 px-4 py-2 bg-black/70 hover:bg-black/90 backdrop-blur-sm border border-white/20 hover:border-white/40 rounded-lg text-white text-xs tracking-wider transition-all duration-300 flex items-center gap-2 uppercase z-10"
+                          >
+                            <svg
+                              xmlns="http://www.w3.org/2000/svg"
+                              width="14"
+                              height="14"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="2"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            >
+                              <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+                              <polyline points="15 3 21 3 21 9"></polyline>
+                              <line x1="10" y1="14" x2="21" y2="3"></line>
+                            </svg>
+                            새 창에서 열기
+                          </a>
+                        </div>
+                      );
+                    }
+
+                    // Image fallback
                     return (
-                      <PDFViewer
-                        key={activeTab + '-pdf'}
-                        url={displayPdfUrl}
-                        initialPage={pdfPage}
-                        isDailyReading={isDailyReading}
-                        todayInfo={todayInfo}
+                      <img
+                        key={activeTab + '-img'}
+                        src={displayImage}
+                        alt={item.title}
+                        className="w-full h-full object-contain"
                       />
                     );
-                  }
+                  })()
+                )}
+              </motion.div>
+            )}
 
-                  // Link type - display external URL in iframe
-                  const displayLinkUrl = currentContent?.externalUrl || (item.type === 'link' ? item.externalUrl : undefined);
-                  if (displayLinkUrl) {
-                    return (
-                      <div className="relative w-full h-full">
-                        <iframe
-                          key={activeTab + '-link'}
-                          src={displayLinkUrl}
-                          title="External Website"
-                          className="w-full h-full bg-white"
-                          sandbox="allow-same-origin allow-scripts allow-popups allow-forms allow-popups-to-escape-sandbox"
-                        />
-                        {/* Direct link button overlay */}
-                        <a
-                          href={displayLinkUrl}
+            {/* Content Grid - Hidden for Daily Meditation QT */}
+            {!isDailyReading && (
+              <div className="grid grid-cols-1 md:grid-cols-12 gap-8 mb-[15vh] text-[#f0f0f0] font-['Inter']">
+                {/* Metadata */}
+                {!isPdfView && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ ...transition, delay: 0.3 }}
+                    className="md:col-span-3 space-y-8"
+                  >
+                    <div>
+                      <h3 className="text-[10px] tracking-[2px] opacity-40 uppercase mb-2">Collection</h3>
+                      <p className="text-sm">Grace Surf Daily</p>
+                    </div>
+                    <div>
+                      <h3 className="text-[10px] tracking-[2px] opacity-40 uppercase mb-2">Date</h3>
+                      <p className="text-sm">{currentContent?.date || 'N/A'}</p>
+                    </div>
+                  </motion.div>
+                )}
+
+                {/* Mobile Keywords Navigation - horizontal scroll */}
+                {!isPdfView && (
+                  <div className="md:hidden mb-6 -mx-4 px-4 overflow-x-auto">
+                    <div className="flex gap-3 pb-2">
+                      <button
+                        onClick={() => handleTabChange('STORY')}
+                        className={`shrink-0 px-4 py-2 text-xs tracking-[2px] uppercase border transition-all ${activeTab === 'STORY'
+                          ? 'border-white text-white bg-white/10'
+                          : 'border-white/20 text-white/50 hover:text-white/80'
+                          }`}
+                      >
+                        STORY
+                      </button>
+                      {item.content.map((contentItem) => (
+                        <button
+                          key={contentItem.id}
+                          onClick={() => handleTabChange(contentItem.keyword)}
+                          className={`shrink-0 px-4 py-2 text-xs tracking-[2px] uppercase border transition-all ${activeTab === contentItem.keyword
+                            ? 'border-white text-white bg-white/10'
+                            : 'border-white/20 text-white/50 hover:text-white/80'
+                            }`}
+                        >
+                          {contentItem.keyword}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Main Text */}
+                <div className={`${isPdfView ? 'md:col-span-12' : 'md:col-span-6'} md:pr-12 min-h-[300px]`}>
+                  <motion.h3
+                    key={`title-${activeTab}`}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.4 }}
+                    className="text-2xl font-light mb-8 leading-snug"
+                  >
+                    {activeTab === 'STORY' ? item.subtitle : activeTab}
+                  </motion.h3>
+
+                  <AnimatePresence mode="wait">
+                    <motion.div
+                      key={`content-${activeTab}`}
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -10 }}
+                      transition={{ duration: 0.3 }}
+                      className="text-[#a0a0a0] leading-[1.8] font-light space-y-6 whitespace-pre-line"
+                    >
+                      {currentContent ? currentContent.text : item.desc}
+
+                      {/* 외부 링크 버튼 */}
+                      {currentContent?.externalUrl && (
+                        <motion.a
+                          href={currentContent.externalUrl}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="absolute top-4 right-4 px-4 py-2 bg-black/70 hover:bg-black/90 backdrop-blur-sm border border-white/20 hover:border-white/40 rounded-lg text-white text-xs tracking-wider transition-all duration-300 flex items-center gap-2 uppercase z-10"
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ duration: 0.3, delay: 0.1 }}
+                          className="inline-flex items-center gap-2 mt-6 px-5 py-3 bg-white/10 hover:bg-white/20 border border-white/20 hover:border-white/40 rounded-lg text-white/90 hover:text-white text-sm tracking-wider transition-all duration-300 group"
+                          onMouseEnter={() => { setIsHovered(true); setCursorText('OPEN'); }}
+                          onMouseLeave={() => { setIsHovered(false); setCursorText(''); }}
                         >
                           <svg
                             xmlns="http://www.w3.org/2000/svg"
-                            width="14"
-                            height="14"
+                            width="18"
+                            height="18"
                             viewBox="0 0 24 24"
                             fill="none"
                             stroke="currentColor"
                             strokeWidth="2"
                             strokeLinecap="round"
                             strokeLinejoin="round"
+                            className="transition-transform duration-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5"
                           >
                             <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
                             <polyline points="15 3 21 3 21 9"></polyline>
                             <line x1="10" y1="14" x2="21" y2="3"></line>
                           </svg>
-                          새 창에서 열기
-                        </a>
-                      </div>
-                    );
-                  }
+                          <span>사이트 바로가기</span>
+                        </motion.a>
+                      )}
+                    </motion.div>
+                  </AnimatePresence>
+                </div>
 
-                  // Image fallback
-                  return (
-                    <img
-                      key={activeTab + '-img'}
-                      src={displayImage}
-                      alt={item.title}
-                      className="w-full h-full object-contain"
-                    />
-                  );
-                })()}
-              </motion.div>
+                {/* Keywords Navigation */}
+                {!isPdfView && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ ...transition, delay: 0.5 }}
+                    className="md:col-span-3 border-l border-white/10 pl-8 hidden md:block"
+                  >
+                    <div className="sticky top-24">
+                      <h3 className="text-[10px] tracking-[2px] opacity-40 uppercase mb-8">KEYWORDS</h3>
+                      <ul className="space-y-6 text-sm text-[#888] max-h-[60vh] overflow-y-auto pr-2 custom-scrollbar">
+                        {/* STORY (Main description) */}
+                        <li
+                          onClick={() => handleTabChange('STORY')}
+                          className={`cursor-pointer transition-all duration-300 flex items-center group ${activeTab === 'STORY' ? 'text-white' : 'hover:text-white/60'}`}
+                        >
+                          <span className={`w-1.5 h-1.5 bg-white rounded-full mr-3 transition-transform duration-300 ${activeTab === 'STORY' ? 'scale-100 opacity-100' : 'scale-0 opacity-0'}`} />
+                          <span className="tracking-[2px] uppercase">STORY</span>
+                        </li>
+                        {item.content.map((contentItem) => (
+                          <li
+                            key={contentItem.id}
+                            onClick={() => handleTabChange(contentItem.keyword)}
+                            className={`cursor-pointer transition-all duration-300 flex items-center group ${activeTab === contentItem.keyword ? 'text-white' : 'hover:text-white/60'}`}
+                          >
+                            <span className={`w-1.5 h-1.5 bg-white rounded-full mr-3 transition-transform duration-300 ${activeTab === contentItem.keyword ? 'scale-100 opacity-100' : 'scale-0 opacity-0'}`} />
+                            <span className="tracking-[2px] uppercase">{contentItem.keyword}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  </motion.div>
+                )}
+              </div>
             )}
 
-            {/* Content Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-12 gap-8 mb-[15vh] text-[#f0f0f0] font-['Inter']">
-              {/* Metadata */}
-              {!isPdfView && (
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ ...transition, delay: 0.3 }}
-                  className="md:col-span-3 space-y-8"
-                >
-                  <div>
-                    <h3 className="text-[10px] tracking-[2px] opacity-40 uppercase mb-2">Collection</h3>
-                    <p className="text-sm">Grace Surf Daily</p>
-                  </div>
-                  <div>
-                    <h3 className="text-[10px] tracking-[2px] opacity-40 uppercase mb-2">Date</h3>
-                    <p className="text-sm">{currentContent?.date || 'N/A'}</p>
-                  </div>
-                </motion.div>
-              )}
-
-              {/* Mobile Keywords Navigation - horizontal scroll */}
-              {!isPdfView && (
-                <div className="md:hidden mb-6 -mx-4 px-4 overflow-x-auto">
-                  <div className="flex gap-3 pb-2">
-                    <button
-                      onClick={() => handleTabChange('STORY')}
-                      className={`shrink-0 px-4 py-2 text-xs tracking-[2px] uppercase border transition-all ${activeTab === 'STORY'
-                        ? 'border-white text-white bg-white/10'
-                        : 'border-white/20 text-white/50 hover:text-white/80'
-                        }`}
-                    >
-                      STORY
-                    </button>
-                    {item.content.map((contentItem) => (
-                      <button
-                        key={contentItem.id}
-                        onClick={() => handleTabChange(contentItem.keyword)}
-                        className={`shrink-0 px-4 py-2 text-xs tracking-[2px] uppercase border transition-all ${activeTab === contentItem.keyword
-                          ? 'border-white text-white bg-white/10'
-                          : 'border-white/20 text-white/50 hover:text-white/80'
-                          }`}
-                      >
-                        {contentItem.keyword}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Main Text */}
-              <div className={`${isPdfView ? 'md:col-span-12' : 'md:col-span-6'} md:pr-12 min-h-[300px]`}>
-                <motion.h3
-                  key={`title-${activeTab}`}
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.4 }}
-                  className="text-2xl font-light mb-8 leading-snug"
-                >
-                  {activeTab === 'STORY' ? item.subtitle : activeTab}
-                </motion.h3>
-
-                <AnimatePresence mode="wait">
-                  <motion.div
-                    key={`content-${activeTab}`}
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -10 }}
-                    transition={{ duration: 0.3 }}
-                    className="text-[#a0a0a0] leading-[1.8] font-light space-y-6 whitespace-pre-line"
-                  >
-                    {currentContent ? currentContent.text : item.desc}
-
-                    {/* 외부 링크 버튼 */}
-                    {currentContent?.externalUrl && (
-                      <motion.a
-                        href={currentContent.externalUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.3, delay: 0.1 }}
-                        className="inline-flex items-center gap-2 mt-6 px-5 py-3 bg-white/10 hover:bg-white/20 border border-white/20 hover:border-white/40 rounded-lg text-white/90 hover:text-white text-sm tracking-wider transition-all duration-300 group"
-                        onMouseEnter={() => { setIsHovered(true); setCursorText('OPEN'); }}
-                        onMouseLeave={() => { setIsHovered(false); setCursorText(''); }}
-                      >
-                        <svg
-                          xmlns="http://www.w3.org/2000/svg"
-                          width="18"
-                          height="18"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          className="transition-transform duration-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5"
-                        >
-                          <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
-                          <polyline points="15 3 21 3 21 9"></polyline>
-                          <line x1="10" y1="14" x2="21" y2="3"></line>
-                        </svg>
-                        <span>사이트 바로가기</span>
-                      </motion.a>
-                    )}
-                  </motion.div>
-                </AnimatePresence>
-              </div>
-
-              {/* Keywords Navigation */}
-              {!isPdfView && (
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ ...transition, delay: 0.5 }}
-                  className="md:col-span-3 border-l border-white/10 pl-8 hidden md:block"
-                >
-                  <div className="sticky top-24">
-                    <h3 className="text-[10px] tracking-[2px] opacity-40 uppercase mb-8">KEYWORDS</h3>
-                    <ul className="space-y-6 text-sm text-[#888] max-h-[60vh] overflow-y-auto pr-2 custom-scrollbar">
-                      {/* STORY (Main description) */}
-                      <li
-                        onClick={() => handleTabChange('STORY')}
-                        className={`cursor-pointer transition-all duration-300 flex items-center group ${activeTab === 'STORY' ? 'text-white' : 'hover:text-white/60'}`}
-                      >
-                        <span className={`w-1.5 h-1.5 bg-white rounded-full mr-3 transition-transform duration-300 ${activeTab === 'STORY' ? 'scale-100 opacity-100' : 'scale-0 opacity-0'}`} />
-                        <span className="tracking-[2px] uppercase">STORY</span>
-                      </li>
-                      {item.content.map((contentItem) => (
-                        <li
-                          key={contentItem.id}
-                          onClick={() => handleTabChange(contentItem.keyword)}
-                          className={`cursor-pointer transition-all duration-300 flex items-center group ${activeTab === contentItem.keyword ? 'text-white' : 'hover:text-white/60'}`}
-                        >
-                          <span className={`w-1.5 h-1.5 bg-white rounded-full mr-3 transition-transform duration-300 ${activeTab === contentItem.keyword ? 'scale-100 opacity-100' : 'scale-0 opacity-0'}`} />
-                          <span className="tracking-[2px] uppercase">{contentItem.keyword}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                </motion.div>
-              )}
-            </div>
-
-            {/* Comments Section */}
-            <Comments galleryItem={item} />
+            {/* Comments Section - Only show here if NOT Daily Reading (mostly for standard view) */}
+            {!isDailyReading && <Comments galleryItem={item} />}
 
             {/* Related */}
             <motion.div
