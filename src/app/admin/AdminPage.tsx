@@ -920,7 +920,16 @@ export const AdminPage: React.FC = () => {
                 </div>
                 <p className="text-xs text-white/50 truncate">{item.subtitle}</p>
               </div>
-              <div className="flex gap-4">
+              <div className="flex gap-3">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    window.location.href = `/?item=${item.id}`;
+                  }}
+                  className="px-4 py-2 border border-blue-500/50 text-[10px] tracking-widest text-blue-400 hover:bg-blue-500/20 transition-colors"
+                >
+                  VIEW
+                </button>
                 <button
                   onClick={(e) => {
                     e.stopPropagation(); // Prevent navigation when clicking EDIT
