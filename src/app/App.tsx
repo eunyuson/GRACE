@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { BrowserRouter, Routes, Route, Link } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Link, useSearchParams } from 'react-router-dom';
 import { CursorProvider } from './context/CursorContext';
 import { GalleryProvider } from './context/GalleryContext';
 import { CustomCursor } from './components/CustomCursor';
@@ -9,6 +9,8 @@ import { AdminPage } from './admin/AdminPage';
 
 const Home = () => {
   const [activeTab, setActiveTab] = useState<'gallery' | 'updates'>('gallery');
+  const [searchParams] = useSearchParams();
+  const isAdmin = searchParams.get('admin') === 'true';
 
   return (
     <>
@@ -19,30 +21,30 @@ const Home = () => {
         </Link>
 
         {/* Tab Navigation */}
-        <div className="flex gap-4 mt-6">
+        <div className="flex gap-1 mt-6 p-1 bg-white/5 rounded-full backdrop-blur-sm">
           <button
             onClick={() => setActiveTab('gallery')}
-            className={`text-[9px] md:text-[10px] tracking-[0.2em] uppercase transition-all duration-300 ${activeTab === 'gallery'
-                ? 'opacity-100 border-b border-white/50 pb-1'
-                : 'opacity-40 hover:opacity-70'
+            className={`px-4 py-1.5 text-[9px] md:text-[10px] tracking-[0.15em] uppercase transition-all duration-300 rounded-full ${activeTab === 'gallery'
+              ? 'bg-white/20 text-white'
+              : 'text-white/50 hover:text-white/80'
               }`}
           >
             갤러리
           </button>
           <button
             onClick={() => setActiveTab('updates')}
-            className={`text-[9px] md:text-[10px] tracking-[0.2em] uppercase transition-all duration-300 ${activeTab === 'updates'
-                ? 'opacity-100 border-b border-white/50 pb-1'
-                : 'opacity-40 hover:opacity-70'
+            className={`px-4 py-1.5 text-[9px] md:text-[10px] tracking-[0.15em] uppercase transition-all duration-300 rounded-full ${activeTab === 'updates'
+              ? 'bg-gradient-to-r from-blue-500/30 to-purple-500/30 text-white'
+              : 'text-white/50 hover:text-white/80'
               }`}
           >
-            최근 소식
+            ✨ 최근 소식
           </button>
         </div>
       </nav>
 
       {/* Content based on active tab */}
-      {activeTab === 'gallery' ? <Gallery /> : <RecentUpdates />}
+      {activeTab === 'gallery' ? <Gallery /> : <RecentUpdates isAdmin={isAdmin} />}
     </>
   );
 };
