@@ -39,7 +39,7 @@ async function getSheetData() {
 
     const response = await sheets.spreadsheets.values.get({
         spreadsheetId: SHEET_ID,
-        range: 'A:D' // created_at, payload, source, shortcut
+        range: 'A:E' // created_at, payload, imageUrl, source
     });
 
     const rows = response.data.values;
@@ -64,7 +64,7 @@ async function getSheetData() {
 
 // Firestore에서 기존 동기화된 항목 ID 가져오기
 async function getSyncedItemIds() {
-    const snapshot = await db.collection('gallery')
+    const snapshot = await db.collection('updates')
         .where('source', '==', 'shortcut')
         .get();
 
@@ -81,7 +81,7 @@ async function getSyncedItemIds() {
 
 // 다음 인덱스 번호 가져오기
 async function getNextIndex() {
-    const snapshot = await db.collection('gallery')
+    const snapshot = await db.collection('updates')
         .orderBy('index', 'desc')
         .limit(1)
         .get();
@@ -106,7 +106,8 @@ function convertToGalleryItem(row, index) {
         return null;
     }
 
-    // 기본 이미지 (없으면 placeholder)
+    // 이미지 URL (시트에서 가져온 imageUrl 또는 기본 placeholder)
+    const imageUrl = row.imageUrl && row.imageUrl.trim() ? row.imageUrl.trim() : '';
     const defaultImage = 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?q=80&w=1200&auto=format&fit=crop';
 
     // 태그를 키워드로 변환
@@ -133,7 +134,7 @@ function convertToGalleryItem(row, index) {
         index: index,
         title: payload.title || 'Untitled',
         subtitle: payload.summary || '',
-        image: defaultImage,
+        image: imageUrl || defaultImage,
         type: 'image',
         descTitle: payload.title || 'Untitled',
         desc: payload.summary || '',
@@ -189,7 +190,7 @@ async function syncSheetsToFirestore() {
             const galleryItem = convertToGalleryItem(row, nextIndex);
 
             if (galleryItem) {
-                const docRef = db.collection('gallery').doc();
+                const docRef = db.collection('updates').doc();
                 batch.set(docRef, galleryItem);
                 addedCount++;
 

@@ -18,6 +18,7 @@ interface UpdateItem {
     title: string;
     subtitle: string;
     desc: string;
+    image?: string;
     content: { id?: string; text: string; date?: string; keyword?: string }[];
     createdAt?: any;
     sheetRowId?: string;
@@ -528,6 +529,20 @@ export const RecentUpdates: React.FC<RecentUpdatesProps> = ({ isAdmin = false })
 
                         {/* Content */}
                         <div className="px-6 pb-6">
+                            {/* Image Display */}
+                            {selectedItem.image && !selectedItem.image.includes('unsplash.com') && (
+                                <div className="relative w-full mb-6 overflow-hidden rounded-xl">
+                                    <img
+                                        src={selectedItem.image}
+                                        alt={selectedItem.title}
+                                        className="w-full max-h-[50vh] object-contain bg-black/50"
+                                        onError={(e) => {
+                                            (e.target as HTMLImageElement).style.display = 'none';
+                                        }}
+                                    />
+                                </div>
+                            )}
+
                             <div className="text-white/80 text-base leading-relaxed whitespace-pre-wrap">
                                 {getContent(selectedItem)}
                             </div>
@@ -852,6 +867,21 @@ export const RecentUpdates: React.FC<RecentUpdatesProps> = ({ isAdmin = false })
                                 <div onClick={() => setSelectedItem(item)}>
                                     {/* Accent Line */}
                                     <div className="absolute top-0 left-6 right-6 h-[2px] bg-gradient-to-r from-transparent via-blue-500/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+
+                                    {/* Image Thumbnail */}
+                                    {item.image && !item.image.includes('unsplash.com') && (
+                                        <div className="relative w-full h-32 mb-4 -mt-2 -mx-0 overflow-hidden rounded-xl">
+                                            <img
+                                                src={item.image}
+                                                alt={item.title}
+                                                className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                                                onError={(e) => {
+                                                    (e.target as HTMLImageElement).style.display = 'none';
+                                                }}
+                                            />
+                                            <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+                                        </div>
+                                    )}
 
                                     <h3 className="text-white font-semibold text-lg mb-3 group-hover:text-blue-300 transition-colors line-clamp-2">
                                         {item.title}
