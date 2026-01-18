@@ -76,15 +76,12 @@ export const GalleryProvider: React.FC<{ children: ReactNode }> = ({ children })
     const unsubscribe = onSnapshot(
       q,
       (snapshot) => {
-        const allItems = snapshot.docs.map((doc) => ({
+        const galleryItems: GalleryItemType[] = snapshot.docs.map((doc) => ({
           id: doc.id,
           ...doc.data(),
-        })) as (GalleryItemType & { sheetRowId?: string })[];
+        })) as GalleryItemType[];
 
-        // sheetRowId가 있는 항목(최근 소식)은 메인 갤러리에서 제외
-        const galleryItems = allItems.filter(item => !item.sheetRowId);
-
-        setItems(galleryItems as GalleryItemType[]);
+        setItems(galleryItems);
         setLoading(false);
         setError(null);
       },

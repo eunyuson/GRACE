@@ -28,7 +28,8 @@ export const RecentUpdates: React.FC<RecentUpdatesProps> = ({ isAdmin = false })
     const [saving, setSaving] = useState(false);
 
     useEffect(() => {
-        const q = query(collection(db, 'gallery'));
+        // 'updates' 컬렉션에서 동기화된 항목 읽기
+        const q = query(collection(db, 'updates'));
 
         const unsubscribe = onSnapshot(q,
             (snapshot) => {
@@ -36,8 +37,7 @@ export const RecentUpdates: React.FC<RecentUpdatesProps> = ({ isAdmin = false })
                     .map(doc => ({
                         id: doc.id,
                         ...doc.data()
-                    } as UpdateItem))
-                    .filter(item => item.sheetRowId);
+                    } as UpdateItem));
 
                 updates.sort((a, b) => {
                     const dateA = a.createdAt?.toDate?.() || new Date(0);
@@ -84,7 +84,7 @@ export const RecentUpdates: React.FC<RecentUpdatesProps> = ({ isAdmin = false })
     // 삭제 함수
     const handleDelete = async (id: string) => {
         try {
-            await deleteDoc(doc(db, 'gallery', id));
+            await deleteDoc(doc(db, 'updates', id));
             setShowDeleteConfirm(null);
             setSelectedItem(null);
             setEditingItem(null);
@@ -100,7 +100,7 @@ export const RecentUpdates: React.FC<RecentUpdatesProps> = ({ isAdmin = false })
         setSaving(true);
 
         try {
-            await updateDoc(doc(db, 'gallery', editingItem.id), {
+            await updateDoc(doc(db, 'updates', editingItem.id), {
                 title: editingItem.title,
                 subtitle: editingItem.subtitle,
                 desc: editingItem.desc,
