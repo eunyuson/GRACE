@@ -1,12 +1,15 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { BrowserRouter, Routes, Route, Link } from 'react-router-dom';
 import { CursorProvider } from './context/CursorContext';
 import { GalleryProvider } from './context/GalleryContext';
 import { CustomCursor } from './components/CustomCursor';
 import { Gallery } from './components/Gallery';
+import { RecentUpdates } from './components/RecentUpdates';
 import { AdminPage } from './admin/AdminPage';
 
 const Home = () => {
+  const [activeTab, setActiveTab] = useState<'gallery' | 'updates'>('gallery');
+
   return (
     <>
       <nav className="fixed top-6 left-4 md:top-10 md:left-10 z-[2100] text-white mix-blend-difference">
@@ -14,8 +17,32 @@ const Home = () => {
           <h1 className="font-bold text-[10px] md:text-xs tracking-[0.2em] md:tracking-[0.3em] opacity-80 font-['Inter'] hover:opacity-100">GRACE SURF DAILY</h1>
           <p className="text-[8px] md:text-[9px] tracking-[0.3em] md:tracking-[0.4em] opacity-40 mt-1 uppercase font-['Inter']">매일 은혜 서핑</p>
         </Link>
+
+        {/* Tab Navigation */}
+        <div className="flex gap-4 mt-6">
+          <button
+            onClick={() => setActiveTab('gallery')}
+            className={`text-[9px] md:text-[10px] tracking-[0.2em] uppercase transition-all duration-300 ${activeTab === 'gallery'
+                ? 'opacity-100 border-b border-white/50 pb-1'
+                : 'opacity-40 hover:opacity-70'
+              }`}
+          >
+            갤러리
+          </button>
+          <button
+            onClick={() => setActiveTab('updates')}
+            className={`text-[9px] md:text-[10px] tracking-[0.2em] uppercase transition-all duration-300 ${activeTab === 'updates'
+                ? 'opacity-100 border-b border-white/50 pb-1'
+                : 'opacity-40 hover:opacity-70'
+              }`}
+          >
+            최근 소식
+          </button>
+        </div>
       </nav>
-      <Gallery />
+
+      {/* Content based on active tab */}
+      {activeTab === 'gallery' ? <Gallery /> : <RecentUpdates />}
     </>
   );
 };
@@ -44,3 +71,4 @@ export default function App() {
     </div>
   );
 }
+
