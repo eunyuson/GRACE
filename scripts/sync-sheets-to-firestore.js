@@ -30,7 +30,7 @@ async function getSheetData() {
   const sheets = await getGoogleSheetsClient();
   const response = await sheets.spreadsheets.values.get({
     spreadsheetId: SHEET_ID,
-    range: 'A:D'
+    range: 'Public!A:D'
   });
   
   const rows = response.data.values;
