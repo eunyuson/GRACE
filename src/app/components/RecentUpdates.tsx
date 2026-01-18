@@ -1,6 +1,17 @@
 import React, { useState, useEffect } from 'react';
-import { collection, query, onSnapshot, deleteDoc, doc, updateDoc } from 'firebase/firestore';
-import { db } from '../firebase';
+import { collection, query, onSnapshot, deleteDoc, doc, updateDoc, addDoc, orderBy, serverTimestamp } from 'firebase/firestore';
+import { onAuthStateChanged, User } from 'firebase/auth';
+import { db, auth } from '../firebase';
+
+interface Memo {
+    id: string;
+    text: string;
+    userId: string;
+    userName: string;
+    userPhoto?: string;
+    createdAt?: any;
+    updatedAt?: any;
+}
 
 interface UpdateItem {
     id: string;
@@ -26,6 +37,22 @@ export const RecentUpdates: React.FC<RecentUpdatesProps> = ({ isAdmin = false })
     const [allTags, setAllTags] = useState<{ tag: string; count: number }[]>([]);
     const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
     const [saving, setSaving] = useState(false);
+
+    // Memo states
+    const [currentUser, setCurrentUser] = useState<User | null>(null);
+    const [memos, setMemos] = useState<{ [itemId: string]: Memo[] }>({});
+    const [newMemoText, setNewMemoText] = useState('');
+    const [editingMemo, setEditingMemo] = useState<{ itemId: string; memoId: string; text: string } | null>(null);
+    const [showMemoInput, setShowMemoInput] = useState<string | null>(null);
+    const [savingMemo, setSavingMemo] = useState(false);
+
+    // Auth state listener
+    useEffect(() => {
+        const unsubscribe = onAuthStateChanged(auth, (user) => {
+            setCurrentUser(user);
+        });
+        return () => unsubscribe();
+    }, []);
 
     useEffect(() => {
         // 'updates' 컬렉션에서 동기화된 항목 읽기
@@ -59,6 +86,21 @@ export const RecentUpdates: React.FC<RecentUpdatesProps> = ({ isAdmin = false })
                 setAllTags(sortedTags);
 
                 setLoading(false);
+
+                // Subscribe to memos for each update item
+                updates.forEach(item => {
+                    const memosQuery = query(
+                        collection(db, 'updates', item.id, 'memos'),
+                        orderBy('createdAt', 'desc')
+                    );
+                    onSnapshot(memosQuery, (memoSnapshot) => {
+                        const itemMemos = memoSnapshot.docs.map(d => ({
+                            id: d.id,
+                            ...d.data()
+                        } as Memo));
+                        setMemos(prev => ({ ...prev, [item.id]: itemMemos }));
+                    });
+                });
             },
             (error) => {
                 console.error('Firestore error:', error);
@@ -68,6 +110,66 @@ export const RecentUpdates: React.FC<RecentUpdatesProps> = ({ isAdmin = false })
 
         return () => unsubscribe();
     }, []);
+
+    // 메모 추가
+    const handleAddMemo = async (itemId: string) => {
+        if (!currentUser || !newMemoText.trim()) return;
+        setSavingMemo(true);
+
+        try {
+            await addDoc(collection(db, 'updates', itemId, 'memos'), {
+                text: newMemoText.trim(),
+                userId: currentUser.uid,
+                userName: currentUser.displayName || '익명',
+                userPhoto: currentUser.photoURL || '',
+                createdAt: serverTimestamp(),
+                updatedAt: serverTimestamp()
+            });
+            setNewMemoText('');
+            setShowMemoInput(null);
+        } catch (error) {
+            console.error('Add memo error:', error);
+            alert('메모 추가 실패');
+        } finally {
+            setSavingMemo(false);
+        }
+    };
+
+    // 메모 수정
+    const handleUpdateMemo = async () => {
+        if (!editingMemo || !editingMemo.text.trim()) return;
+        setSavingMemo(true);
+
+        try {
+            await updateDoc(doc(db, 'updates', editingMemo.itemId, 'memos', editingMemo.memoId), {
+                text: editingMemo.text.trim(),
+                updatedAt: serverTimestamp()
+            });
+            setEditingMemo(null);
+        } catch (error) {
+            console.error('Update memo error:', error);
+            alert('메모 수정 실패');
+        } finally {
+            setSavingMemo(false);
+        }
+    };
+
+    // 메모 삭제
+    const handleDeleteMemo = async (itemId: string, memoId: string) => {
+        if (!confirm('이 메모를 삭제하시겠습니까?')) return;
+
+        try {
+            await deleteDoc(doc(db, 'updates', itemId, 'memos', memoId));
+        } catch (error) {
+            console.error('Delete memo error:', error);
+            alert('메모 삭제 실패');
+        }
+    };
+
+    // 메모 개수 가져오기
+    const getMemoCount = (itemId: string): number => {
+        return memos[itemId]?.length || 0;
+    };
 
     // 태그 추출 (# 제거)
     const getTags = (item: UpdateItem): string[] => {
@@ -424,6 +526,156 @@ export const RecentUpdates: React.FC<RecentUpdatesProps> = ({ isAdmin = false })
                                     </p>
                                 </div>
                             )}
+
+                            {/* Memos Section */}
+                            <div className="mt-8 pt-6 border-t border-white/10">
+                                <div className="flex items-center justify-between mb-4">
+                                    <h4 className="text-white/70 text-sm font-medium flex items-center gap-2">
+                                        📝 메모
+                                        {memos[selectedItem.id]?.length > 0 && (
+                                            <span className="px-2 py-0.5 text-xs rounded-full bg-blue-500/20 text-blue-300">
+                                                {memos[selectedItem.id].length}
+                                            </span>
+                                        )}
+                                    </h4>
+                                    {currentUser && showMemoInput !== selectedItem.id && (
+                                        <button
+                                            onClick={() => {
+                                                setShowMemoInput(selectedItem.id);
+                                                setNewMemoText('');
+                                            }}
+                                            className="px-3 py-1.5 text-xs rounded-lg bg-gradient-to-r from-blue-500/20 to-purple-500/20 text-blue-300 hover:from-blue-500/30 hover:to-purple-500/30 transition-all"
+                                        >
+                                            + 메모 추가
+                                        </button>
+                                    )}
+                                </div>
+
+                                {/* Add Memo Input */}
+                                {showMemoInput === selectedItem.id && currentUser && (
+                                    <div className="mb-4 p-4 bg-white/5 rounded-xl border border-white/10">
+                                        <textarea
+                                            value={newMemoText}
+                                            onChange={(e) => setNewMemoText(e.target.value)}
+                                            placeholder="메모를 입력하세요..."
+                                            rows={3}
+                                            className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white placeholder-white/30 focus:outline-none focus:border-blue-500/50 resize-none text-sm"
+                                        />
+                                        <div className="flex justify-end gap-2 mt-3">
+                                            <button
+                                                onClick={() => setShowMemoInput(null)}
+                                                className="px-4 py-2 text-xs rounded-lg bg-white/10 text-white/70 hover:bg-white/20 transition"
+                                            >
+                                                취소
+                                            </button>
+                                            <button
+                                                onClick={() => handleAddMemo(selectedItem.id)}
+                                                disabled={savingMemo || !newMemoText.trim()}
+                                                className="px-4 py-2 text-xs rounded-lg bg-gradient-to-r from-blue-500 to-purple-500 text-white hover:opacity-90 transition disabled:opacity-50"
+                                            >
+                                                {savingMemo ? '저장 중...' : '저장'}
+                                            </button>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Not logged in message */}
+                                {!currentUser && (
+                                    <p className="text-white/40 text-sm text-center py-4">
+                                        메모를 추가하려면 로그인하세요
+                                    </p>
+                                )}
+
+                                {/* Memos List */}
+                                <div className="space-y-3">
+                                    {memos[selectedItem.id]?.map((memo) => (
+                                        <div
+                                            key={memo.id}
+                                            className="p-4 bg-gradient-to-br from-white/5 to-white/[0.02] rounded-xl border border-white/10 group"
+                                        >
+                                            {editingMemo?.memoId === memo.id ? (
+                                                /* Edit Mode */
+                                                <div>
+                                                    <textarea
+                                                        value={editingMemo.text}
+                                                        onChange={(e) => setEditingMemo({ ...editingMemo, text: e.target.value })}
+                                                        rows={3}
+                                                        className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white placeholder-white/30 focus:outline-none focus:border-blue-500/50 resize-none text-sm"
+                                                    />
+                                                    <div className="flex justify-end gap-2 mt-2">
+                                                        <button
+                                                            onClick={() => setEditingMemo(null)}
+                                                            className="px-3 py-1.5 text-xs rounded-lg bg-white/10 text-white/70 hover:bg-white/20 transition"
+                                                        >
+                                                            취소
+                                                        </button>
+                                                        <button
+                                                            onClick={handleUpdateMemo}
+                                                            disabled={savingMemo}
+                                                            className="px-3 py-1.5 text-xs rounded-lg bg-blue-500 text-white hover:bg-blue-600 transition disabled:opacity-50"
+                                                        >
+                                                            {savingMemo ? '저장 중...' : '저장'}
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            ) : (
+                                                /* View Mode */
+                                                <>
+                                                    <div className="flex items-start justify-between gap-3">
+                                                        <div className="flex items-center gap-2 mb-2">
+                                                            {memo.userPhoto ? (
+                                                                <img
+                                                                    src={memo.userPhoto}
+                                                                    alt={memo.userName}
+                                                                    className="w-6 h-6 rounded-full"
+                                                                />
+                                                            ) : (
+                                                                <div className="w-6 h-6 rounded-full bg-blue-500/30 flex items-center justify-center text-xs text-blue-300">
+                                                                    {memo.userName?.[0] || '?'}
+                                                                </div>
+                                                            )}
+                                                            <span className="text-white/60 text-xs">{memo.userName}</span>
+                                                            <span className="text-white/30 text-[10px]">
+                                                                {memo.createdAt?.toDate?.()?.toLocaleDateString('ko-KR') || ''}
+                                                            </span>
+                                                        </div>
+                                                        {currentUser?.uid === memo.userId && (
+                                                            <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition">
+                                                                <button
+                                                                    onClick={() => setEditingMemo({
+                                                                        itemId: selectedItem.id,
+                                                                        memoId: memo.id,
+                                                                        text: memo.text
+                                                                    })}
+                                                                    className="p-1.5 rounded-lg bg-white/10 hover:bg-blue-500/30 text-white/50 hover:text-blue-300 transition text-xs"
+                                                                    title="편집"
+                                                                >
+                                                                    ✏️
+                                                                </button>
+                                                                <button
+                                                                    onClick={() => handleDeleteMemo(selectedItem.id, memo.id)}
+                                                                    className="p-1.5 rounded-lg bg-white/10 hover:bg-red-500/30 text-white/50 hover:text-red-300 transition text-xs"
+                                                                    title="삭제"
+                                                                >
+                                                                    🗑️
+                                                                </button>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                    <p className="text-white/80 text-sm whitespace-pre-wrap">{memo.text}</p>
+                                                </>
+                                            )}
+                                        </div>
+                                    ))}
+                                </div>
+
+                                {/* No memos yet */}
+                                {(!memos[selectedItem.id] || memos[selectedItem.id].length === 0) && currentUser && (
+                                    <p className="text-white/30 text-sm text-center py-4">
+                                        아직 메모가 없습니다
+                                    </p>
+                                )}
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -599,6 +851,14 @@ export const RecentUpdates: React.FC<RecentUpdatesProps> = ({ isAdmin = false })
                                         <div className="flex items-center gap-2 text-white/30 text-[11px]">
                                             <span>📅</span>
                                             <span>{formatDate(item.content[0].date)}</span>
+                                        </div>
+                                    )}
+
+                                    {/* Memo Count Badge */}
+                                    {getMemoCount(item.id) > 0 && (
+                                        <div className="flex items-center gap-1.5 mt-2 text-[11px] text-yellow-300/70">
+                                            <span>📝</span>
+                                            <span>메모 {getMemoCount(item.id)}개</span>
                                         </div>
                                     )}
 
