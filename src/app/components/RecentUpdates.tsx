@@ -69,11 +69,14 @@ export const RecentUpdates: React.FC<RecentUpdatesProps> = ({ isAdmin = false })
         return () => unsubscribe();
     }, []);
 
-    // 태그 추출
+    // 태그 추출 (# 제거)
     const getTags = (item: UpdateItem): string[] => {
         const tagSection = item.content?.find(c => c.keyword === 'TAGS');
         if (tagSection?.text) {
-            return tagSection.text.split(',').map(t => t.trim()).filter(Boolean);
+            return tagSection.text
+                .split(',')
+                .map(t => t.trim().replace(/^#/, ''))  // 앞의 # 제거
+                .filter(Boolean);
         }
         return [];
     };
