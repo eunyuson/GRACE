@@ -20,7 +20,7 @@ const db = admin.firestore();
 async function getGoogleSheetsClient() {
   const auth = new google.auth.GoogleAuth({
     credentials: GOOGLE_SERVICE_ACCOUNT,
-    scopes: ['[https://www.googleapis.com/auth/spreadsheets.readonly'](https://www.googleapis.com/auth/spreadsheets.readonly')]
+    scopes: ['https://www.googleapis.com/auth/spreadsheets.readonly']
   });
   const client = await auth.getClient();
   return google.sheets({ version: 'v4', auth: client });
@@ -60,8 +60,43 @@ function convertToGalleryItem(row, index) {
     index,
     title: payload.title || 'Untitled',
     subtitle: payload.summary || '',
-    image: '[https://images.unsplash.com/photo-1506744038136-46273834b3fb?q=80&w=1200'](https://images.unsplash.com/photo-1506744038136-46273834b3fb?q=80&w=1200'),
+    image: 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?q=80&w=1200',
     type: 'image',
     descTitle: payload.title || 'Untitled',
     desc: payload.summary || '',
-    content: [{ id: 'main', keyword: 'CONTENT',
+    content: [{ id: 'main', keyword: 'CONTENT', text: payload.body || '', date: row.created_at }],
+    source: 'shortcut',
+    sheetRowId: `sheet_${row.rowIndex}_${row.created_at}`,
+    createdAt: admin.firestore.FieldValue.serverTimestamp()
+  };
+}
+
+async function syncSheetsToFirestore() {
+  console.log('🔄 Starting sync...');
+  const sheetData = await getSheetData();
+  console.log(`📊 Found ${sheetData.length} rows`);
+  
+  if (sheetData.length === 0) return;
+  
+  // 강제로 모든 항목을 새 항목으로 처리
+  const newItems = sheetData;
+  console.log(`🆕 Adding ${newItems.length} items`);
+  
+  let nextIndex = await getNextIndex();
+  const batch = db.batch();
+  let addedCount = 0;
+  
+  for (const row of newItems) {
+    const item = convertToGalleryItem(row, nextIndex);
+    if (item) {
+      batch.set(db.collection('gallery').doc(), item);
+      nextIndex = String(parseInt(nextIndex, 10) + 1).padStart(2, '0');
+      addedCount++;
+    }
+  }
+  
+  await batch.commit();
+  console.log(`✨ Added ${addedCount} items`);
+}
+
+syncSheetsToFirestore();
