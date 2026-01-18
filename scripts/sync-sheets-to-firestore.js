@@ -45,6 +45,18 @@ async function getSheetData() {
   });
 }
 
+async function getSyncedRowIds() {
+  const snapshot = await db.collection('gallery').get();
+  const ids = new Set();
+  snapshot.forEach(doc => {
+    const data = doc.data();
+    if (data.sheetRowId) {
+      ids.add(data.sheetRowId);
+    }
+  });
+  return ids;
+}
+
 async function getNextIndex() {
   const snapshot = await db.collection('gallery').orderBy('index', 'desc').limit(1).get();
   if (snapshot.empty) return '01';
@@ -56,6 +68,15 @@ function convertToGalleryItem(row, index) {
   let payload = {};
   try { payload = JSON.parse(row.payload || '{}'); } catch { return null; }
   
+  const tags = payload.tags || [];
+  const content = [
+    { id: 'main', keyword: 'CONTENT', text: payload.body || '', date: row.created_at }
+  ];
+  
+  if (tags.length > 0) {
+    content.push({ id: 'tags', keyword: 'TAGS', text: tags.join(', ') });
+  }
+  
   return {
     index,
     title: payload.title || 'Untitled',
@@ -64,7 +85,7 @@ function convertToGalleryItem(row, index) {
     type: 'image',
     descTitle: payload.title || 'Untitled',
     desc: payload.summary || '',
-    content: [{ id: 'main', keyword: 'CONTENT', text: payload.body || '', date: row.created_at }],
+    content,
     source: 'shortcut',
     sheetRowId: `sheet_${row.rowIndex}_${row.created_at}`,
     createdAt: admin.firestore.FieldValue.serverTimestamp()
@@ -78,9 +99,20 @@ async function syncSheetsToFirestore() {
   
   if (sheetData.length === 0) return;
   
-  // 강제로 모든 항목을 새 항목으로 처리
-  const newItems = sheetData;
-  console.log(`🆕 Adding ${newItems.length} items`);
+  const syncedIds = await getSyncedRowIds();
+  console.log(`✅ Already synced: ${syncedIds.size} items`);
+  
+  const newItems = sheetData.filter(row => {
+    const rowId = `sheet_${row.rowIndex}_${row.created_at}`;
+    return !syncedIds.has(rowId);
+  });
+  
+  console.log(`🆕 New items: ${newItems.length}`);
+  
+  if (newItems.length === 0) {
+    console.log('No new items to sync');
+    return;
+  }
   
   let nextIndex = await getNextIndex();
   const batch = db.batch();
