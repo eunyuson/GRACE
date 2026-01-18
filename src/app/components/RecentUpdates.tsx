@@ -17,20 +17,33 @@ export const RecentUpdates: React.FC = () => {
     const [selectedItem, setSelectedItem] = useState<UpdateItem | null>(null);
 
     useEffect(() => {
-        const q = query(
-            collection(db, 'gallery'),
-            where('source', '==', 'shortcut'),
-            orderBy('createdAt', 'desc')
-        );
+        // Query for items that have sheetRowId (synced from Google Sheets)
+        const q = query(collection(db, 'gallery'));
 
-        const unsubscribe = onSnapshot(q, (snapshot) => {
-            const updates = snapshot.docs.map(doc => ({
-                id: doc.id,
-                ...doc.data()
-            })) as UpdateItem[];
-            setItems(updates);
-            setLoading(false);
-        });
+        const unsubscribe = onSnapshot(q,
+            (snapshot) => {
+                // Filter items that have sheetRowId (from iPhone shortcut sync)
+                const updates = snapshot.docs
+                    .map(doc => ({
+                        id: doc.id,
+                        ...doc.data()
+                    }))
+                    .filter(item => item.sheetRowId) as UpdateItem[];
+
+                // Sort by createdAt client-side
+                updates.sort((a, b) => {
+                    const dateA = a.createdAt?.toDate?.() || new Date(0);
+                    const dateB = b.createdAt?.toDate?.() || new Date(0);
+                    return dateB.getTime() - dateA.getTime();
+                });
+                setItems(updates);
+                setLoading(false);
+            },
+            (error) => {
+                console.error('Firestore error:', error);
+                setLoading(false);
+            }
+        );
 
         return () => unsubscribe();
     }, []);
