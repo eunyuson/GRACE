@@ -33,7 +33,8 @@ export const RecentUpdates: React.FC<RecentUpdatesProps> = ({ isAdmin = false })
     const [selectedItem, setSelectedItem] = useState<UpdateItem | null>(null);
     const [editingItem, setEditingItem] = useState<UpdateItem | null>(null);
     const [searchQuery, setSearchQuery] = useState('');
-    const [selectedTags, setSelectedTags] = useState<string[]>([]);
+    // 태그 필터: 'include' = 포함, 'exclude' = 제외
+    const [tagFilters, setTagFilters] = useState<{ [tag: string]: 'include' | 'exclude' }>({});
     const [allTags, setAllTags] = useState<{ tag: string; count: number }[]>([]);
     const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
     const [saving, setSaving] = useState(false);
@@ -260,13 +261,26 @@ export const RecentUpdates: React.FC<RecentUpdatesProps> = ({ isAdmin = false })
         return item.content?.find(c => c.keyword === 'TAGS')?.text || '';
     };
 
-    // 검색 + 태그 필터링 (복수 태그 AND 조건)
+    // 검색 + 태그 필터링 (포함/제외)
     const filteredItems = items.filter(item => {
-        if (selectedTags.length > 0) {
-            const itemTags = getTags(item);
-            // 선택된 모든 태그가 아이템에 포함되어야 함
-            if (!selectedTags.every(tag => itemTags.includes(tag))) return false;
+        const itemTags = getTags(item);
+
+        // 포함 태그 필터: 모든 포함 태그가 있어야 함
+        const includeTags = Object.entries(tagFilters)
+            .filter(([_, mode]) => mode === 'include')
+            .map(([tag]) => tag);
+        if (includeTags.length > 0 && !includeTags.every(tag => itemTags.includes(tag))) {
+            return false;
         }
+
+        // 제외 태그 필터: 제외 태그가 하나라도 있으면 제외
+        const excludeTags = Object.entries(tagFilters)
+            .filter(([_, mode]) => mode === 'exclude')
+            .map(([tag]) => tag);
+        if (excludeTags.some(tag => itemTags.includes(tag))) {
+            return false;
+        }
+
         if (!searchQuery) return true;
         const q = searchQuery.toLowerCase();
         return (
@@ -500,7 +514,7 @@ export const RecentUpdates: React.FC<RecentUpdatesProps> = ({ isAdmin = false })
                                         <button
                                             key={i}
                                             onClick={() => {
-                                                setSelectedTags(prev => prev.includes(tag) ? prev : [...prev, tag]);
+                                                setTagFilters(prev => ({ ...prev, [tag]: 'include' }));
                                                 setSelectedItem(null);
                                             }}
                                             className="px-3 py-1 text-xs rounded-full bg-blue-500/20 text-blue-300 border border-blue-500/30 hover:bg-blue-500/30 transition"
@@ -704,33 +718,50 @@ export const RecentUpdates: React.FC<RecentUpdatesProps> = ({ isAdmin = false })
                         <div className="mb-6 p-4 bg-white/5 rounded-2xl border border-white/10">
                             <div className="flex items-center gap-2 mb-3">
                                 <span className="text-white/50 text-xs uppercase tracking-wider">태그</span>
-                                {selectedTags.length > 0 && (
+                                <span className="text-white/30 text-[10px]">(클릭: 포함 → 제외 → 해제)</span>
+                                {Object.keys(tagFilters).length > 0 && (
                                     <button
-                                        onClick={() => setSelectedTags([])}
-                                        className="text-xs text-blue-400 hover:text-blue-300"
+                                        onClick={() => setTagFilters({})}
+                                        className="text-xs text-blue-400 hover:text-blue-300 ml-auto"
                                     >
-                                        전체 보기
+                                        필터 초기화
                                     </button>
                                 )}
                             </div>
                             <div className="flex flex-wrap gap-2">
-                                {allTags.map(({ tag, count }) => (
-                                    <button
-                                        key={tag}
-                                        onClick={() => setSelectedTags(prev =>
-                                            prev.includes(tag)
-                                                ? prev.filter(t => t !== tag)
-                                                : [...prev, tag]
-                                        )}
-                                        className={`px-3 py-1.5 text-xs rounded-full transition-all ${selectedTags.includes(tag)
-                                            ? 'bg-gradient-to-r from-blue-500 to-purple-500 text-white shadow-lg'
-                                            : 'bg-white/10 text-white/70 hover:bg-white/20 hover:text-white'
-                                            }`}
-                                    >
-                                        #{tag}
-                                        <span className="ml-1.5 text-[10px] opacity-60">{count}</span>
-                                    </button>
-                                ))}
+                                {allTags.map(({ tag, count }) => {
+                                    const filterMode = tagFilters[tag];
+                                    return (
+                                        <button
+                                            key={tag}
+                                            onClick={() => setTagFilters(prev => {
+                                                const current = prev[tag];
+                                                if (!current) {
+                                                    // 미선택 → 포함
+                                                    return { ...prev, [tag]: 'include' };
+                                                } else if (current === 'include') {
+                                                    // 포함 → 제외
+                                                    return { ...prev, [tag]: 'exclude' };
+                                                } else {
+                                                    // 제외 → 해제
+                                                    const { [tag]: _, ...rest } = prev;
+                                                    return rest;
+                                                }
+                                            })}
+                                            className={`px-3 py-1.5 text-xs rounded-full transition-all flex items-center gap-1 ${filterMode === 'include'
+                                                ? 'bg-gradient-to-r from-blue-500 to-purple-500 text-white shadow-lg'
+                                                : filterMode === 'exclude'
+                                                    ? 'bg-gradient-to-r from-red-500 to-orange-500 text-white shadow-lg line-through'
+                                                    : 'bg-white/10 text-white/70 hover:bg-white/20 hover:text-white'
+                                                }`}
+                                        >
+                                            {filterMode === 'include' && <span>✓</span>}
+                                            {filterMode === 'exclude' && <span>✗</span>}
+                                            #{tag}
+                                            <span className="ml-1 text-[10px] opacity-60">{count}</span>
+                                        </button>
+                                    );
+                                })}
                             </div>
                         </div>
                     )}
@@ -750,14 +781,23 @@ export const RecentUpdates: React.FC<RecentUpdatesProps> = ({ isAdmin = false })
                     </div>
 
                     {/* Filter Status */}
-                    {selectedTags.length > 0 && (
+                    {Object.keys(tagFilters).length > 0 && (
                         <div className="mb-6 flex flex-wrap items-center gap-2">
                             <span className="text-white/50 text-sm">필터:</span>
-                            {selectedTags.map(tag => (
-                                <span key={tag} className="px-3 py-1 bg-blue-500/20 text-blue-300 rounded-full text-sm flex items-center gap-2">
-                                    #{tag}
+                            {Object.entries(tagFilters).map(([tag, mode]) => (
+                                <span
+                                    key={tag}
+                                    className={`px-3 py-1 rounded-full text-sm flex items-center gap-2 ${mode === 'include'
+                                        ? 'bg-blue-500/20 text-blue-300'
+                                        : 'bg-red-500/20 text-red-300 line-through'
+                                        }`}
+                                >
+                                    {mode === 'include' ? '✓' : '✗'} #{tag}
                                     <button
-                                        onClick={() => setSelectedTags(prev => prev.filter(t => t !== tag))}
+                                        onClick={() => setTagFilters(prev => {
+                                            const { [tag]: _, ...rest } = prev;
+                                            return rest;
+                                        })}
                                         className="hover:text-white"
                                     >×</button>
                                 </span>
@@ -833,7 +873,7 @@ export const RecentUpdates: React.FC<RecentUpdatesProps> = ({ isAdmin = false })
                                                     key={i}
                                                     onClick={(e) => {
                                                         e.stopPropagation();
-                                                        setSelectedTags(prev => prev.includes(tag) ? prev : [...prev, tag]);
+                                                        setTagFilters(prev => ({ ...prev, [tag]: 'include' }));
                                                     }}
                                                     className="px-2 py-0.5 text-[10px] rounded-full bg-purple-500/20 text-purple-300 hover:bg-purple-500/30 cursor-pointer transition"
                                                 >
