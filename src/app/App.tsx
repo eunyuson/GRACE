@@ -1,5 +1,7 @@
-import React, { useState } from 'react';
-import { BrowserRouter, Routes, Route, Link, useSearchParams } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { BrowserRouter, Routes, Route, Link } from 'react-router-dom';
+import { onAuthStateChanged } from 'firebase/auth';
+import { auth } from './firebase';
 import { CursorProvider } from './context/CursorContext';
 import { GalleryProvider } from './context/GalleryContext';
 import { CustomCursor } from './components/CustomCursor';
@@ -9,8 +11,14 @@ import { AdminPage } from './admin/AdminPage';
 
 const Home = () => {
   const [activeTab, setActiveTab] = useState<'gallery' | 'updates'>('gallery');
-  const [searchParams] = useSearchParams();
-  const isAdmin = searchParams.get('admin') === 'true';
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      setIsAdmin(!!user);
+    });
+    return () => unsubscribe();
+  }, []);
 
   return (
     <>
