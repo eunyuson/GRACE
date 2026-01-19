@@ -79,6 +79,22 @@ async function getSyncedItemIds() {
     return ids;
 }
 
+// 삭제된 항목 ID 가져오기 (재동기화 방지용)
+async function getDeletedItemIds() {
+    const snapshot = await db.collection('deletedItems').get();
+
+    const ids = new Set();
+    snapshot.forEach(doc => {
+        const data = doc.data();
+        if (data.sheetRowId) {
+            ids.add(data.sheetRowId);
+        }
+    });
+
+    console.log(`🗑️ Already deleted: ${ids.size} items`);
+    return ids;
+}
+
 // 다음 인덱스 번호 가져오기
 async function getNextIndex() {
     const snapshot = await db.collection('updates')
@@ -165,10 +181,20 @@ async function syncSheetsToFirestore() {
         const syncedIds = await getSyncedItemIds();
         console.log(`✅ Already synced: ${syncedIds.size} items`);
 
-        // 3. 새 항목 필터링
+        // 3. 삭제된 항목 확인 (재동기화 방지)
+        const deletedIds = await getDeletedItemIds();
+
+        // 4. 새 항목 필터링 (이미 동기화되었거나 삭제된 항목 제외)
         const newItems = sheetData.filter(row => {
             const rowId = `sheet_${row.rowIndex}_${row.created_at}`;
-            return !syncedIds.has(rowId);
+            if (syncedIds.has(rowId)) {
+                return false; // 이미 동기화됨
+            }
+            if (deletedIds.has(rowId)) {
+                console.log(`⏭️ Skipping deleted item: ${rowId}`);
+                return false; // 이미 삭제됨
+            }
+            return true;
         });
 
         console.log(`🆕 New items to sync: ${newItems.length}`);

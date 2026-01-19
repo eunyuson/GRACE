@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { collection, query, onSnapshot, deleteDoc, doc, updateDoc, addDoc, orderBy, serverTimestamp } from 'firebase/firestore';
+import { collection, query, onSnapshot, deleteDoc, doc, updateDoc, addDoc, orderBy, serverTimestamp, getDoc } from 'firebase/firestore';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { db, auth } from '../firebase';
 
@@ -185,10 +185,28 @@ export const RecentUpdates: React.FC<RecentUpdatesProps> = ({ isAdmin = false })
         return [];
     };
 
-    // 삭제 함수
+    // 삭제 함수 (sheetRowId를 deletedItems에 기록하여 재동기화 방지)
     const handleDelete = async (id: string) => {
         try {
-            await deleteDoc(doc(db, 'updates', id));
+            // 삭제 전에 해당 문서의 sheetRowId를 가져옴
+            const docRef = doc(db, 'updates', id);
+            const docSnap = await getDoc(docRef);
+
+            if (docSnap.exists()) {
+                const data = docSnap.data();
+                // sheetRowId가 있으면 deletedItems 컬렉션에 기록
+                if (data.sheetRowId) {
+                    await addDoc(collection(db, 'deletedItems'), {
+                        sheetRowId: data.sheetRowId,
+                        title: data.title || '',
+                        deletedAt: serverTimestamp()
+                    });
+                    console.log('Recorded deleted item:', data.sheetRowId);
+                }
+            }
+
+            // 문서 삭제
+            await deleteDoc(docRef);
             setShowDeleteConfirm(null);
             setSelectedItem(null);
             setEditingItem(null);

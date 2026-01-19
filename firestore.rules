@@ -11,6 +11,24 @@ service cloud.firestore {
       allow write: if request.auth != null;
     }
 
+    // 최근 소식 (동기화된 항목) 컬렉션 규칙
+    match /updates/{document=**} {
+      // 누구나 읽기 가능
+      allow read: if true;
+      
+      // 로그인된 사용자만 쓰기/삭제 가능
+      allow write: if request.auth != null;
+    }
+
+    // 삭제된 항목 기록 (재동기화 방지용)
+    match /deletedItems/{document=**} {
+      // 읽기: 서버(Admin SDK)만 사용, 클라이언트는 쓰기만
+      allow read: if request.auth != null;
+      
+      // 로그인된 사용자만 쓰기 가능
+      allow write: if request.auth != null;
+    }
+
     // 방명록 컬렉션 규칙
     match /guestbook/{document=**} {
       // 누구나 읽기 및 작성 가능
