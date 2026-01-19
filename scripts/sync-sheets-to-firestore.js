@@ -122,8 +122,27 @@ function convertToGalleryItem(row, index) {
         return null;
     }
 
-    // 이미지 URL (시트에서 가져온 imageUrl 또는 기본 placeholder)
-    const imageUrl = row.imageUrl && row.imageUrl.trim() ? row.imageUrl.trim() : '';
+    // 이미지 URL 우선순위:
+    // 1. 시트의 imageUrl 컬럼
+    // 2. payload 안의 imageUrl 또는 image
+    // 3. 기본 placeholder
+    let imageUrl = '';
+
+    // 시트의 imageUrl 컬럼 확인
+    if (row.imageUrl && row.imageUrl.trim()) {
+        imageUrl = row.imageUrl.trim();
+    }
+    // payload 안의 imageUrl 확인
+    else if (payload.imageUrl && payload.imageUrl.trim()) {
+        imageUrl = payload.imageUrl.trim();
+    }
+    // payload 안의 image 확인
+    else if (payload.image && payload.image.trim()) {
+        imageUrl = payload.image.trim();
+    }
+
+    console.log(`📸 Image URL for "${payload.title}": ${imageUrl || '(none - will use default)'}`);
+
     const defaultImage = 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?q=80&w=1200&auto=format&fit=crop';
 
     // 태그를 키워드로 변환
