@@ -61,6 +61,8 @@ export const DetailView: React.FC<DetailViewProps> = ({ isOpen, onClose, item, o
 
   // QT Side Panel tab state
   const [sidePanelTab, setSidePanelTab] = React.useState<'memos' | 'comments'>('memos');
+  // Floating panel open/close state for QT
+  const [isFloatingPanelOpen, setIsFloatingPanelOpen] = React.useState(false);
 
   // Memo state for QT
   const [currentUser, setCurrentUser] = React.useState<User | null>(null);
@@ -420,13 +422,13 @@ export const DetailView: React.FC<DetailViewProps> = ({ isOpen, onClose, item, o
                 initial={{ scale: 0.95, opacity: 0, y: 50 }}
                 animate={{ scale: 1, opacity: 1, y: 0 }}
                 transition={{ ...transition, delay: 0.2 }}
-                className={`w-full ${isDailyReading ? 'mb-0 h-[85vh] md:h-[80vh]' : 'mb-[8vh] min-h-[70vh]'} bg-[#111] overflow-hidden relative`}
+                className={`w-full ${isDailyReading ? 'mb-0 h-[calc(100vh-120px)] md:h-[calc(100vh-80px)]' : 'mb-[8vh] min-h-[70vh]'} bg-[#111] overflow-hidden relative`}
               >
                 {isDailyReading ? (
-                  /* Daily Meditation QT Special Layout */
-                  <div className="flex flex-col lg:flex-row h-full">
-                    {/* Left: PDF Viewer */}
-                    <div className="flex-1 h-[55vh] lg:h-full relative border-b lg:border-b-0 lg:border-r border-white/10">
+                  /* Daily Meditation QT Special Layout - Full Screen PDF with Floating Panel */
+                  <div className="relative w-full h-full">
+                    {/* Full Screen PDF Viewer */}
+                    <div className="w-full h-full">
                       {(() => {
                         const displayPdfUrl = currentContent?.pdfUrl || (item.type === 'pdf' ? item.pdfUrl : undefined);
                         if (!displayPdfUrl) return null;
@@ -474,15 +476,42 @@ export const DetailView: React.FC<DetailViewProps> = ({ isOpen, onClose, item, o
                       })()}
                     </div>
 
-                    {/* Right: Memos & Comments Panel */}
-                    <div className="h-[45vh] lg:h-full lg:w-[400px] bg-[#0a0a0a] flex flex-col">
-                      {/* Tab Headers */}
-                      <div className="flex border-b border-white/10">
+                    {/* Floating Panel Toggle Button */}
+                    <button
+                      onClick={() => setIsFloatingPanelOpen(!isFloatingPanelOpen)}
+                      className={`fixed bottom-6 right-6 z-[60] w-14 h-14 rounded-full shadow-2xl flex items-center justify-center transition-all duration-300 ${isFloatingPanelOpen
+                          ? 'bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-400 hover:to-orange-400 rotate-0'
+                          : 'bg-gradient-to-r from-gray-700 to-gray-600 hover:from-gray-600 hover:to-gray-500'
+                        }`}
+                      style={{
+                        boxShadow: '0 8px 32px rgba(0,0,0,0.5)'
+                      }}
+                    >
+                      <span className="text-white text-2xl">{isFloatingPanelOpen ? '✕' : '📝'}</span>
+                      {!isFloatingPanelOpen && memos.length > 0 && (
+                        <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-[10px] rounded-full flex items-center justify-center font-bold">
+                          {memos.length}
+                        </span>
+                      )}
+                    </button>
+
+                    {/* Floating Slide Panel */}
+                    <div
+                      className={`fixed bottom-24 right-6 z-[55] w-[90vw] md:w-[380px] max-h-[60vh] bg-[#0a0a0a]/95 backdrop-blur-xl rounded-2xl border border-white/10 shadow-2xl overflow-hidden transition-all duration-300 transform ${isFloatingPanelOpen
+                          ? 'translate-y-0 opacity-100 scale-100'
+                          : 'translate-y-8 opacity-0 scale-95 pointer-events-none'
+                        }`}
+                      style={{
+                        boxShadow: '0 20px 60px rgba(0,0,0,0.6)'
+                      }}
+                    >
+                      {/* Panel Header with Tabs */}
+                      <div className="flex border-b border-white/10 bg-black/30">
                         <button
                           onClick={() => setSidePanelTab('memos')}
                           className={`flex-1 py-3 px-4 text-sm font-medium transition-colors ${sidePanelTab === 'memos'
-                              ? 'text-yellow-400 border-b-2 border-yellow-400 bg-yellow-400/5'
-                              : 'text-white/50 hover:text-white/80'
+                            ? 'text-yellow-400 border-b-2 border-yellow-400 bg-yellow-400/5'
+                            : 'text-white/50 hover:text-white/80'
                             }`}
                         >
                           📝 메모 {memos.length > 0 && `(${memos.length})`}
@@ -490,16 +519,16 @@ export const DetailView: React.FC<DetailViewProps> = ({ isOpen, onClose, item, o
                         <button
                           onClick={() => setSidePanelTab('comments')}
                           className={`flex-1 py-3 px-4 text-sm font-medium transition-colors ${sidePanelTab === 'comments'
-                              ? 'text-blue-400 border-b-2 border-blue-400 bg-blue-400/5'
-                              : 'text-white/50 hover:text-white/80'
+                            ? 'text-blue-400 border-b-2 border-blue-400 bg-blue-400/5'
+                            : 'text-white/50 hover:text-white/80'
                             }`}
                         >
                           💬 댓글
                         </button>
                       </div>
 
-                      {/* Tab Content */}
-                      <div className="flex-1 overflow-y-auto">
+                      {/* Panel Content */}
+                      <div className="overflow-y-auto max-h-[calc(60vh-50px)]">
                         {sidePanelTab === 'memos' ? (
                           <div className="p-4 space-y-4">
                             {/* Add Memo */}
@@ -510,7 +539,7 @@ export const DetailView: React.FC<DetailViewProps> = ({ isOpen, onClose, item, o
                                   onChange={(e) => setNewMemoText(e.target.value)}
                                   placeholder="오늘의 묵상을 기록해보세요..."
                                   className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white text-sm placeholder-white/30 resize-none focus:outline-none focus:border-yellow-400/50"
-                                  rows={3}
+                                  rows={2}
                                 />
                                 <button
                                   onClick={handleAddMemo}
@@ -521,7 +550,7 @@ export const DetailView: React.FC<DetailViewProps> = ({ isOpen, onClose, item, o
                                 </button>
                               </div>
                             ) : (
-                              <div className="text-center py-4 text-white/40 text-sm">
+                              <div className="text-center py-3 text-white/40 text-sm">
                                 로그인하면 메모를 추가할 수 있습니다
                               </div>
                             )}
@@ -540,7 +569,7 @@ export const DetailView: React.FC<DetailViewProps> = ({ isOpen, onClose, item, o
                                           value={editingMemo.text}
                                           onChange={(e) => setEditingMemo({ ...editingMemo, text: e.target.value })}
                                           className="w-full px-2 py-1 bg-white/10 border border-yellow-400/50 rounded text-white text-sm resize-none focus:outline-none"
-                                          rows={3}
+                                          rows={2}
                                         />
                                         <div className="flex gap-2">
                                           <button
@@ -559,16 +588,16 @@ export const DetailView: React.FC<DetailViewProps> = ({ isOpen, onClose, item, o
                                       </div>
                                     ) : (
                                       <>
-                                        <div className="flex items-start gap-2 mb-2">
+                                        <div className="flex items-start gap-2 mb-1">
                                           {memo.userPhoto && (
                                             <img
                                               src={memo.userPhoto}
                                               alt=""
-                                              className="w-6 h-6 rounded-full"
+                                              className="w-5 h-5 rounded-full"
                                             />
                                           )}
                                           <div className="flex-1 min-w-0">
-                                            <div className="text-xs text-white/50">
+                                            <div className="text-[10px] text-white/50">
                                               {memo.userName} • {memo.createdAt?.toDate?.()?.toLocaleDateString('ko-KR') || '방금 전'}
                                             </div>
                                           </div>
@@ -576,14 +605,14 @@ export const DetailView: React.FC<DetailViewProps> = ({ isOpen, onClose, item, o
                                             <div className="flex gap-1">
                                               <button
                                                 onClick={() => setEditingMemo({ id: memo.id, text: memo.text })}
-                                                className="p-1 text-white/40 hover:text-yellow-400 text-xs"
+                                                className="p-0.5 text-white/40 hover:text-yellow-400 text-[10px]"
                                                 title="편집"
                                               >
                                                 ✏️
                                               </button>
                                               <button
                                                 onClick={() => handleDeleteMemo(memo.id)}
-                                                className="p-1 text-white/40 hover:text-red-400 text-xs"
+                                                className="p-0.5 text-white/40 hover:text-red-400 text-[10px]"
                                                 title="삭제"
                                               >
                                                 🗑️
@@ -600,7 +629,7 @@ export const DetailView: React.FC<DetailViewProps> = ({ isOpen, onClose, item, o
                                 ))}
                               </div>
                             ) : (
-                              <div className="text-center py-8 text-white/30 text-sm">
+                              <div className="text-center py-6 text-white/30 text-sm">
                                 아직 메모가 없습니다
                               </div>
                             )}
