@@ -1,13 +1,24 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
-import { onAuthStateChanged } from 'firebase/auth';
-import { auth } from '../firebase';
+import { onAuthStateChanged, User } from 'firebase/auth';
+import { collection, query, onSnapshot, addDoc, updateDoc, deleteDoc, doc, orderBy, serverTimestamp } from 'firebase/firestore';
+import { auth, db } from '../firebase';
 import { useGallery } from '../context/GalleryContext';
 import { useCursor } from '../context/CursorContext';
 import { GalleryItemType } from '../data/gallery';
 import { Comments } from './Comments';
 import { PDFViewer } from './PDFViewer';
+
+interface Memo {
+  id: string;
+  text: string;
+  userId: string;
+  userName: string;
+  userPhoto?: string;
+  createdAt?: any;
+  updatedAt?: any;
+}
 
 interface DetailViewProps {
   isOpen: boolean;
@@ -47,6 +58,16 @@ export const DetailView: React.FC<DetailViewProps> = ({ isOpen, onClose, item, o
   // URL viewer state
   const [urlInput, setUrlInput] = React.useState('');
   const [displayUrl, setDisplayUrl] = React.useState('');
+
+  // QT Side Panel tab state
+  const [sidePanelTab, setSidePanelTab] = React.useState<'memos' | 'comments'>('memos');
+
+  // Memo state for QT
+  const [currentUser, setCurrentUser] = React.useState<User | null>(null);
+  const [memos, setMemos] = React.useState<Memo[]>([]);
+  const [newMemoText, setNewMemoText] = React.useState('');
+  const [editingMemo, setEditingMemo] = React.useState<{ id: string; text: string } | null>(null);
+  const [savingMemo, setSavingMemo] = React.useState(false);
 
   // Custom smooth scroll with easing
   const smoothScrollTo = React.useCallback((container: HTMLElement, targetPosition: number, duration: number = 600) => {
@@ -92,9 +113,73 @@ export const DetailView: React.FC<DetailViewProps> = ({ isOpen, onClose, item, o
   React.useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       setIsAdmin(!!user);
+      setCurrentUser(user);
     });
     return () => unsubscribe();
   }, []);
+
+  // Subscribe to memos for the current item (QT)
+  React.useEffect(() => {
+    if (!item?.id) {
+      setMemos([]);
+      return;
+    }
+    const q = query(
+      collection(db, 'gallery', String(item.id), 'memos'),
+      orderBy('createdAt', 'desc')
+    );
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const memoList: Memo[] = [];
+      snapshot.forEach((doc) => {
+        memoList.push({ id: doc.id, ...doc.data() } as Memo);
+      });
+      setMemos(memoList);
+    });
+    return () => unsubscribe();
+  }, [item?.id]);
+
+  // Memo handlers
+  const handleAddMemo = async () => {
+    if (!currentUser || !item?.id || !newMemoText.trim() || savingMemo) return;
+    setSavingMemo(true);
+    try {
+      await addDoc(collection(db, 'gallery', String(item.id), 'memos'), {
+        text: newMemoText.trim(),
+        userId: currentUser.uid,
+        userName: currentUser.displayName || '익명',
+        userPhoto: currentUser.photoURL || '',
+        createdAt: serverTimestamp(),
+      });
+      setNewMemoText('');
+    } catch (e) {
+      console.error('Failed to add memo:', e);
+    } finally {
+      setSavingMemo(false);
+    }
+  };
+
+  const handleUpdateMemo = async () => {
+    if (!editingMemo || !item?.id || !editingMemo.text.trim()) return;
+    try {
+      await updateDoc(doc(db, 'gallery', String(item.id), 'memos', editingMemo.id), {
+        text: editingMemo.text.trim(),
+        updatedAt: serverTimestamp(),
+      });
+      setEditingMemo(null);
+    } catch (e) {
+      console.error('Failed to update memo:', e);
+    }
+  };
+
+  const handleDeleteMemo = async (memoId: string) => {
+    if (!item?.id) return;
+    if (!window.confirm('메모를 삭제하시겠습니까?')) return;
+    try {
+      await deleteDoc(doc(db, 'gallery', String(item.id), 'memos', memoId));
+    } catch (e) {
+      console.error('Failed to delete memo:', e);
+    }
+  };
 
   React.useEffect(() => {
     if (contentRef.current) {
@@ -389,9 +474,141 @@ export const DetailView: React.FC<DetailViewProps> = ({ isOpen, onClose, item, o
                       })()}
                     </div>
 
-                    {/* Right: Comments Panel */}
-                    <div className="h-[45vh] lg:h-full lg:w-[400px] bg-[#0a0a0a]">
-                      <Comments galleryItem={item} variant="side-panel" />
+                    {/* Right: Memos & Comments Panel */}
+                    <div className="h-[45vh] lg:h-full lg:w-[400px] bg-[#0a0a0a] flex flex-col">
+                      {/* Tab Headers */}
+                      <div className="flex border-b border-white/10">
+                        <button
+                          onClick={() => setSidePanelTab('memos')}
+                          className={`flex-1 py-3 px-4 text-sm font-medium transition-colors ${sidePanelTab === 'memos'
+                              ? 'text-yellow-400 border-b-2 border-yellow-400 bg-yellow-400/5'
+                              : 'text-white/50 hover:text-white/80'
+                            }`}
+                        >
+                          📝 메모 {memos.length > 0 && `(${memos.length})`}
+                        </button>
+                        <button
+                          onClick={() => setSidePanelTab('comments')}
+                          className={`flex-1 py-3 px-4 text-sm font-medium transition-colors ${sidePanelTab === 'comments'
+                              ? 'text-blue-400 border-b-2 border-blue-400 bg-blue-400/5'
+                              : 'text-white/50 hover:text-white/80'
+                            }`}
+                        >
+                          💬 댓글
+                        </button>
+                      </div>
+
+                      {/* Tab Content */}
+                      <div className="flex-1 overflow-y-auto">
+                        {sidePanelTab === 'memos' ? (
+                          <div className="p-4 space-y-4">
+                            {/* Add Memo */}
+                            {currentUser ? (
+                              <div className="space-y-2">
+                                <textarea
+                                  value={newMemoText}
+                                  onChange={(e) => setNewMemoText(e.target.value)}
+                                  placeholder="오늘의 묵상을 기록해보세요..."
+                                  className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white text-sm placeholder-white/30 resize-none focus:outline-none focus:border-yellow-400/50"
+                                  rows={3}
+                                />
+                                <button
+                                  onClick={handleAddMemo}
+                                  disabled={!newMemoText.trim() || savingMemo}
+                                  className="w-full py-2 bg-gradient-to-r from-yellow-500 to-orange-500 text-white text-sm font-medium rounded-lg hover:from-yellow-400 hover:to-orange-400 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                                >
+                                  {savingMemo ? '저장 중...' : '메모 추가'}
+                                </button>
+                              </div>
+                            ) : (
+                              <div className="text-center py-4 text-white/40 text-sm">
+                                로그인하면 메모를 추가할 수 있습니다
+                              </div>
+                            )}
+
+                            {/* Memo List */}
+                            {memos.length > 0 ? (
+                              <div className="space-y-3">
+                                {memos.map((memo) => (
+                                  <div
+                                    key={memo.id}
+                                    className="p-3 bg-white/5 rounded-lg border border-white/10"
+                                  >
+                                    {editingMemo?.id === memo.id ? (
+                                      <div className="space-y-2">
+                                        <textarea
+                                          value={editingMemo.text}
+                                          onChange={(e) => setEditingMemo({ ...editingMemo, text: e.target.value })}
+                                          className="w-full px-2 py-1 bg-white/10 border border-yellow-400/50 rounded text-white text-sm resize-none focus:outline-none"
+                                          rows={3}
+                                        />
+                                        <div className="flex gap-2">
+                                          <button
+                                            onClick={handleUpdateMemo}
+                                            className="px-3 py-1 bg-yellow-500 text-white text-xs rounded hover:bg-yellow-400"
+                                          >
+                                            저장
+                                          </button>
+                                          <button
+                                            onClick={() => setEditingMemo(null)}
+                                            className="px-3 py-1 bg-white/10 text-white/70 text-xs rounded hover:bg-white/20"
+                                          >
+                                            취소
+                                          </button>
+                                        </div>
+                                      </div>
+                                    ) : (
+                                      <>
+                                        <div className="flex items-start gap-2 mb-2">
+                                          {memo.userPhoto && (
+                                            <img
+                                              src={memo.userPhoto}
+                                              alt=""
+                                              className="w-6 h-6 rounded-full"
+                                            />
+                                          )}
+                                          <div className="flex-1 min-w-0">
+                                            <div className="text-xs text-white/50">
+                                              {memo.userName} • {memo.createdAt?.toDate?.()?.toLocaleDateString('ko-KR') || '방금 전'}
+                                            </div>
+                                          </div>
+                                          {currentUser?.uid === memo.userId && (
+                                            <div className="flex gap-1">
+                                              <button
+                                                onClick={() => setEditingMemo({ id: memo.id, text: memo.text })}
+                                                className="p-1 text-white/40 hover:text-yellow-400 text-xs"
+                                                title="편집"
+                                              >
+                                                ✏️
+                                              </button>
+                                              <button
+                                                onClick={() => handleDeleteMemo(memo.id)}
+                                                className="p-1 text-white/40 hover:text-red-400 text-xs"
+                                                title="삭제"
+                                              >
+                                                🗑️
+                                              </button>
+                                            </div>
+                                          )}
+                                        </div>
+                                        <p className="text-white/80 text-sm whitespace-pre-wrap">
+                                          {memo.text}
+                                        </p>
+                                      </>
+                                    )}
+                                  </div>
+                                ))}
+                              </div>
+                            ) : (
+                              <div className="text-center py-8 text-white/30 text-sm">
+                                아직 메모가 없습니다
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          <Comments galleryItem={item} variant="side-panel" />
+                        )}
+                      </div>
                     </div>
                   </div>
                 ) : (
