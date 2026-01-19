@@ -187,6 +187,12 @@ export const RecentUpdates: React.FC<RecentUpdatesProps> = ({ isAdmin = false })
 
     // 삭제 함수 (sheetRowId를 deletedItems에 기록하여 재동기화 방지)
     const handleDelete = async (id: string) => {
+        // 로그인 확인
+        if (!currentUser) {
+            alert('삭제하려면 로그인이 필요합니다.');
+            return;
+        }
+
         try {
             // 삭제 전에 해당 문서의 sheetRowId를 가져옴
             const docRef = doc(db, 'updates', id);
@@ -196,12 +202,16 @@ export const RecentUpdates: React.FC<RecentUpdatesProps> = ({ isAdmin = false })
                 const data = docSnap.data();
                 // sheetRowId가 있으면 deletedItems 컬렉션에 기록
                 if (data.sheetRowId) {
-                    await addDoc(collection(db, 'deletedItems'), {
-                        sheetRowId: data.sheetRowId,
-                        title: data.title || '',
-                        deletedAt: serverTimestamp()
-                    });
-                    console.log('Recorded deleted item:', data.sheetRowId);
+                    try {
+                        await addDoc(collection(db, 'deletedItems'), {
+                            sheetRowId: data.sheetRowId,
+                            title: data.title || '',
+                            deletedAt: serverTimestamp()
+                        });
+                        console.log('Recorded deleted item:', data.sheetRowId);
+                    } catch (recordError) {
+                        console.warn('Failed to record deleted item, continuing with delete:', recordError);
+                    }
                 }
             }
 
@@ -210,9 +220,13 @@ export const RecentUpdates: React.FC<RecentUpdatesProps> = ({ isAdmin = false })
             setShowDeleteConfirm(null);
             setSelectedItem(null);
             setEditingItem(null);
-        } catch (error) {
+        } catch (error: any) {
             console.error('Delete error:', error);
-            alert('삭제 실패');
+            if (error.code === 'permission-denied') {
+                alert('삭제 권한이 없습니다. 관리자로 로그인해주세요.');
+            } else {
+                alert(`삭제 실패: ${error.message || error}`);
+            }
         }
     };
 
