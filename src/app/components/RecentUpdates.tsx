@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { collection, query, onSnapshot, deleteDoc, doc, updateDoc, addDoc, orderBy, serverTimestamp } from 'firebase/firestore';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { db, auth } from '../firebase';
@@ -291,6 +291,29 @@ export const RecentUpdates: React.FC<RecentUpdatesProps> = ({ isAdmin = false })
             item.content?.[0]?.text?.toLowerCase().includes(q)
         );
     });
+
+    // 동적 태그 카운트: 필터된 아이템 기준으로 계산
+    const dynamicTagCounts = useMemo(() => {
+        const hasActiveFilter = Object.keys(tagFilters).length > 0 || searchQuery.trim() !== '';
+
+        if (!hasActiveFilter) {
+            // 필터가 없으면 전체 카운트 반환
+            const counts: { [tag: string]: number } = {};
+            allTags.forEach(({ tag, count }) => {
+                counts[tag] = count;
+            });
+            return counts;
+        }
+
+        // 필터된 아이템 내에서 태그 카운트 계산
+        const counts: { [tag: string]: number } = {};
+        filteredItems.forEach(item => {
+            getTags(item).forEach(tag => {
+                counts[tag] = (counts[tag] || 0) + 1;
+            });
+        });
+        return counts;
+    }, [filteredItems, tagFilters, searchQuery, allTags]);
 
     // 날짜 포맷
     const formatDate = (dateStr: string | undefined) => {
@@ -744,8 +767,10 @@ export const RecentUpdates: React.FC<RecentUpdatesProps> = ({ isAdmin = false })
                                 )}
                             </div>
                             <div className="flex flex-wrap gap-2">
-                                {allTags.map(({ tag, count }) => {
+                                {allTags.map(({ tag }) => {
                                     const filterMode = tagFilters[tag];
+                                    const dynamicCount = dynamicTagCounts[tag] || 0;
+                                    const isZeroCount = dynamicCount === 0 && Object.keys(tagFilters).length > 0;
                                     return (
                                         <button
                                             key={tag}
@@ -767,13 +792,17 @@ export const RecentUpdates: React.FC<RecentUpdatesProps> = ({ isAdmin = false })
                                                 ? 'bg-gradient-to-r from-blue-500 to-purple-500 text-white shadow-lg'
                                                 : filterMode === 'exclude'
                                                     ? 'bg-gradient-to-r from-red-500 to-orange-500 text-white shadow-lg line-through'
-                                                    : 'bg-white/10 text-white/70 hover:bg-white/20 hover:text-white'
+                                                    : isZeroCount
+                                                        ? 'bg-white/5 text-white/30 hover:bg-white/10 hover:text-white/50'
+                                                        : 'bg-white/10 text-white/70 hover:bg-white/20 hover:text-white'
                                                 }`}
                                         >
                                             {filterMode === 'include' && <span>✓</span>}
                                             {filterMode === 'exclude' && <span>✗</span>}
                                             #{tag}
-                                            <span className="ml-1 text-[10px] opacity-60">{count}</span>
+                                            <span className={`ml-1 text-[10px] ${isZeroCount ? 'opacity-30' : 'opacity-60'}`}>
+                                                {dynamicCount}
+                                            </span>
                                         </button>
                                     );
                                 })}
