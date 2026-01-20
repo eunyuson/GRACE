@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { collection, query, onSnapshot, deleteDoc, doc, updateDoc, addDoc, orderBy, serverTimestamp, getDoc } from 'firebase/firestore';
+import { collection, query, onSnapshot, deleteDoc, doc, updateDoc, addDoc, orderBy, serverTimestamp, getDoc, getDocs } from 'firebase/firestore';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { db, auth } from '../firebase';
 
@@ -40,6 +40,9 @@ export const RecentUpdates: React.FC<RecentUpdatesProps> = ({ isAdmin = false })
     const [allTags, setAllTags] = useState<{ tag: string; count: number }[]>([]);
     const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
     const [saving, setSaving] = useState(false);
+
+    // 갤러리 승격 상태
+    const [promotingToGallery, setPromotingToGallery] = useState(false);
 
     // Selection state for bulk actions
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -295,6 +298,54 @@ export const RecentUpdates: React.FC<RecentUpdatesProps> = ({ isAdmin = false })
             } else {
                 alert(`삭제 실패: ${error.message || error}`);
             }
+        }
+    };
+
+    // 갤러리에 추가 (승격) 함수
+    const promoteToGallery = async (item: UpdateItem) => {
+        if (!currentUser) {
+            alert('갤러리에 추가하려면 로그인이 필요합니다.');
+            return;
+        }
+
+        if (!confirm(`"${item.title}"을(를) 메인 갤러리에 추가하시겠습니까?`)) return;
+
+        setPromotingToGallery(true);
+
+        try {
+            // 다음 갤러리 인덱스 가져오기
+            const gallerySnapshot = await getDocs(collection(db, 'gallery'));
+            const existingIndices = gallerySnapshot.docs.map(d => {
+                const idx = parseInt(d.data().index, 10);
+                return isNaN(idx) ? 0 : idx;
+            });
+            const nextIndex = existingIndices.length > 0
+                ? String(Math.max(...existingIndices) + 1).padStart(2, '0')
+                : '01';
+
+            // 갤러리 아이템 데이터 준비
+            const galleryItem = {
+                index: nextIndex,
+                title: item.title,
+                subtitle: item.subtitle || '',
+                image: item.image || 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?q=80&w=1200&auto=format&fit=crop',
+                type: 'image',
+                descTitle: item.title,
+                desc: item.subtitle || item.desc || '',
+                content: item.content || [],
+                // 승격 메타데이터
+                promotedFrom: item.id,
+                promotedAt: serverTimestamp()
+            };
+
+            await addDoc(collection(db, 'gallery'), galleryItem);
+            alert(`✅ "${item.title}"이(가) 갤러리에 추가되었습니다!`);
+            setSelectedItem(null);
+        } catch (error) {
+            console.error('Promote to gallery error:', error);
+            alert('갤러리 추가 실패: ' + (error as Error).message);
+        } finally {
+            setPromotingToGallery(false);
         }
     };
 
@@ -655,6 +706,14 @@ export const RecentUpdates: React.FC<RecentUpdatesProps> = ({ isAdmin = false })
                                 <div className="flex gap-2">
                                     {isAdmin && (
                                         <>
+                                            <button
+                                                onClick={() => promoteToGallery(selectedItem)}
+                                                disabled={promotingToGallery}
+                                                className="w-10 h-10 rounded-full bg-green-500/20 hover:bg-green-500/40 flex items-center justify-center transition-all disabled:opacity-50"
+                                                title="갤러리에 추가"
+                                            >
+                                                <span className="text-green-400">{promotingToGallery ? '⏳' : '📤'}</span>
+                                            </button>
                                             <button
                                                 onClick={() => {
                                                     setEditingItem(selectedItem);
