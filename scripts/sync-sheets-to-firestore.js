@@ -286,6 +286,68 @@ async function syncDeletionsToSheets(sheetData) {
     }
 }
 
+// 기존 항목 이미지 업데이트
+async function updateExistingItemImages(sheetData) {
+    console.log('🖼️ Updating images for existing items...');
+
+    // 시트 데이터를 created_at 기준으로 매핑
+    const sheetImageMap = {};
+    for (const row of sheetData) {
+        let imageUrl = '';
+
+        // 시트의 imageUrl 컬럼 확인
+        if (row.imageUrl && row.imageUrl.trim()) {
+            imageUrl = row.imageUrl.trim();
+        } else {
+            // payload에서 확인
+            try {
+                const payload = JSON.parse(row.payload || '{}');
+                imageUrl = payload.imageUrl || payload.image || '';
+            } catch (e) { }
+        }
+
+        if (imageUrl && row.created_at) {
+            imageUrl = convertGoogleDriveUrl(imageUrl);
+            sheetImageMap[row.created_at] = imageUrl;
+        }
+    }
+
+    // Firestore의 기존 항목 업데이트
+    const snapshot = await db.collection('updates')
+        .where('source', '==', 'shortcut')
+        .get();
+
+    let updated = 0;
+    const defaultImage = 'https://images.unsplash.com/photo-1506744038136-46273834b3fb';
+
+    for (const doc of snapshot.docs) {
+        const data = doc.data();
+        const sheetRowId = data.sheetRowId;
+
+        if (!sheetRowId) continue;
+
+        // sheetRowId에서 created_at 추출
+        const createdAtMatch = sheetRowId.match(/sheet_(?:\d+_)?(.+)/);
+        const createdAt = createdAtMatch ? createdAtMatch[1] : null;
+
+        if (!createdAt) continue;
+
+        // 시트에서 이미지 찾기
+        const newImageUrl = sheetImageMap[createdAt];
+
+        // 이미지가 없거나 기본 이미지인 경우에만 업데이트
+        if (newImageUrl && (!data.image || data.image.includes('unsplash.com'))) {
+            console.log(`   📸 Updating image for: ${data.title}`);
+            await db.collection('updates').doc(doc.id).update({
+                image: newImageUrl
+            });
+            updated++;
+        }
+    }
+
+    console.log(`   ✅ Updated ${updated} items with images`);
+}
+
 // 메인 동기화 함수
 async function syncSheetsToFirestore() {
     console.log('🔄 Starting sync from Google Sheets to Firestore...');
@@ -332,6 +394,9 @@ async function syncSheetsToFirestore() {
         });
 
         console.log(`🆕 New items to sync: ${newItems.length}`);
+
+        // 5.5 기존 항목 이미지 업데이트
+        await updateExistingItemImages(freshSheetData);
 
         if (newItems.length === 0) {
             console.log('No new items to sync');
