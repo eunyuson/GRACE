@@ -62,6 +62,14 @@ async function getSheetData() {
     return data;
 }
 
+// Helper: Normalize ID to be stable (remove row index if present)
+// Converts "sheet_2_2024-01-01" -> "sheet_2024-01-01"
+// Keeps "sheet_2024-01-01" as is
+function normalizeId(id) {
+    if (!id) return null;
+    return id.replace(/^sheet_\d+_/, 'sheet_');
+}
+
 // Firestore에서 기존 동기화된 항목 ID 가져오기
 async function getSyncedItemIds() {
     const snapshot = await db.collection('updates')
@@ -72,7 +80,8 @@ async function getSyncedItemIds() {
     snapshot.forEach(doc => {
         const data = doc.data();
         if (data.sheetRowId) {
-            ids.add(data.sheetRowId);
+            // Store normalized ID to compare against new stable IDs
+            ids.add(normalizeId(data.sheetRowId));
         }
     });
 
@@ -87,7 +96,8 @@ async function getDeletedItemIds() {
     snapshot.forEach(doc => {
         const data = doc.data();
         if (data.sheetRowId) {
-            ids.add(data.sheetRowId);
+            // Store normalized ID regarding deletions too
+            ids.add(normalizeId(data.sheetRowId));
         }
     });
 
@@ -109,6 +119,25 @@ async function getNextIndex() {
     const lastItem = snapshot.docs[0].data();
     const lastIndex = parseInt(lastItem.index, 10) || 0;
     return String(lastIndex + 1).padStart(2, '0');
+}
+
+// Helper: Convert Google Drive URL to direct view URL
+function convertGoogleDriveUrl(url) {
+    if (!url) return url;
+
+    // Regular Google Drive File link
+    const fileIdMatch = url.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
+    if (fileIdMatch && fileIdMatch[1]) {
+        return `https://drive.google.com/uc?export=view&id=${fileIdMatch[1]}`;
+    }
+
+    // Older format or open?id= format
+    const idParamMatch = url.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+    if (idParamMatch && idParamMatch[1]) {
+        return `https://drive.google.com/uc?export=view&id=${idParamMatch[1]}`;
+    }
+
+    return url;
 }
 
 // Google Sheets 행을 갤러리 아이템으로 변환
@@ -141,6 +170,9 @@ function convertToGalleryItem(row, index) {
         imageUrl = payload.image.trim();
     }
 
+    // Convert Google Drive URL if present
+    imageUrl = convertGoogleDriveUrl(imageUrl);
+
     console.log(`📸 Image URL for "${payload.title}": ${imageUrl || '(none - will use default)'}`);
 
     const defaultImage = 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?q=80&w=1200&auto=format&fit=crop';
@@ -165,6 +197,9 @@ function convertToGalleryItem(row, index) {
         });
     }
 
+    // Use stable ID format (no rowIndex)
+    const stableId = `sheet_${row.created_at}`;
+
     return {
         index: index,
         title: payload.title || 'Untitled',
@@ -176,10 +211,79 @@ function convertToGalleryItem(row, index) {
         content: content,
         // 동기화 메타데이터
         source: 'shortcut',
-        sheetRowId: `sheet_${row.rowIndex}_${row.created_at}`,
+        sheetRowId: stableId,
         createdAt: admin.firestore.FieldValue.serverTimestamp(),
         syncedAt: admin.firestore.FieldValue.serverTimestamp()
     };
+}
+
+// Helper: Get Sheet Row ID from our stable ID
+// Firestore ID: sheet_2024-01-01T12:00:00
+// We need to match this with rows in the sheet.
+// Since we don't store rowIndex in ID anymore, we must match by created_at.
+
+// Reverse Sync: Delete rows from Google Sheets
+async function syncDeletionsToSheets(sheetData) {
+    console.log('🗑️ checking for deletions to sync to Sheets...');
+
+    // Get all deleted items that haven't been processed yet? 
+    // For now, we get all and match against current sheet data.
+    // Ideally we should mark them as 'synced' but to keep it simple and robust (stateless),
+    // we just check if the row still exists in the sheet.
+
+    const deletedIds = await getDeletedItemIds();
+    if (deletedIds.size === 0) return;
+
+    // Find rows to delete
+    // We match by created_at which is the suffix of our ID
+    const rowsToDelete = [];
+
+    sheetData.forEach(row => {
+        const stableId = `sheet_${row.created_at}`;
+        // Also check if deletedId matches normal ID
+        if (deletedIds.has(stableId)) {
+            rowsToDelete.push(row.rowIndex);
+        }
+    });
+
+    if (rowsToDelete.length === 0) {
+        console.log('✅ No rows to delete from Sheets');
+        return;
+    }
+
+    console.log(`⚠️ Found ${rowsToDelete.length} rows to delete from Sheets: ${rowsToDelete.join(', ')}`);
+
+    // Sort descending to delete from bottom up (so indices don't shift for remaining targets)
+    rowsToDelete.sort((a, b) => b - a);
+
+    const sheets = await getGoogleSheetsClient();
+
+    // Process deletions in batches or one by one. 
+    // batchUpdate with deleteDimension is best.
+
+    const requests = rowsToDelete.map(rowIndex => ({
+        deleteDimension: {
+            range: {
+                sheetId: 0, // Assuming first sheet. If not, need to fetch sheetId.
+                dimension: 'ROWS',
+                startIndex: rowIndex - 1, // API is 0-based
+                endIndex: rowIndex
+            }
+        }
+    }));
+
+    try {
+        await sheets.spreadsheets.batchUpdate({
+            spreadsheetId: SHEET_ID,
+            resource: {
+                requests: requests
+            }
+        });
+        console.log('✨ Successfully deleted rows from Google Sheets');
+    } catch (error) {
+        console.error('❌ Failed to delete rows from Sheets:', error);
+        // Don't exit process, continue to sync new items
+    }
 }
 
 // 메인 동기화 함수
@@ -191,21 +295,32 @@ async function syncSheetsToFirestore() {
         const sheetData = await getSheetData();
         console.log(`📊 Found ${sheetData.length} rows in sheet`);
 
-        if (sheetData.length === 0) {
+        // 2. Reverse Sync: 먼저 삭제 처리 (행이 밀리기 전에)
+        if (sheetData.length > 0) {
+            await syncDeletionsToSheets(sheetData);
+        }
+
+        // 재조회 (삭제 후 데이터 변경되었을 수 있음)
+        // 효율성을 위해 삭제된 행만 제외하거나, 안전하게 다시 읽기
+        // 다시 읽는 것이 가장 안전함.
+        const freshSheetData = await getSheetData();
+        if (freshSheetData.length === 0) {
             console.log('No data to sync');
             return;
         }
 
-        // 2. 이미 동기화된 항목 확인
+        // 3. 이미 동기화된 항목 확인
         const syncedIds = await getSyncedItemIds();
         console.log(`✅ Already synced: ${syncedIds.size} items`);
 
-        // 3. 삭제된 항목 확인 (재동기화 방지)
+        // 4. 삭제된 항목 확인 (재동기화 방지)
         const deletedIds = await getDeletedItemIds();
 
-        // 4. 새 항목 필터링 (이미 동기화되었거나 삭제된 항목 제외)
-        const newItems = sheetData.filter(row => {
-            const rowId = `sheet_${row.rowIndex}_${row.created_at}`;
+        // 5. 새 항목 필터링
+        const newItems = freshSheetData.filter(row => {
+            // Generate stable ID for comparison
+            const rowId = `sheet_${row.created_at}`;
+
             if (syncedIds.has(rowId)) {
                 return false; // 이미 동기화됨
             }
@@ -223,11 +338,11 @@ async function syncSheetsToFirestore() {
             return;
         }
 
-        // 4. 다음 인덱스 가져오기
+        // 6. 다음 인덱스 가져오기
         let nextIndex = await getNextIndex();
         console.log(`📍 Starting index: ${nextIndex}`);
 
-        // 5. 새 항목 추가
+        // 7. 새 항목 추가
         const batch = db.batch();
         let addedCount = 0;
 
@@ -245,7 +360,7 @@ async function syncSheetsToFirestore() {
             }
         }
 
-        // 6. 배치 커밋
+        // 8. 배치 커밋
         await batch.commit();
         console.log(`✨ Successfully added ${addedCount} items to Firestore`);
 

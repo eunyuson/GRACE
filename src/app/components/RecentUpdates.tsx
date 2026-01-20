@@ -35,12 +35,80 @@ export const RecentUpdates: React.FC<RecentUpdatesProps> = ({ isAdmin = false })
     const [editingItem, setEditingItem] = useState<UpdateItem | null>(null);
     const [searchQuery, setSearchQuery] = useState('');
     // 태그 필터: 'include' = 포함, 'exclude' = 제외
+    // 태그 필터: 'include' = 포함, 'exclude' = 제외
     const [tagFilters, setTagFilters] = useState<{ [tag: string]: 'include' | 'exclude' }>({});
     const [allTags, setAllTags] = useState<{ tag: string; count: number }[]>([]);
     const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
     const [saving, setSaving] = useState(false);
 
-    // Memo states
+    // Selection state for bulk actions
+    const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+
+    // Toggle selection of a single item
+    const toggleSelection = (id: string, e: React.MouseEvent) => {
+        e.stopPropagation();
+        const newSelected = new Set(selectedIds);
+        if (newSelected.has(id)) {
+            newSelected.delete(id);
+        } else {
+            newSelected.add(id);
+        }
+        setSelectedIds(newSelected);
+    };
+
+    // Toggle select all
+    const toggleSelectAll = () => {
+        if (selectedIds.size === filteredItems.length) {
+            setSelectedIds(new Set());
+        } else {
+            setSelectedIds(new Set(filteredItems.map(item => item.id)));
+        }
+    };
+
+    // Bulk Delete Handler
+    const handleBulkDelete = async () => {
+        if (selectedIds.size === 0) return;
+
+        if (!confirm(`${selectedIds.size}개 항목을 삭제하시겠습니까?`)) return;
+
+        let successCount = 0;
+        let failCount = 0;
+
+        for (const id of selectedIds) {
+            try {
+                // Delete logic (same as single delete)
+                const docRef = doc(db, 'updates', id);
+                const docSnap = await getDoc(docRef);
+
+                if (docSnap.exists()) {
+                    const data = docSnap.data();
+                    if (data.sheetRowId) {
+                        try {
+                            await addDoc(collection(db, 'deletedItems'), {
+                                sheetRowId: data.sheetRowId,
+                                title: data.title || '',
+                                deletedAt: serverTimestamp()
+                            });
+                        } catch (e) {
+                            console.warn('Failed to record deleted item', e);
+                        }
+                    }
+                }
+                await deleteDoc(docRef);
+                successCount++;
+            } catch (error) {
+                console.error('Bulk delete error for', id, error);
+                failCount++;
+            }
+        }
+
+        alert(`삭제 완료: ${successCount}건${failCount > 0 ? `, 실패: ${failCount}건` : ''}`);
+        setSelectedIds(new Set());
+    };
+
+    // ... (rest of the component)
+
+
     const [currentUser, setCurrentUser] = useState<User | null>(null);
     const [memos, setMemos] = useState<{ [itemId: string]: Memo[] }>({});
     const [newMemoText, setNewMemoText] = useState('');
@@ -241,7 +309,8 @@ export const RecentUpdates: React.FC<RecentUpdatesProps> = ({ isAdmin = false })
                 subtitle: editingItem.subtitle,
                 desc: editingItem.desc,
                 descTitle: editingItem.title,
-                content: editingItem.content
+                content: editingItem.content,
+                image: editingItem.image || ''
             });
             setEditingItem(null);
         } catch (error) {
@@ -389,6 +458,30 @@ export const RecentUpdates: React.FC<RecentUpdatesProps> = ({ isAdmin = false })
 
     return (
         <div className="w-full h-full overflow-auto bg-gradient-to-br from-[#0a0a0a] to-[#151515]">
+            {/* Bulk Action Bar - Sticky Header */}
+            {isAdmin && selectedIds.size > 0 && (
+                <div className="absolute top-20 left-0 right-0 z-40 px-6 md:px-10 flex justify-center pointer-events-none">
+                    <div className="bg-[#1a1a2e] border border-blue-500/30 shadow-2xl rounded-full px-6 py-3 flex items-center gap-6 pointer-events-auto animate-fade-in-up">
+                        <span className="text-white font-medium">
+                            {selectedIds.size}개 선택됨
+                        </span>
+                        <div className="h-4 w-[1px] bg-white/10"></div>
+                        <button
+                            onClick={() => setSelectedIds(new Set())}
+                            className="text-white/60 hover:text-white text-sm"
+                        >
+                            선택 해제
+                        </button>
+                        <button
+                            onClick={handleBulkDelete}
+                            className="bg-red-500 hover:bg-red-600 text-white px-4 py-1.5 rounded-full text-sm font-medium transition flex items-center gap-2"
+                        >
+                            <span>🗑️</span> 삭제
+                        </button>
+                    </div>
+                </div>
+            )}
+
             {/* Delete Confirmation Modal */}
             {showDeleteConfirm && (
                 <div className="fixed inset-0 bg-black/80 z-[60] flex items-center justify-center p-4">
@@ -480,6 +573,30 @@ export const RecentUpdates: React.FC<RecentUpdatesProps> = ({ isAdmin = false })
                                                 #{tag}
                                             </span>
                                         ))}
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* 이미지 URL */}
+                            <div>
+                                <label className="text-white/50 text-xs uppercase tracking-wider mb-1 block">이미지 URL</label>
+                                <input
+                                    type="text"
+                                    value={editingItem.image || ''}
+                                    onChange={(e) => handleEditChange('image', e.target.value)}
+                                    placeholder="https://drive.google.com/..."
+                                    className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder-white/30 focus:outline-none focus:border-blue-500/50"
+                                />
+                                {editingItem.image && (
+                                    <div className="mt-3 rounded-xl overflow-hidden border border-white/10">
+                                        <img
+                                            src={editingItem.image}
+                                            alt="Preview"
+                                            className="w-full max-h-48 object-contain bg-black/30"
+                                            onError={(e) => {
+                                                (e.target as HTMLImageElement).style.display = 'none';
+                                            }}
+                                        />
                                     </div>
                                 )}
                             </div>
@@ -584,6 +701,10 @@ export const RecentUpdates: React.FC<RecentUpdatesProps> = ({ isAdmin = false })
 
                         {/* Content */}
                         <div className="px-6 pb-6">
+                            <div className="text-white/80 text-base leading-relaxed whitespace-pre-wrap mb-6">
+                                {getContent(selectedItem)}
+                            </div>
+
                             {/* Image Display */}
                             {selectedItem.image && !selectedItem.image.includes('unsplash.com') && (
                                 <div className="relative w-full mb-6 overflow-hidden rounded-xl">
@@ -597,10 +718,6 @@ export const RecentUpdates: React.FC<RecentUpdatesProps> = ({ isAdmin = false })
                                     />
                                 </div>
                             )}
-
-                            <div className="text-white/80 text-base leading-relaxed whitespace-pre-wrap">
-                                {getContent(selectedItem)}
-                            </div>
 
                             {selectedItem.content?.[0]?.date && (
                                 <div className="mt-8 pt-4 border-t border-white/10">
@@ -776,11 +893,23 @@ export const RecentUpdates: React.FC<RecentUpdatesProps> = ({ isAdmin = false })
                             </h2>
                             <p className="text-white/40 text-sm">iPhone에서 보낸 메모와 업데이트</p>
                         </div>
-                        {isAdmin && (
-                            <span className="px-3 py-1 bg-blue-500/20 text-blue-300 text-xs rounded-full">
-                                👑 관리자 모드
-                            </span>
-                        )}
+                        <div className="flex items-center gap-3">
+                            {isAdmin && (
+                                <>
+                                    <button
+                                        onClick={toggleSelectAll}
+                                        className="px-3 py-1.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg text-xs text-white/70 transition"
+                                    >
+                                        {selectedIds.size === filteredItems.length && filteredItems.length > 0
+                                            ? '전체 해제'
+                                            : '전체 선택'}
+                                    </button>
+                                    <span className="px-3 py-1 bg-blue-500/20 text-blue-300 text-xs rounded-full">
+                                        👑 관리자 모드
+                                    </span>
+                                </>
+                            )}
+                        </div>
                     </div>
 
                     {/* Tag Cloud */}
@@ -896,9 +1025,33 @@ export const RecentUpdates: React.FC<RecentUpdatesProps> = ({ isAdmin = false })
                         {filteredItems.map((item, index) => (
                             <div
                                 key={item.id}
-                                className="group relative bg-gradient-to-br from-white/5 to-white/[0.02] hover:from-white/10 hover:to-white/5 border border-white/10 hover:border-blue-500/30 rounded-2xl p-6 cursor-pointer transition-all duration-500 hover:scale-[1.02] hover:shadow-xl hover:shadow-blue-500/10"
+                                className={`group relative bg-gradient-to-br from-white/5 to-white/[0.02] hover:from-white/10 hover:to-white/5 rounded-2xl p-6 cursor-pointer transition-all duration-500 hover:scale-[1.02] hover:shadow-xl hover:shadow-blue-500/10 border
+                                    ${selectedIds.has(item.id)
+                                        ? 'border-blue-500/50 ring-2 ring-blue-500/20'
+                                        : 'border-white/10 hover:border-blue-500/30'}`}
                                 style={{ animationDelay: `${index * 50}ms` }}
                             >
+                                {/* Admin Selection Checkbox */}
+                                {isAdmin && (
+                                    <div
+                                        className="absolute top-3 left-3 z-20"
+                                        onClick={(e) => e.stopPropagation()}
+                                    >
+                                        <div
+                                            onClick={(e) => toggleSelection(item.id, e)}
+                                            className={`w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-all cursor-pointer
+                                                ${selectedIds.has(item.id)
+                                                    ? 'bg-blue-500 border-blue-500'
+                                                    : 'bg-black/40 border-white/30 hover:border-white/70'}`}
+                                        >
+                                            {selectedIds.has(item.id) && (
+                                                <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                                                </svg>
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
                                 {/* Admin Buttons */}
                                 {isAdmin && (
                                     <div className="absolute top-3 right-3 flex gap-1 opacity-0 group-hover:opacity-100 transition-all z-10">
@@ -928,21 +1081,6 @@ export const RecentUpdates: React.FC<RecentUpdatesProps> = ({ isAdmin = false })
                                 <div onClick={() => setSelectedItem(item)}>
                                     {/* Accent Line */}
                                     <div className="absolute top-0 left-6 right-6 h-[2px] bg-gradient-to-r from-transparent via-blue-500/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-
-                                    {/* Image Thumbnail */}
-                                    {item.image && !item.image.includes('unsplash.com') && (
-                                        <div className="relative w-full h-32 mb-4 -mt-2 -mx-0 overflow-hidden rounded-xl">
-                                            <img
-                                                src={item.image}
-                                                alt={item.title}
-                                                className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-                                                onError={(e) => {
-                                                    (e.target as HTMLImageElement).style.display = 'none';
-                                                }}
-                                            />
-                                            <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
-                                        </div>
-                                    )}
 
                                     <h3 className="text-white font-semibold text-lg mb-3 group-hover:text-blue-300 transition-colors line-clamp-2">
                                         {item.title}
@@ -990,6 +1128,21 @@ export const RecentUpdates: React.FC<RecentUpdatesProps> = ({ isAdmin = false })
                                         <div className="flex items-center gap-1.5 mt-2 text-[11px] text-yellow-300/70">
                                             <span>📝</span>
                                             <span>메모 {getMemoCount(item.id)}개</span>
+                                        </div>
+                                    )}
+
+                                    {/* Image Thumbnail - Below Content */}
+                                    {item.image && !item.image.includes('unsplash.com') && (
+                                        <div className="relative w-full h-32 mt-4 overflow-hidden rounded-xl">
+                                            <img
+                                                src={item.image}
+                                                alt={item.title}
+                                                className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                                                onError={(e) => {
+                                                    (e.target as HTMLImageElement).style.display = 'none';
+                                                }}
+                                            />
+                                            <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
                                         </div>
                                     )}
 
