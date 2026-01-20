@@ -480,8 +480,8 @@ export const DetailView: React.FC<DetailViewProps> = ({ isOpen, onClose, item, o
                     <button
                       onClick={() => setIsFloatingPanelOpen(!isFloatingPanelOpen)}
                       className={`fixed bottom-6 right-6 z-[60] w-14 h-14 rounded-full shadow-2xl flex items-center justify-center transition-all duration-300 ${isFloatingPanelOpen
-                          ? 'bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-400 hover:to-orange-400 rotate-0'
-                          : 'bg-gradient-to-r from-gray-700 to-gray-600 hover:from-gray-600 hover:to-gray-500'
+                        ? 'bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-400 hover:to-orange-400 rotate-0'
+                        : 'bg-gradient-to-r from-gray-700 to-gray-600 hover:from-gray-600 hover:to-gray-500'
                         }`}
                       style={{
                         boxShadow: '0 8px 32px rgba(0,0,0,0.5)'
@@ -498,8 +498,8 @@ export const DetailView: React.FC<DetailViewProps> = ({ isOpen, onClose, item, o
                     {/* Floating Slide Panel */}
                     <div
                       className={`fixed bottom-24 right-6 z-[55] w-[90vw] md:w-[380px] max-h-[60vh] bg-[#0a0a0a]/95 backdrop-blur-xl rounded-2xl border border-white/10 shadow-2xl overflow-hidden transition-all duration-300 transform ${isFloatingPanelOpen
-                          ? 'translate-y-0 opacity-100 scale-100'
-                          : 'translate-y-8 opacity-0 scale-95 pointer-events-none'
+                        ? 'translate-y-0 opacity-100 scale-100'
+                        : 'translate-y-8 opacity-0 scale-95 pointer-events-none'
                         }`}
                       style={{
                         boxShadow: '0 20px 60px rgba(0,0,0,0.6)'
@@ -884,8 +884,29 @@ export const DetailView: React.FC<DetailViewProps> = ({ isOpen, onClose, item, o
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0, y: -10 }}
                       transition={{ duration: 0.3 }}
-                      className="text-[#a0a0a0] leading-[1.8] font-light space-y-6 whitespace-pre-line"
+                      className="text-[#a0a0a0] leading-[1.8] font-light whitespace-pre-line"
                     >
+                      {/* Left Floating Image */}
+                      {(() => {
+                        const floatingImage = currentContent?.image || (activeTab === 'STORY' ? item.image : undefined);
+                        if (floatingImage) {
+                          return (
+                            <motion.div
+                              initial={{ opacity: 0, x: -20 }}
+                              animate={{ opacity: 1, x: 0 }}
+                              transition={{ duration: 0.5 }}
+                              className="float-left mr-6 mb-4 w-[45%] md:w-[40%] max-w-[300px] rounded-lg overflow-hidden shadow-xl"
+                            >
+                              <img
+                                src={floatingImage}
+                                alt={activeTab}
+                                className="w-full h-auto object-cover"
+                              />
+                            </motion.div>
+                          );
+                        }
+                        return null;
+                      })()}
                       {currentContent ? currentContent.text : item.desc}
 
                       {/* 외부 링크 버튼 */}
