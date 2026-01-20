@@ -1,0 +1,38 @@
+name: Sync Google Sheets to Firestore
+
+on:
+  # 5분마다 자동 실행
+  schedule:
+    - cron: '*/5 * * * *'
+  # 수동 실행 가능
+  workflow_dispatch:
+  # main 브랜치 푸시 시에도 실행
+  push:
+    branches:
+      - main
+    paths:
+      - 'scripts/sync-sheets-to-firestore.js'
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run sync script
+        env:
+          GOOGLE_SERVICE_ACCOUNT: ${{ secrets.GOOGLE_SERVICE_ACCOUNT }}
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          GOOGLE_SHEET_ID: ${{ secrets.GOOGLE_SHEET_ID }}
+        run: node scripts/sync-sheets-to-firestore.js
