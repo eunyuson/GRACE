@@ -335,9 +335,11 @@ async function updateExistingItemImages(sheetData) {
         // 시트에서 이미지 찾기
         const newImageUrl = sheetImageMap[createdAt];
 
-        // 이미지가 없거나 기본 이미지인 경우에만 업데이트
-        if (newImageUrl && (!data.image || data.image.includes('unsplash.com'))) {
+        // 시트에 이미지가 있고, 현재 이미지와 다르면 업데이트
+        if (newImageUrl && newImageUrl !== data.image) {
             console.log(`   📸 Updating image for: ${data.title}`);
+            console.log(`      Old: ${data.image?.substring(0, 60) || '(none)'}...`);
+            console.log(`      New: ${newImageUrl.substring(0, 60)}...`);
             await db.collection('updates').doc(doc.id).update({
                 image: newImageUrl
             });
