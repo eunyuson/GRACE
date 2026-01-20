@@ -701,23 +701,38 @@ export const RecentUpdates: React.FC<RecentUpdatesProps> = ({ isAdmin = false })
 
                         {/* Content */}
                         <div className="px-6 pb-6">
-                            <div className="text-white/80 text-base leading-relaxed whitespace-pre-wrap mb-6">
-                                {getContent(selectedItem)}
-                            </div>
+                            {/* Layout with floating image on left */}
+                            <div className={`${selectedItem.image && !selectedItem.image.includes('unsplash.com') ? 'md:flex md:gap-6' : ''}`}>
+                                {/* Floating Image - Left side on desktop */}
+                                {selectedItem.image && !selectedItem.image.includes('unsplash.com') && (
+                                    <div className="md:sticky md:top-24 md:self-start mb-4 md:mb-0 md:flex-shrink-0">
+                                        <div className="relative group/img">
+                                            <div className="md:w-48 lg:w-56 overflow-hidden rounded-xl border border-white/10 bg-black/30 shadow-lg hover:shadow-xl hover:shadow-blue-500/10 transition-all duration-300">
+                                                <img
+                                                    src={selectedItem.image}
+                                                    alt={selectedItem.title}
+                                                    className="w-full h-auto max-h-[40vh] md:max-h-[60vh] object-contain cursor-pointer hover:scale-[1.02] transition-transform duration-300"
+                                                    onClick={() => window.open(selectedItem.image, '_blank')}
+                                                    onError={(e) => {
+                                                        (e.target as HTMLImageElement).parentElement!.parentElement!.style.display = 'none';
+                                                    }}
+                                                />
+                                            </div>
+                                            {/* Hover hint */}
+                                            <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover/img:opacity-100 transition-opacity bg-black/40 rounded-xl pointer-events-none">
+                                                <span className="text-white/80 text-xs bg-black/60 px-2 py-1 rounded-full">🔍 클릭하여 확대</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
 
-                            {/* Image Display */}
-                            {selectedItem.image && !selectedItem.image.includes('unsplash.com') && (
-                                <div className="relative w-full mb-6 overflow-hidden rounded-xl">
-                                    <img
-                                        src={selectedItem.image}
-                                        alt={selectedItem.title}
-                                        className="w-full max-h-[50vh] object-contain bg-black/50"
-                                        onError={(e) => {
-                                            (e.target as HTMLImageElement).style.display = 'none';
-                                        }}
-                                    />
+                                {/* Text Content - Right side on desktop */}
+                                <div className="flex-1 min-w-0">
+                                    <div className="text-white/80 text-base leading-relaxed whitespace-pre-wrap mb-6">
+                                        {getContent(selectedItem)}
+                                    </div>
                                 </div>
-                            )}
+                            </div>
 
                             {selectedItem.content?.[0]?.date && (
                                 <div className="mt-8 pt-4 border-t border-white/10">
