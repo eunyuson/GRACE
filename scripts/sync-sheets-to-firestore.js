@@ -39,7 +39,7 @@ async function getSheetData() {
 
     const response = await sheets.spreadsheets.values.get({
         spreadsheetId: SHEET_ID,
-        range: 'A:E' // created_at, payload, imageUrl, source
+        range: 'Inbox!A:E' // Sheet name: Inbox, columns: created_at, payload, imageUrl, source, debug_info
     });
 
     const rows = response.data.values;
