@@ -152,7 +152,7 @@ export const RecentUpdates: React.FC<RecentUpdatesProps> = ({ isAdmin = false })
                 });
                 const sortedTags = Object.entries(tagCounts)
                     .map(([tag, count]) => ({ tag, count }))
-                    .sort((a, b) => b.count - a.count);
+                    .sort((a, b) => a.tag.localeCompare(b.tag, 'ko'));
                 setAllTags(sortedTags);
 
                 setLoading(false);
@@ -416,7 +416,7 @@ export const RecentUpdates: React.FC<RecentUpdatesProps> = ({ isAdmin = false })
         return counts;
     }, [filteredItems, tagFilters, searchQuery, allTags]);
 
-    // 날짜 포맷
+    // 날짜 포맷 (시간 포함)
     const formatDate = (dateStr: string | undefined) => {
         if (!dateStr) return '';
         try {
@@ -424,7 +424,10 @@ export const RecentUpdates: React.FC<RecentUpdatesProps> = ({ isAdmin = false })
             return new Intl.DateTimeFormat('ko-KR', {
                 year: 'numeric',
                 month: 'long',
-                day: 'numeric'
+                day: 'numeric',
+                hour: 'numeric',
+                minute: '2-digit',
+                hour12: true
             }).format(date);
         } catch {
             return dateStr;
@@ -1036,7 +1039,7 @@ export const RecentUpdates: React.FC<RecentUpdatesProps> = ({ isAdmin = false })
                     )}
 
                     {/* Cards Grid */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 md:gap-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8">
                         {filteredItems.map((item, index) => (
                             <div
                                 key={item.id}
@@ -1148,7 +1151,7 @@ export const RecentUpdates: React.FC<RecentUpdatesProps> = ({ isAdmin = false })
 
                                     {/* Image Thumbnail - Below Content */}
                                     {item.image && !item.image.includes('unsplash.com') && (
-                                        <div className="relative w-full h-32 mt-4 overflow-hidden rounded-xl">
+                                        <div className="relative w-full h-56 md:h-64 mt-4 overflow-hidden rounded-xl">
                                             <img
                                                 src={item.image}
                                                 alt={item.title}
