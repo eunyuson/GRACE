@@ -58,6 +58,8 @@ const db = admin.firestore();
 
 // Google Sheets API 초기화
 async function getGoogleSheetsClient() {
+    console.log('🚀 Sync Script Version: 2.0.1 (New ID Format & Source Fix)');
+
     const auth = new google.auth.GoogleAuth({
         credentials: GOOGLE_SERVICE_ACCOUNT,
         scopes: ['https://www.googleapis.com/auth/spreadsheets']
