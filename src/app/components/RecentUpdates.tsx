@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { collection, query, onSnapshot, deleteDoc, doc, updateDoc, addDoc, orderBy, serverTimestamp, getDoc, getDocs } from 'firebase/firestore';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { db, auth } from '../firebase';
@@ -43,6 +43,10 @@ export const RecentUpdates: React.FC<RecentUpdatesProps> = ({ isAdmin = false })
 
     // 갤러리 승격 상태
     const [promotingToGallery, setPromotingToGallery] = useState(false);
+
+    // Auto-save memo
+    const autoSaveTimer = useRef<NodeJS.Timeout | null>(null);
+    const [autoSaveStatus, setAutoSaveStatus] = useState('');
 
     // Selection state for bulk actions
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -835,29 +839,64 @@ export const RecentUpdates: React.FC<RecentUpdatesProps> = ({ isAdmin = false })
                                     )}
                                 </div>
 
-                                {/* Add Memo Input */}
+                                {/* Add Memo Input - Auto-save */}
                                 {showMemoInput === selectedItem.id && currentUser && (
                                     <div className="mb-4 p-4 bg-white/5 rounded-xl border border-white/10">
                                         <textarea
                                             value={newMemoText}
-                                            onChange={(e) => setNewMemoText(e.target.value)}
-                                            placeholder="메모를 입력하세요..."
+                                            onChange={(e) => {
+                                                const value = e.target.value;
+                                                setNewMemoText(value);
+                                                // Auto-save after 1 second of inactivity
+                                                if (autoSaveTimer.current) {
+                                                    clearTimeout(autoSaveTimer.current);
+                                                }
+                                                if (value.trim()) {
+                                                    setAutoSaveStatus('입력 중...');
+                                                    autoSaveTimer.current = setTimeout(async () => {
+                                                        if (value.trim() && selectedItem) {
+                                                            setAutoSaveStatus('저장 중...');
+                                                            try {
+                                                                await addDoc(collection(db, 'updates', selectedItem.id, 'memos'), {
+                                                                    text: value.trim(),
+                                                                    userId: currentUser.uid,
+                                                                    userName: currentUser.displayName || '익명',
+                                                                    userPhoto: currentUser.photoURL || '',
+                                                                    createdAt: serverTimestamp(),
+                                                                    updatedAt: serverTimestamp()
+                                                                });
+                                                                setNewMemoText('');
+                                                                setAutoSaveStatus('✓ 저장됨');
+                                                                setTimeout(() => setAutoSaveStatus(''), 2000);
+                                                            } catch (error) {
+                                                                console.error('Auto-save error:', error);
+                                                                setAutoSaveStatus('저장 실패');
+                                                            }
+                                                        }
+                                                    }, 1500);
+                                                }
+                                            }}
+                                            placeholder="메모를 입력하면 자동으로 저장됩니다..."
                                             rows={3}
                                             className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white placeholder-white/30 focus:outline-none focus:border-blue-500/50 resize-none text-sm"
                                         />
-                                        <div className="flex justify-end gap-2 mt-3">
+                                        <div className="flex justify-between items-center mt-3">
+                                            <span className={`text-xs ${autoSaveStatus.includes('✓') ? 'text-green-400' :
+                                                autoSaveStatus.includes('실패') ? 'text-red-400' :
+                                                    'text-white/40'
+                                                }`}>
+                                                {autoSaveStatus || '입력 후 1.5초 후 자동 저장'}
+                                            </span>
                                             <button
-                                                onClick={() => setShowMemoInput(null)}
-                                                className="px-4 py-2 text-xs rounded-lg bg-white/10 text-white/70 hover:bg-white/20 transition"
+                                                onClick={() => {
+                                                    if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
+                                                    setShowMemoInput(null);
+                                                    setNewMemoText('');
+                                                    setAutoSaveStatus('');
+                                                }}
+                                                className="px-3 py-1.5 text-xs rounded-lg bg-white/10 text-white/70 hover:bg-white/20 transition"
                                             >
-                                                취소
-                                            </button>
-                                            <button
-                                                onClick={() => handleAddMemo(selectedItem.id)}
-                                                disabled={savingMemo || !newMemoText.trim()}
-                                                className="px-4 py-2 text-xs rounded-lg bg-gradient-to-r from-blue-500 to-purple-500 text-white hover:opacity-90 transition disabled:opacity-50"
-                                            >
-                                                {savingMemo ? '저장 중...' : '저장'}
+                                                닫기
                                             </button>
                                         </div>
                                     </div>
@@ -1000,8 +1039,8 @@ export const RecentUpdates: React.FC<RecentUpdatesProps> = ({ isAdmin = false })
                                                             <span
                                                                 key={i}
                                                                 className={`px-2 py-0.5 text-[10px] rounded-full ${currentTags.includes(tag)
-                                                                        ? 'bg-purple-500/30 text-purple-300'
-                                                                        : 'bg-white/10 text-white/50'
+                                                                    ? 'bg-purple-500/30 text-purple-300'
+                                                                    : 'bg-white/10 text-white/50'
                                                                     }`}
                                                             >
                                                                 #{tag}
