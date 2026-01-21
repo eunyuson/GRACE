@@ -769,7 +769,7 @@ export const RecentUpdates: React.FC<RecentUpdatesProps> = ({ isAdmin = false })
                                 {selectedItem.image && !selectedItem.image.includes('unsplash.com') && (
                                     <div className="md:sticky md:top-24 md:self-start mb-4 md:mb-0 md:flex-shrink-0">
                                         <div className="relative group/img">
-                                            <div className="md:w-48 lg:w-56 overflow-hidden rounded-xl border border-white/10 bg-black/30 shadow-lg hover:shadow-xl hover:shadow-blue-500/10 transition-all duration-300">
+                                            <div className="md:w-72 lg:w-80 overflow-hidden rounded-xl border border-white/10 bg-black/30 shadow-lg hover:shadow-xl hover:shadow-blue-500/10 transition-all duration-300">
                                                 <img
                                                     src={selectedItem.image}
                                                     alt={selectedItem.title}
