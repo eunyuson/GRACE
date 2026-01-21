@@ -110,6 +110,28 @@ async function fixDuplicatesAndImages() {
                 return timeB - timeA;
             });
 
+            const survivor = docs[0];
+            const defaultImage = 'https://images.unsplash.com/photo-1506744038136-46273834b3fb';
+
+            // survivor가 이미지가 없거나 기본 이미지인 경우, 삭제될 항목들에서 이미지를 찾음
+            let survivorHasImage = survivor.data.image && !survivor.data.image.includes('unsplash.com');
+
+            if (!survivorHasImage) {
+                for (let i = 1; i < docs.length; i++) {
+                    const victim = docs[i];
+                    const victimImage = victim.data.image;
+
+                    if (victimImage && !victimImage.includes('unsplash.com')) {
+                        console.log(`   ♻️ Recovering image from duplicate for: ${survivor.data.title}`);
+                        await db.collection('updates').doc(survivor.id).update({
+                            image: victimImage
+                        });
+                        survivorHasImage = true;
+                        break; // 가장 최신(혹은 첫번째 발견된) 유효 이미지를 사용
+                    }
+                }
+            }
+
             // 첫 번째(최신) 제외하고 삭제
             console.log(`   ${docs[0].data.title}: ${docs.length}개 중복 -> 1개 유지`);
             for (let i = 1; i < docs.length; i++) {

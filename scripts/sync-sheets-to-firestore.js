@@ -370,6 +370,119 @@ async function updateExistingItemImages(sheetData) {
     console.log(`   ✅ Updated ${updated} items with images`);
 }
 
+
+// 갤러리 오염 정리 (source: shortcut 삭제)
+async function cleanupGalleryPollution() {
+    console.log(' Cleaning up gallery pollution...');
+    const gallerySnapshot = await db.collection('gallery').where('source', '==', 'shortcut').get();
+
+    if (gallerySnapshot.empty) return;
+
+    const batch = db.batch();
+    let count = 0;
+
+    gallerySnapshot.forEach(doc => {
+        batch.delete(doc.ref);
+        count++;
+    });
+
+    if (count > 0) {
+        await batch.commit();
+        console.log(`✅ Removed ${count} shortcut items from gallery`);
+    }
+}
+
+// 중복 제거 및 이미지 보존
+async function fixDuplicatesAndPreserveImages(sheetData) {
+    console.log('🔧 Running deduplication and image preservation...');
+
+    // Create image map from sheet data
+    const sheetImages = {};
+    for (const row of sheetData) {
+        let imageUrl = '';
+        if (row.imageUrl && row.imageUrl.trim()) {
+            imageUrl = row.imageUrl.trim();
+        } else {
+            try {
+                const payload = JSON.parse(row.payload || '{}');
+                imageUrl = payload.imageUrl || payload.image || '';
+            } catch (e) { }
+        }
+
+        if (imageUrl && row.created_at) {
+            sheetImages[row.created_at] = convertGoogleDriveUrl(imageUrl);
+        }
+    }
+
+    const snapshot = await db.collection('updates').get();
+    const bySheetRowId = {};
+
+    snapshot.forEach(doc => {
+        const data = doc.data();
+        if (data.sheetRowId) {
+            if (!bySheetRowId[data.sheetRowId]) {
+                bySheetRowId[data.sheetRowId] = [];
+            }
+            bySheetRowId[data.sheetRowId].push({ id: doc.id, data, createdAt: data.createdAt });
+        }
+    });
+
+    let deletedCount = 0;
+    let updatedCount = 0;
+
+    for (const [sheetRowId, docs] of Object.entries(bySheetRowId)) {
+        if (docs.length > 1) {
+            // Sort by createdAt desc
+            docs.sort((a, b) => {
+                const timeA = a.createdAt?.toDate?.() || new Date(0);
+                const timeB = b.createdAt?.toDate?.() || new Date(0);
+                return timeB - timeA;
+            });
+
+            const survivor = docs[0];
+            let survivorHasImage = survivor.data.image && !survivor.data.image.includes('unsplash.com');
+
+            // 1. Try to recover image from duplicates if survivor misses it
+            if (!survivorHasImage) {
+                for (let i = 1; i < docs.length; i++) {
+                    const victim = docs[i];
+                    const victimImage = victim.data.image;
+                    if (victimImage && !victimImage.includes('unsplash.com')) {
+                        console.log(`   ♻️ Recovering image from duplicate for: ${survivor.data.title}`);
+                        await db.collection('updates').doc(survivor.id).update({
+                            image: victimImage
+                        });
+                        updatedCount++;
+                        survivorHasImage = true;
+                        break;
+                    }
+                }
+            }
+
+            // 2. Try to recover from Sheet if still no image
+            if (!survivorHasImage) {
+                const match = sheetRowId.match(/sheet_(?:\d+_)?(.+)/);
+                const createdAt = match ? match[1] : null;
+                if (createdAt && sheetImages[createdAt]) {
+                    const sheetImg = sheetImages[createdAt];
+                    if (sheetImg) {
+                        console.log(`   ✨ Restoring image from Sheet for: ${survivor.data.title}`);
+                        await db.collection('updates').doc(survivor.id).update({ image: sheetImg });
+                        updatedCount++;
+                    }
+                }
+            }
+
+            // Delete duplicates
+            for (let i = 1; i < docs.length; i++) {
+                await db.collection('updates').doc(docs[i].id).delete();
+                deletedCount++;
+            }
+        }
+    }
+    console.log(`✅ Deduplication complete: ${deletedCount} deleted, ${updatedCount} images restored`);
+}
+
 // 메인 동기화 함수
 async function syncSheetsToFirestore() {
     console.log('🔄 Starting sync from Google Sheets to Firestore...');
@@ -455,6 +568,11 @@ async function syncSheetsToFirestore() {
         // 8. 배치 커밋
         await batch.commit();
         console.log(`✨ Successfully added ${addedCount} items to Firestore`);
+
+        // 9. 정리 및 중복 제거 실행
+        await cleanupGalleryPollution();
+        await fixDuplicatesAndPreserveImages(freshSheetData);
+
 
     } catch (error) {
         console.error('❌ Sync failed:', error);
