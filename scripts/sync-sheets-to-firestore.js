@@ -26,7 +26,7 @@ const db = admin.firestore();
 async function getGoogleSheetsClient() {
     const auth = new google.auth.GoogleAuth({
         credentials: GOOGLE_SERVICE_ACCOUNT,
-        scopes: ['https://www.googleapis.com/auth/spreadsheets.readonly']
+        scopes: ['https://www.googleapis.com/auth/spreadsheets']
     });
 
     const client = await auth.getClient();
