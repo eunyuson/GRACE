@@ -769,11 +769,11 @@ export const RecentUpdates: React.FC<RecentUpdatesProps> = ({ isAdmin = false })
                                 {selectedItem.image && !selectedItem.image.includes('unsplash.com') && (
                                     <div className="md:sticky md:top-24 md:self-start mb-4 md:mb-0 md:flex-shrink-0">
                                         <div className="relative group/img">
-                                            <div className="md:w-72 lg:w-80 overflow-hidden rounded-xl border border-white/10 bg-black/30 shadow-lg hover:shadow-xl hover:shadow-blue-500/10 transition-all duration-300">
+                                            <div className="md:w-96 lg:w-[480px] overflow-hidden rounded-xl border border-white/10 bg-black/30 shadow-lg hover:shadow-xl hover:shadow-blue-500/10 transition-all duration-300">
                                                 <img
                                                     src={selectedItem.image}
                                                     alt={selectedItem.title}
-                                                    className="w-full h-auto max-h-[40vh] md:max-h-[60vh] object-contain cursor-pointer hover:scale-[1.02] transition-transform duration-300"
+                                                    className="w-full h-auto max-h-[60vh] md:max-h-[75vh] object-contain cursor-pointer hover:scale-[1.02] transition-transform duration-300"
                                                     onClick={() => window.open(selectedItem.image, '_blank')}
                                                     onError={(e) => {
                                                         (e.target as HTMLImageElement).parentElement!.parentElement!.style.display = 'none';
