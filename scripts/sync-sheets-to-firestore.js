@@ -430,7 +430,7 @@ async function fixDuplicatesAndPreserveImages(sheetData) {
     let deletedCount = 0;
     let updatedCount = 0;
 
-    for (const [sheetRowId, docs] of Object.entries(bySheetRowId)) {
+    for (const [timestamp, docs] of Object.entries(byTimestamp)) {
         if (docs.length > 1) {
             // Sort by createdAt desc
             docs.sort((a, b) => {
