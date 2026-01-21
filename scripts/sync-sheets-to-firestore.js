@@ -415,15 +415,26 @@ async function fixDuplicatesAndPreserveImages(sheetData) {
     }
 
     const snapshot = await db.collection('updates').get();
-    const bySheetRowId = {};
+
+    // Timestamp별로 그룹화 (sheet_ID 형식 변경 대응)
+    const byTimestamp = {};
 
     snapshot.forEach(doc => {
         const data = doc.data();
-        if (data.sheetRowId) {
-            if (!bySheetRowId[data.sheetRowId]) {
-                bySheetRowId[data.sheetRowId] = [];
+        const sheetRowId = data.sheetRowId;
+
+        if (sheetRowId) {
+            // Extract timestamp using regex to handle both formats:
+            // sheet_34_2026... and sheet_2026...
+            const match = sheetRowId.match(/(\d{4}-\d{2}-\d{2}T[\d:.]+Z)/);
+            const timestamp = match ? match[1] : sheetRowId; // Fallback to full ID if no match
+
+            if (timestamp) {
+                if (!byTimestamp[timestamp]) {
+                    byTimestamp[timestamp] = [];
+                }
+                byTimestamp[timestamp].push({ id: doc.id, data, createdAt: data.createdAt });
             }
-            bySheetRowId[data.sheetRowId].push({ id: doc.id, data, createdAt: data.createdAt });
         }
     });
 
@@ -461,10 +472,12 @@ async function fixDuplicatesAndPreserveImages(sheetData) {
 
             // 2. Try to recover from Sheet if still no image
             if (!survivorHasImage) {
-                const match = sheetRowId.match(/sheet_(?:\d+_)?(.+)/);
-                const createdAt = match ? match[1] : null;
-                if (createdAt && sheetImages[createdAt]) {
-                    const sheetImg = sheetImages[createdAt];
+                const match = timestamp.match(/sheet_(?:\d+_)?(.+)/); // timestamp itself is the ID-like suffix? No, timestamp is just date-string? 
+                // Wait, byTimestamp keys ARE the timestamps (e.g. 2026-01-21...). 
+                // So we can look up directly in sheetImages.
+
+                if (timestamp && sheetImages[timestamp]) {
+                    const sheetImg = sheetImages[timestamp];
                     if (sheetImg) {
                         console.log(`   ✨ Restoring image from Sheet for: ${survivor.data.title}`);
                         await db.collection('updates').doc(survivor.id).update({ image: sheetImg });
