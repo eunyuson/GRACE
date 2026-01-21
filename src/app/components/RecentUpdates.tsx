@@ -689,7 +689,7 @@ export const RecentUpdates: React.FC<RecentUpdatesProps> = ({ isAdmin = false })
                     onClick={() => setSelectedItem(null)}
                 >
                     <div
-                        className="bg-gradient-to-br from-[#1a1a2e] to-[#16213e] border border-white/10 rounded-3xl max-w-5xl w-full max-h-[85vh] overflow-auto shadow-2xl"
+                        className="bg-gradient-to-br from-[#1a1a2e] to-[#16213e] border border-white/10 rounded-3xl max-w-5xl w-full max-h-[95vh] overflow-auto shadow-2xl"
                         onClick={e => e.stopPropagation()}
                     >
                         {/* Header */}
@@ -773,7 +773,7 @@ export const RecentUpdates: React.FC<RecentUpdatesProps> = ({ isAdmin = false })
                                                 <img
                                                     src={selectedItem.image}
                                                     alt={selectedItem.title}
-                                                    className="w-full h-auto max-h-[60vh] md:max-h-[75vh] object-contain cursor-pointer hover:scale-[1.02] transition-transform duration-300"
+                                                    className="w-full h-auto max-h-[85vh] md:max-h-[90vh] object-contain cursor-pointer hover:scale-[1.02] transition-transform duration-300"
                                                     onClick={() => window.open(selectedItem.image, '_blank')}
                                                     onError={(e) => {
                                                         (e.target as HTMLImageElement).parentElement!.parentElement!.style.display = 'none';
