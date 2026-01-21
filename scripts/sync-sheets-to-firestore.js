@@ -73,22 +73,27 @@ function normalizeId(id) {
     return match ? match[1] : id;
 }
 
-// Firestore에서 기존 동기화된 항목 ID 가져오기
+// Firestore에서 기존 동기화된 항목 ID 및 제목 가져오기
 async function getSyncedItemIds() {
     const snapshot = await db.collection('updates')
         .where('source', '==', 'shortcut')
         .get();
 
-    const ids = new Set();
+    const timestamps = new Set();
+    const titles = new Set();
     snapshot.forEach(doc => {
         const data = doc.data();
         if (data.sheetRowId) {
             // Store normalized ID to compare against new stable IDs
-            ids.add(normalizeId(data.sheetRowId));
+            timestamps.add(normalizeId(data.sheetRowId));
+        }
+        // Also store title for duplicate detection
+        if (data.title) {
+            titles.add(data.title.trim().toLowerCase());
         }
     });
 
-    return ids;
+    return { timestamps, titles };
 }
 
 // 삭제된 항목 ID 가져오기 (재동기화 방지용)
@@ -388,20 +393,25 @@ async function syncSheetsToFirestore() {
             return;
         }
 
-        // 3. 이미 동기화된 항목 확인
-        const syncedIds = await getSyncedItemIds();
-        console.log(`✅ Already synced: ${syncedIds.size} items`);
+        // 3. 이미 동기화된 항목 확인 (타임스탬프 + 제목)
+        const { timestamps: syncedTimestamps, titles: syncedTitles } = await getSyncedItemIds();
+        console.log(`✅ Already synced: ${syncedTimestamps.size} items by timestamp, ${syncedTitles.size} titles`);
 
         // 4. 삭제된 항목 확인 (재동기화 방지)
         const deletedIds = await getDeletedItemIds();
 
-        // 5. 새 항목 필터링 (타임스탬프로 비교)
+        // 5. 새 항목 필터링 (타임스탬프 + 제목으로 비교)
         const newItems = freshSheetData.filter(row => {
             // Extract timestamp for comparison (same as normalizeId)
             const timestamp = row.created_at;
+            const title = row.title?.trim().toLowerCase() || '';
 
-            if (syncedIds.has(timestamp)) {
-                return false; // 이미 동기화됨
+            if (syncedTimestamps.has(timestamp)) {
+                return false; // 이미 동기화됨 (타임스탬프 매칭)
+            }
+            if (title && syncedTitles.has(title)) {
+                console.log(`⏭️ Skipping duplicate title: ${row.title}`);
+                return false; // 이미 동기화됨 (제목 매칭)
             }
             if (deletedIds.has(timestamp)) {
                 console.log(`⏭️ Skipping deleted item: ${timestamp}`);
