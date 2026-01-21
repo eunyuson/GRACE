@@ -689,7 +689,7 @@ export const RecentUpdates: React.FC<RecentUpdatesProps> = ({ isAdmin = false })
                     onClick={() => setSelectedItem(null)}
                 >
                     <div
-                        className="bg-gradient-to-br from-[#1a1a2e] to-[#16213e] border border-white/10 rounded-3xl max-w-2xl w-full max-h-[85vh] overflow-auto shadow-2xl"
+                        className="bg-gradient-to-br from-[#1a1a2e] to-[#16213e] border border-white/10 rounded-3xl max-w-5xl w-full max-h-[85vh] overflow-auto shadow-2xl"
                         onClick={e => e.stopPropagation()}
                     >
                         {/* Header */}
