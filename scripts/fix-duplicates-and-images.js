@@ -100,16 +100,25 @@ async function fixDuplicatesAndImages() {
     console.log('🔍 Firestore updates 컬렉션 분석 중...');
     const snapshot = await db.collection('updates').get();
 
-    // sheetRowId별로 그룹화
-    const bySheetRowId = {};
+    // Timestamp별로 그룹화 (sheet_ID 형식 변경 대응)
+    const byTimestamp = {};
+
     snapshot.forEach(doc => {
         const data = doc.data();
         const sheetRowId = data.sheetRowId;
+
         if (sheetRowId) {
-            if (!bySheetRowId[sheetRowId]) {
-                bySheetRowId[sheetRowId] = [];
+            // Extract timestamp using regex to handle both formats:
+            // sheet_34_2026... and sheet_2026...
+            const match = sheetRowId.match(/(\d{4}-\d{2}-\d{2}T[\d:.]+Z)/);
+            const timestamp = match ? match[1] : sheetRowId; // Fallback to full ID if no match
+
+            if (timestamp) {
+                if (!byTimestamp[timestamp]) {
+                    byTimestamp[timestamp] = [];
+                }
+                byTimestamp[timestamp].push({ id: doc.id, data, createdAt: data.createdAt });
             }
-            bySheetRowId[sheetRowId].push({ id: doc.id, data, createdAt: data.createdAt });
         }
     });
 
@@ -117,7 +126,7 @@ async function fixDuplicatesAndImages() {
     console.log('\n🗑️ 중복 항목 제거 중...');
     let deletedCount = 0;
 
-    for (const [sheetRowId, docs] of Object.entries(bySheetRowId)) {
+    for (const [timestamp, docs] of Object.entries(byTimestamp)) {
         if (docs.length > 1) {
             // createdAt 기준 정렬 (최신 우선)
             docs.sort((a, b) => {
