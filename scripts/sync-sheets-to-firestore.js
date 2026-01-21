@@ -62,12 +62,15 @@ async function getSheetData() {
     return data;
 }
 
-// Helper: Normalize ID to be stable (remove row index if present)
-// Converts "sheet_2_2024-01-01" -> "sheet_2024-01-01"
-// Keeps "sheet_2024-01-01" as is
+// Helper: Extract timestamp from ID for comparison
+// Handles both formats:
+// - "sheet_16_2026-01-20T04:02:39.829Z" -> "2026-01-20T04:02:39.829Z"
+// - "sheet_2026-01-20T04:02:39.829Z" -> "2026-01-20T04:02:39.829Z"
 function normalizeId(id) {
     if (!id) return null;
-    return id.replace(/^sheet_\d+_/, 'sheet_');
+    // Extract timestamp (ISO 8601 format)
+    const match = id.match(/(\d{4}-\d{2}-\d{2}T[\d:.]+Z)/);
+    return match ? match[1] : id;
 }
 
 // Firestore에서 기존 동기화된 항목 ID 가져오기
