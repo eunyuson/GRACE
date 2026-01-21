@@ -8,10 +8,44 @@
 import { google } from 'googleapis';
 import admin from 'firebase-admin';
 
-// 환경 변수에서 설정 읽기
-const GOOGLE_SERVICE_ACCOUNT = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT || '{}');
-const FIREBASE_SERVICE_ACCOUNT = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT || '{}');
-const SHEET_ID = process.env.GOOGLE_SHEET_ID;
+// 환경 변수 또는 로컬 키 파일 사용
+import { readFileSync, existsSync } from 'fs';
+
+let GOOGLE_SERVICE_ACCOUNT = {};
+let FIREBASE_SERVICE_ACCOUNT = {};
+
+try {
+    const googleKeyPath = '/Users/shinik/Downloads/google-service-account.json';
+    const firebaseKeyPath = '/Users/shinik/Downloads/ass246429-firebase-adminsdk-fbsvc-c4c9417034.json';
+
+    if (process.env.GOOGLE_SERVICE_ACCOUNT) {
+        GOOGLE_SERVICE_ACCOUNT = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT);
+    } else if (existsSync(googleKeyPath)) {
+        GOOGLE_SERVICE_ACCOUNT = JSON.parse(readFileSync(googleKeyPath, 'utf8'));
+    }
+
+    if (process.env.FIREBASE_SERVICE_ACCOUNT) {
+        FIREBASE_SERVICE_ACCOUNT = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
+    } else if (existsSync(firebaseKeyPath)) {
+        FIREBASE_SERVICE_ACCOUNT = JSON.parse(readFileSync(firebaseKeyPath, 'utf8'));
+    }
+} catch (e) {
+    console.error('Failed to load credentials', e);
+}
+
+const SHEET_ID = process.env.GOOGLE_SHEET_ID || '1y1mJ-t_t-j-r-e-a-d-s-p-r-e-a-d-s-h-e-e-t-i-d'; // Use ENV or placeholder. 
+// Note: Requires SHEET_ID env var or hardcoded. I don't see it in env dump. 
+// Wait, I don't have SHEET_ID. 
+// I should check if it's in the previous versions of the script or user provided it.
+// Actually, `sync-sheets-to-firestore.js` line 14: `const SHEET_ID = process.env.GOOGLE_SHEET_ID;`
+// If I assume the user ran this before via GH actions, they have it there.
+// I don't have it locally unless I find it.
+// Checking .github/workflows/sync-sheets.yml might reveal it if it was secret or hardcoded.
+// But wait, Step 404 line 41 `spreadsheetId: SHEET_ID`.
+// If I don't have SHEET_ID, I CANNOT RUN `sync-sheets-to-firestore.js` locally to fetch fresh data.
+// BUT `updateExistingItemImages` (Step 377) REQUIRES `sheetData` which comes from `getSheetData` which needs `SHEET_ID`.
+// I MUST FIND SHEET_ID.
+// Let's check .github/workflows/sync-sheets.yml.
 
 // Firebase 초기화
 if (!admin.apps.length) {

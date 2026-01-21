@@ -62,8 +62,9 @@ async function debugCollections() {
     // 2. updates 컬렉션 확인 (최근 뉴스)
     console.log('='.repeat(60));
     console.log('\n📁 updates 컬렉션 (최근 뉴스):');
-    console.log('-'.repeat(40));
-    const updatesSnapshot = await db.collection('updates').get();
+    console.log('\n2. Updates Collection Analysis:');
+    // Limit to 20 recent items to check images
+    const updatesSnapshot = await db.collection('updates').orderBy('createdAt', 'desc').limit(20).get();
 
     if (updatesSnapshot.empty) {
         console.log('   (비어있음)');
@@ -83,6 +84,8 @@ async function debugCollections() {
     // 3. gallery 컬렉션 확인
     console.log('='.repeat(60));
     console.log('\n📁 gallery 컬렉션 (메인 갤러리):');
+    /*
+    // 4. Gallery Pollution Check:
     console.log('-'.repeat(40));
     const gallerySnapshot = await db.collection('gallery').get();
 
@@ -94,11 +97,9 @@ async function debugCollections() {
             console.log(`   ID: ${doc.id}`);
             console.log(`   title: ${data.title}`);
             console.log(`   sheetRowId: ${data.sheetRowId || '(없음)'}`);
-            console.log(`   source: ${data.source || '(없음)'}`);
-            console.log('');
-        });
-    }
+    /*
     console.log(`   총 ${gallerySnapshot.size}개 항목\n`);
+    */
 
     // 4. 분석
     console.log('='.repeat(60));

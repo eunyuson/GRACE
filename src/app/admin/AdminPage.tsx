@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { ref, uploadBytes, getDownloadURL, uploadBytesResumable, UploadTaskSnapshot } from 'firebase/storage';
@@ -19,69 +19,100 @@ const EmptyItem: Omit<GalleryItemType, 'id'> = {
   videoUrl: ''
 };
 
+import Cropper, { Area } from 'react-easy-crop';
+import getCroppedImg from '../../utils/cropImage';
+
 // 이미지 업로드 컴포넌트
 const ImageUploader: React.FC<{
   currentUrl: string;
   onUpload: (url: string) => void;
   label?: string;
 }> = ({ currentUrl, onUpload, label = "IMAGE" }) => {
+  const [mode, setMode] = useState<'view' | 'link' | 'upload'>('view'); // 'view' is default, showing current image
   const [uploading, setUploading] = useState(false);
   const [status, setStatus] = useState('');
   const [progress, setProgress] = useState(0);
   const [urlInput, setUrlInput] = useState(currentUrl);
+
+  // Crop State
+  const [cropImageSrc, setCropImageSrc] = useState<string | null>(null);
+  const [crop, setCrop] = useState({ x: 0, y: 0 });
+  const [zoom, setZoom] = useState(1);
+  const [croppedAreaPixels, setCroppedAreaPixels] = useState<Area | null>(null);
+
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     setUrlInput(currentUrl);
   }, [currentUrl]);
 
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  const onFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      const file = e.target.files[0];
 
-    setUploading(true);
-    setProgress(0);
-    setStatus('처리 중...');
-
-    try {
-      let fileToUpload: Blob = file;
-      let fileName = file.name;
-
-      // HEIC/HEIF 파일 감지 및 변환
+      // HEIC Support
       const isHeic = file.type === 'image/heic' ||
         file.type === 'image/heif' ||
         file.name.toLowerCase().endsWith('.heic') ||
         file.name.toLowerCase().endsWith('.heif');
 
       if (isHeic) {
-        setStatus('HEIC → JPEG 변환 중... (시간이 걸릴 수 있습니다)');
+        setStatus('HEIC 변환 중...');
+        setUploading(true); // Show status
         try {
           const convertedBlob = await heic2any({
             blob: file,
             toType: 'image/jpeg',
-            quality: 0.7
+            quality: 0.8
           });
-          // heic2any can return array or single blob
-          fileToUpload = Array.isArray(convertedBlob) ? convertedBlob[0] : convertedBlob;
-          fileName = file.name.replace(/\.(heic|heif)$/i, '.jpg');
-        } catch (convError) {
-          console.error('HEIC conversion failed:', convError);
-          setStatus('변환 실패, 원본으로 시도 중...');
+          const jpegBlob = Array.isArray(convertedBlob) ? convertedBlob[0] : convertedBlob;
+          const reader = new FileReader();
+          reader.addEventListener('load', () => {
+            setCropImageSrc(reader.result?.toString() || '');
+            setUploading(false);
+            setStatus('');
+          });
+          reader.readAsDataURL(jpegBlob);
+        } catch (err) {
+          console.error(err);
+          alert('HEIC 변환 실패. JPG/PNG를 사용해주세요.');
+          setUploading(false);
+          setStatus('');
         }
+        // Reset input
+        e.target.value = '';
+        return;
       }
 
-      setStatus('업로드 시작...');
+      // Normal Image
+      const reader = new FileReader();
+      reader.addEventListener('load', () => setCropImageSrc(reader.result?.toString() || ''));
+      reader.readAsDataURL(file);
+      e.target.value = '';
+    }
+  };
+
+  const onCropComplete = useCallback((croppedArea: Area, croppedAreaPixels: Area) => {
+    setCroppedAreaPixels(croppedAreaPixels);
+  }, []);
+
+  const handleUploadCroppedImage = async () => {
+    if (!cropImageSrc || !croppedAreaPixels) return;
+
+    setUploading(true);
+    setStatus('이미지 처리 중...');
+
+    try {
+      const croppedBlob = await getCroppedImg(cropImageSrc, croppedAreaPixels);
+      if (!croppedBlob) throw new Error('Could not create cropped image');
+
+      // Upload Blob to Firebase
       const timestamp = Date.now();
-      const storageFileName = `gallery/${timestamp}_${fileName}`;
+      const storageFileName = `gallery/cropped_${timestamp}.jpg`;
       const storageRef = ref(storage, storageFileName);
+      const metadata = { contentType: 'image/jpeg' };
 
-      // 메타데이터 설정
-      const metadata = {
-        contentType: isHeic ? 'image/jpeg' : file.type
-      };
-
-      // 업로드 진행상황 모니터링
-      const uploadTask = uploadBytesResumable(storageRef, fileToUpload, metadata);
+      const uploadTask = uploadBytesResumable(storageRef, croppedBlob, metadata);
 
       uploadTask.on('state_changed',
         (snapshot: UploadTaskSnapshot) => {
@@ -89,77 +120,167 @@ const ImageUploader: React.FC<{
           setProgress(Math.round(p));
           setStatus(`업로드 중... ${Math.round(p)}%`);
         },
-        (error: Error) => {
-          console.error('Upload error:', error);
-          alert('업로드 중 오류가 발생했습니다: ' + error.message);
+        (error) => {
+          console.error(error);
+          setStatus('업로드 실패');
           setUploading(false);
-          setStatus('');
         },
         async () => {
-          // 완료 시
-          try {
-            const downloadUrl = await getDownloadURL(uploadTask.snapshot.ref);
-            onUpload(downloadUrl);
-            setUrlInput(downloadUrl);
-            setStatus('완료!');
-            setTimeout(() => {
-              setStatus('');
-              setUploading(false);
-            }, 1000);
-          } catch (urlError) {
-            console.error('Get URL error:', urlError);
-            setUploading(false);
-          }
+          const downloadUrl = await getDownloadURL(uploadTask.snapshot.ref);
+          onUpload(downloadUrl);
+          setUploading(false);
+          setStatus('완료!');
+          setCropImageSrc(null); // Close modal
+          setMode('view'); // Back to view mode
         }
       );
-
-    } catch (error) {
-      console.error('Process error:', error);
+    } catch (e: any) {
+      console.error(e);
+      let msg = '이미지 처리 중 오류가 발생했습니다.';
+      if (e.message === 'Could not create cropped image' || e.type === 'error') {
+        msg = '보안상 편집할 수 없는 이미지입니다. (다운로드 후 파일로 업로드해주세요)';
+      }
+      setStatus(msg);
+      alert(msg);
       setUploading(false);
-      setStatus('오류 발생');
-    }
-  };
-
-  const handleUrlSubmit = () => {
-    if (urlInput.trim()) {
-      onUpload(urlInput.trim());
     }
   };
 
   return (
     <div className="space-y-2">
-      <label className="text-[10px] text-white/40 block tracking-widest">{label}</label>
-      <div className="flex gap-2">
-        <input
-          type="text"
-          value={urlInput}
-          onChange={(e) => setUrlInput(e.target.value)}
-          onBlur={handleUrlSubmit}
-          placeholder="https://... 또는 파일 업로드"
-          className="flex-1 bg-[#111] border border-white/20 p-2 text-xs focus:border-white outline-none"
-        />
-        <input
-          type="file"
-          ref={fileInputRef}
-          onChange={handleFileChange}
-          accept="image/*,.heic,.heif"
-          className="hidden"
-        />
-        <button
-          type="button"
-          onClick={() => fileInputRef.current?.click()}
-          disabled={uploading}
-          className="px-3 py-2 bg-white/10 border border-white/20 text-[10px] tracking-widest hover:bg-white/20 disabled:opacity-50 min-w-[60px]"
-        >
-          {uploading ? `${progress}%` : '📁'}
-        </button>
+      <div className="flex items-center justify-between">
+        <label className="text-[10px] text-white/40 block tracking-widest">{label}</label>
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={() => setMode('link')}
+            className={`text-[10px] px-2 py-1 ${mode === 'link' ? 'bg-white text-black font-bold' : 'text-white/50 hover:text-white'}`}
+          >
+            🔗 링크
+          </button>
+          <button
+            type="button"
+            onClick={() => setMode('upload')}
+            className={`text-[10px] px-2 py-1 ${mode === 'upload' ? 'bg-white text-black font-bold' : 'text-white/50 hover:text-white'}`}
+          >
+            📁 파일
+          </button>
+        </div>
       </div>
-      {status && (
-        <p className="text-[10px] text-white/50 tracking-widest animate-pulse">{status}</p>
+
+      {mode === 'link' && (
+        <div className="flex gap-2 animate-in fade-in slide-in-from-top-1 duration-200">
+          <input
+            type="text"
+            value={urlInput}
+            onChange={(e) => setUrlInput(e.target.value)}
+            onBlur={() => { if (urlInput.trim()) onUpload(urlInput.trim()); }}
+            placeholder="https://..."
+            className="flex-1 bg-[#111] border border-white/20 p-2 text-xs focus:border-white outline-none"
+          />
+        </div>
       )}
+
+      {mode === 'upload' && (
+        <div className="flex gap-2 animate-in fade-in slide-in-from-top-1 duration-200">
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            className="flex-1 bg-white/10 border border-dashed border-white/20 p-4 text-xs text-white/60 hover:bg-white/20 hover:text-white transition-colors"
+          >
+            {uploading ? `${status}` : '📷 클릭하여 이미지 선택 (JPG, PNG)'}
+          </button>
+          <input
+            type="file"
+            ref={fileInputRef}
+            onChange={onFileSelect}
+            accept="image/*"
+            className="hidden"
+          />
+        </div>
+      )}
+
       {currentUrl && (
-        <div className="w-full h-20 bg-black border border-white/10 overflow-hidden">
+        <div className="relative w-full h-32 bg-black border border-white/10 overflow-hidden group">
           <img src={currentUrl} alt="Preview" className="w-full h-full object-cover" />
+          <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+            <button
+              onClick={() => window.open(currentUrl, '_blank')}
+              className="px-3 py-1 bg-white/20 text-[10px] hover:bg-white/40 text-white"
+            >
+              확대
+            </button>
+            <button
+              // Load current URL into cropper
+              onClick={() => {
+                // Check if it's a data URL or remote
+                // Try to load it. If CORS fails later, we catch it in handleUploadCroppedImage or getCroppedImg
+                setCropImageSrc(currentUrl);
+                setMode('upload'); // Switch to upload UI logic conceptually
+              }}
+              className="px-3 py-1 bg-blue-500/50 text-[10px] hover:bg-blue-500/80 text-white"
+            >
+              편집
+            </button>
+            <button
+              onClick={() => { onUpload(''); setUrlInput(''); }}
+              className="px-3 py-1 bg-red-500/50 text-[10px] hover:bg-red-500/80 text-white"
+            >
+              삭제
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Crop Modal */}
+      {cropImageSrc && (
+        <div className="fixed inset-0 z-[4000] bg-black flex flex-col">
+          <div className="p-4 flex justify-between items-center border-b border-white/10 bg-[#111]">
+            <h3 className="text-sm font-bold tracking-widest">EDIT IMAGE</h3>
+            <button
+              onClick={() => setCropImageSrc(null)}
+              className="text-white/50 hover:text-white px-4 py-2"
+            >
+              CANCEL
+            </button>
+          </div>
+
+          <div className="relative flex-1 bg-black">
+            <Cropper
+              image={cropImageSrc}
+              crop={crop}
+              zoom={zoom}
+              aspect={16 / 9}
+              onCropChange={setCrop}
+              onCropComplete={onCropComplete}
+              onZoomChange={setZoom}
+            />
+          </div>
+
+          <div className="p-6 bg-[#111] border-t border-white/10">
+            <div className="flex items-center gap-4 mb-6 max-w-md mx-auto">
+              <span className="text-[10px] text-white/50 w-12 text-right">ZOOM</span>
+              <input
+                type="range"
+                value={zoom}
+                min={1}
+                max={3}
+                step={0.1}
+                aria-labelledby="Zoom"
+                onChange={(e) => setZoom(Number(e.target.value))}
+                className="flex-1 accent-white h-1 bg-white/20 rounded-lg cursor-pointer"
+              />
+            </div>
+            <div className="flex justify-center">
+              <button
+                onClick={handleUploadCroppedImage}
+                disabled={uploading}
+                className="px-8 py-3 bg-white text-black font-bold tracking-widest text-xs hover:bg-[#ccc] disabled:opacity-50"
+              >
+                {uploading ? 'PROCESSING...' : 'CROP & UPLOAD'}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
@@ -303,6 +424,10 @@ export const AdminPage: React.FC = () => {
   const [isCreating, setIsCreating] = useState(false);
   const [newItem, setNewItem] = useState<Omit<GalleryItemType, 'id'>>(EmptyItem);
   const [saving, setSaving] = useState(false);
+
+  // Quick Upload State
+  const [showQuickUpload, setShowQuickUpload] = useState(false);
+  const [quickUploadUrl, setQuickUploadUrl] = useState('');
 
   // Firebase Auth 상태 감시
   const [searchParams, setSearchParams] = useSearchParams();
@@ -640,6 +765,15 @@ export const AdminPage: React.FC = () => {
               + ADD NEW MOMENT
             </button>
             <button
+              onClick={() => {
+                setShowQuickUpload(true);
+                setQuickUploadUrl('');
+              }}
+              className="px-6 py-2 border border-blue-500/50 text-blue-400 text-xs font-bold tracking-[0.2em] hover:bg-blue-500/10 transition-colors mr-2"
+            >
+              ★ QUICK UPLOAD
+            </button>
+            <button
               onClick={handleLogout}
               className="px-6 py-2 border border-white/20 text-xs tracking-[0.2em] hover:bg-white/10 transition-colors"
             >
@@ -647,6 +781,58 @@ export const AdminPage: React.FC = () => {
             </button>
           </div>
         </header>
+
+        {/* Quick Upload Modal */}
+        {showQuickUpload && (
+          <div className="fixed inset-0 bg-black/90 z-[3000] flex items-center justify-center p-8">
+            <div className="bg-[#1a1a1a] p-8 w-full max-w-md border border-white/10 relative">
+              <button
+                onClick={() => setShowQuickUpload(false)}
+                className="absolute top-4 right-4 text-white/40 hover:text-white"
+              >
+                ✕
+              </button>
+
+              <h2 className="text-xl mb-6 font-bold tracking-widest text-center">QUICK IMAGE UPLOAD</h2>
+
+              <div className="space-y-6">
+                <div className="p-4 bg-black border border-dashed border-white/20 text-center">
+                  <ImageUploader
+                    currentUrl={quickUploadUrl}
+                    onUpload={(url) => setQuickUploadUrl(url)}
+                    label="UPLOAD IMAGE TO GET URL"
+                  />
+                </div>
+
+                {quickUploadUrl && (
+                  <div className="space-y-2 animate-in fade-in slide-in-from-bottom-2">
+                    <label className="text-[10px] text-white/40 block tracking-widest">GENERATED URL</label>
+                    <div className="flex gap-2">
+                      <input
+                        readOnly
+                        value={quickUploadUrl}
+                        className="flex-1 bg-black border border-white/20 p-2 text-xs text-white/70 focus:outline-none"
+                        onClick={(e) => e.currentTarget.select()}
+                      />
+                      <button
+                        onClick={() => {
+                          navigator.clipboard.writeText(quickUploadUrl);
+                          alert('URL copied to clipboard!');
+                        }}
+                        className="bg-white text-black px-3 py-2 text-[10px] font-bold tracking-widest hover:bg-[#ccc]"
+                      >
+                        COPY
+                      </button>
+                    </div>
+                    <p className="text-[10px] text-blue-400 mt-2 text-center">
+                      ✨ Copy this URL and paste it into your Google Sheet!
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Loading State */}
         {loading && (
