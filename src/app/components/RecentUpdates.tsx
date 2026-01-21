@@ -1,7 +1,8 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { collection, query, onSnapshot, deleteDoc, doc, updateDoc, addDoc, orderBy, serverTimestamp, getDoc, getDocs } from 'firebase/firestore';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { db, auth } from '../firebase';
+import TagCategoryManager from './TagCategoryManager';
 
 interface Memo {
     id: string;
@@ -43,6 +44,9 @@ export const RecentUpdates: React.FC<RecentUpdatesProps> = ({ isAdmin = false })
 
     // 갤러리 승격 상태
     const [promotingToGallery, setPromotingToGallery] = useState(false);
+
+    // Tag category manager
+    const [showTagManager, setShowTagManager] = useState(false);
 
     // Selection state for bulk actions
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -517,783 +521,804 @@ export const RecentUpdates: React.FC<RecentUpdatesProps> = ({ isAdmin = false })
     }
 
     return (
-        <div className="w-full h-full overflow-auto bg-gradient-to-br from-[#0a0a0a] to-[#151515]">
-            {/* Bulk Action Bar - Sticky Header */}
-            {isAdmin && selectedIds.size > 0 && (
-                <div className="absolute top-20 left-0 right-0 z-40 px-6 md:px-10 flex justify-center pointer-events-none">
-                    <div className="bg-[#1a1a2e] border border-blue-500/30 shadow-2xl rounded-full px-6 py-3 flex items-center gap-6 pointer-events-auto animate-fade-in-up">
-                        <span className="text-white font-medium">
-                            {selectedIds.size}개 선택됨
-                        </span>
-                        <div className="h-4 w-[1px] bg-white/10"></div>
-                        <button
-                            onClick={() => setSelectedIds(new Set())}
-                            className="text-white/60 hover:text-white text-sm"
-                        >
-                            선택 해제
-                        </button>
-                        <button
-                            onClick={handleBulkDelete}
-                            className="bg-red-500 hover:bg-red-600 text-white px-4 py-1.5 rounded-full text-sm font-medium transition flex items-center gap-2"
-                        >
-                            <span>🗑️</span> 삭제
-                        </button>
-                    </div>
-                </div>
-            )}
-
-            {/* Delete Confirmation Modal */}
-            {showDeleteConfirm && (
-                <div className="fixed inset-0 bg-black/80 z-[60] flex items-center justify-center p-4">
-                    <div className="bg-[#1a1a2e] border border-red-500/30 rounded-2xl p-6 max-w-sm w-full">
-                        <h3 className="text-white text-lg font-bold mb-2">삭제 확인</h3>
-                        <p className="text-white/60 text-sm mb-6">이 항목을 삭제하시겠습니까?</p>
-                        <div className="flex gap-3">
+        <>
+            <div className="w-full h-full overflow-auto bg-gradient-to-br from-[#0a0a0a] to-[#151515]">
+                {/* Bulk Action Bar - Sticky Header */}
+                {isAdmin && selectedIds.size > 0 && (
+                    <div className="absolute top-20 left-0 right-0 z-40 px-6 md:px-10 flex justify-center pointer-events-none">
+                        <div className="bg-[#1a1a2e] border border-blue-500/30 shadow-2xl rounded-full px-6 py-3 flex items-center gap-6 pointer-events-auto animate-fade-in-up">
+                            <span className="text-white font-medium">
+                                {selectedIds.size}개 선택됨
+                            </span>
+                            <div className="h-4 w-[1px] bg-white/10"></div>
                             <button
-                                onClick={() => setShowDeleteConfirm(null)}
-                                className="flex-1 py-2 rounded-lg bg-white/10 text-white/70 hover:bg-white/20 transition"
+                                onClick={() => setSelectedIds(new Set())}
+                                className="text-white/60 hover:text-white text-sm"
                             >
-                                취소
+                                선택 해제
                             </button>
                             <button
-                                onClick={() => handleDelete(showDeleteConfirm)}
-                                className="flex-1 py-2 rounded-lg bg-red-500 text-white hover:bg-red-600 transition"
+                                onClick={handleBulkDelete}
+                                className="bg-red-500 hover:bg-red-600 text-white px-4 py-1.5 rounded-full text-sm font-medium transition flex items-center gap-2"
                             >
-                                삭제
+                                <span>🗑️</span> 삭제
                             </button>
                         </div>
                     </div>
-                </div>
-            )}
+                )}
 
-            {/* Edit Modal */}
-            {editingItem && (
-                <div className="fixed inset-0 bg-black/90 backdrop-blur-xl z-50 flex items-center justify-center p-4">
-                    <div className="bg-gradient-to-br from-[#1a1a2e] to-[#16213e] border border-white/10 rounded-3xl max-w-2xl w-full max-h-[90vh] overflow-auto shadow-2xl">
-                        <div className="sticky top-0 bg-gradient-to-b from-[#1a1a2e] to-transparent p-6 pb-4 flex justify-between items-center">
-                            <h2 className="text-xl font-bold text-white">✏️ 편집</h2>
-                            <button
-                                onClick={() => setEditingItem(null)}
-                                className="w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition-all"
-                            >
-                                <span className="text-white/70 text-xl">×</span>
-                            </button>
+                {/* Delete Confirmation Modal */}
+                {showDeleteConfirm && (
+                    <div className="fixed inset-0 bg-black/80 z-[60] flex items-center justify-center p-4">
+                        <div className="bg-[#1a1a2e] border border-red-500/30 rounded-2xl p-6 max-w-sm w-full">
+                            <h3 className="text-white text-lg font-bold mb-2">삭제 확인</h3>
+                            <p className="text-white/60 text-sm mb-6">이 항목을 삭제하시겠습니까?</p>
+                            <div className="flex gap-3">
+                                <button
+                                    onClick={() => setShowDeleteConfirm(null)}
+                                    className="flex-1 py-2 rounded-lg bg-white/10 text-white/70 hover:bg-white/20 transition"
+                                >
+                                    취소
+                                </button>
+                                <button
+                                    onClick={() => handleDelete(showDeleteConfirm)}
+                                    className="flex-1 py-2 rounded-lg bg-red-500 text-white hover:bg-red-600 transition"
+                                >
+                                    삭제
+                                </button>
+                            </div>
                         </div>
+                    </div>
+                )}
 
-                        <div className="px-6 pb-6 space-y-4">
-                            {/* 제목 */}
-                            <div>
-                                <label className="text-white/50 text-xs uppercase tracking-wider mb-1 block">제목</label>
-                                <input
-                                    type="text"
-                                    value={editingItem.title}
-                                    onChange={(e) => handleEditChange('title', e.target.value)}
-                                    className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder-white/30 focus:outline-none focus:border-blue-500/50"
-                                />
+                {/* Edit Modal */}
+                {editingItem && (
+                    <div className="fixed inset-0 bg-black/90 backdrop-blur-xl z-50 flex items-center justify-center p-4">
+                        <div className="bg-gradient-to-br from-[#1a1a2e] to-[#16213e] border border-white/10 rounded-3xl max-w-2xl w-full max-h-[90vh] overflow-auto shadow-2xl">
+                            <div className="sticky top-0 bg-gradient-to-b from-[#1a1a2e] to-transparent p-6 pb-4 flex justify-between items-center">
+                                <h2 className="text-xl font-bold text-white">✏️ 편집</h2>
+                                <button
+                                    onClick={() => setEditingItem(null)}
+                                    className="w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition-all"
+                                >
+                                    <span className="text-white/70 text-xl">×</span>
+                                </button>
                             </div>
 
-                            {/* 부제목 */}
-                            <div>
-                                <label className="text-white/50 text-xs uppercase tracking-wider mb-1 block">요약</label>
-                                <input
-                                    type="text"
-                                    value={editingItem.subtitle}
-                                    onChange={(e) => handleEditChange('subtitle', e.target.value)}
-                                    className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder-white/30 focus:outline-none focus:border-blue-500/50"
-                                />
-                            </div>
+                            <div className="px-6 pb-6 space-y-4">
+                                {/* 제목 */}
+                                <div>
+                                    <label className="text-white/50 text-xs uppercase tracking-wider mb-1 block">제목</label>
+                                    <input
+                                        type="text"
+                                        value={editingItem.title}
+                                        onChange={(e) => handleEditChange('title', e.target.value)}
+                                        className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder-white/30 focus:outline-none focus:border-blue-500/50"
+                                    />
+                                </div>
 
-                            {/* 본문 */}
-                            <div>
-                                <label className="text-white/50 text-xs uppercase tracking-wider mb-1 block">본문</label>
-                                <textarea
-                                    value={getContent(editingItem)}
-                                    onChange={(e) => handleContentChange(e.target.value)}
-                                    rows={8}
-                                    className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder-white/30 focus:outline-none focus:border-blue-500/50 resize-none"
-                                />
-                            </div>
+                                {/* 부제목 */}
+                                <div>
+                                    <label className="text-white/50 text-xs uppercase tracking-wider mb-1 block">요약</label>
+                                    <input
+                                        type="text"
+                                        value={editingItem.subtitle}
+                                        onChange={(e) => handleEditChange('subtitle', e.target.value)}
+                                        className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder-white/30 focus:outline-none focus:border-blue-500/50"
+                                    />
+                                </div>
 
-                            {/* 태그 */}
-                            <div>
-                                <label className="text-white/50 text-xs uppercase tracking-wider mb-1 block">
-                                    태그 (쉼표로 구분)
-                                </label>
-                                <input
-                                    type="text"
-                                    value={getTagsString(editingItem)}
-                                    onChange={(e) => handleTagsChange(e.target.value)}
-                                    placeholder="태그1, 태그2, 태그3"
-                                    className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder-white/30 focus:outline-none focus:border-blue-500/50"
-                                />
-                                {getTagsString(editingItem) && (
-                                    <div className="flex flex-wrap gap-2 mt-2">
-                                        {getTagsString(editingItem).split(',').map((t, i) => t.trim()).filter(Boolean).map((tag, i) => (
-                                            <span key={i} className="px-2 py-1 text-xs rounded-full bg-purple-500/20 text-purple-300">
+                                {/* 본문 */}
+                                <div>
+                                    <label className="text-white/50 text-xs uppercase tracking-wider mb-1 block">본문</label>
+                                    <textarea
+                                        value={getContent(editingItem)}
+                                        onChange={(e) => handleContentChange(e.target.value)}
+                                        rows={8}
+                                        className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder-white/30 focus:outline-none focus:border-blue-500/50 resize-none"
+                                    />
+                                </div>
+
+                                {/* 태그 */}
+                                <div>
+                                    <label className="text-white/50 text-xs uppercase tracking-wider mb-1 block">
+                                        태그 (쉼표로 구분)
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={getTagsString(editingItem)}
+                                        onChange={(e) => handleTagsChange(e.target.value)}
+                                        placeholder="태그1, 태그2, 태그3"
+                                        className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder-white/30 focus:outline-none focus:border-blue-500/50"
+                                    />
+                                    {getTagsString(editingItem) && (
+                                        <div className="flex flex-wrap gap-2 mt-2">
+                                            {getTagsString(editingItem).split(',').map((t, i) => t.trim()).filter(Boolean).map((tag, i) => (
+                                                <span key={i} className="px-2 py-1 text-xs rounded-full bg-purple-500/20 text-purple-300">
+                                                    #{tag}
+                                                </span>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* 이미지 URL */}
+                                <div>
+                                    <label className="text-white/50 text-xs uppercase tracking-wider mb-1 block">이미지 URL</label>
+                                    <input
+                                        type="text"
+                                        value={editingItem.image || ''}
+                                        onChange={(e) => handleEditChange('image', e.target.value)}
+                                        placeholder="https://drive.google.com/..."
+                                        className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder-white/30 focus:outline-none focus:border-blue-500/50"
+                                    />
+                                    {editingItem.image && (
+                                        <div className="mt-3 rounded-xl overflow-hidden border border-white/10">
+                                            <img
+                                                src={editingItem.image}
+                                                alt="Preview"
+                                                className="w-full max-h-48 object-contain bg-black/30"
+                                                onError={(e) => {
+                                                    (e.target as HTMLImageElement).style.display = 'none';
+                                                }}
+                                            />
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* 버튼 */}
+                                <div className="flex gap-3 pt-4">
+                                    <button
+                                        onClick={() => setShowDeleteConfirm(editingItem.id)}
+                                        className="px-6 py-3 rounded-xl bg-red-500/20 text-red-400 hover:bg-red-500/30 transition"
+                                    >
+                                        🗑️ 삭제
+                                    </button>
+                                    <button
+                                        onClick={() => setEditingItem(null)}
+                                        className="flex-1 py-3 rounded-xl bg-white/10 text-white/70 hover:bg-white/20 transition"
+                                    >
+                                        취소
+                                    </button>
+                                    <button
+                                        onClick={handleSave}
+                                        disabled={saving}
+                                        className="flex-1 py-3 rounded-xl bg-gradient-to-r from-blue-500 to-purple-500 text-white hover:opacity-90 transition disabled:opacity-50"
+                                    >
+                                        {saving ? '저장 중...' : '💾 저장'}
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* Selected Item Detail Modal */}
+                {selectedItem && !editingItem && (
+                    <div
+                        className="fixed inset-0 bg-black/90 backdrop-blur-xl z-50 flex items-center justify-center p-4"
+                        onClick={() => setSelectedItem(null)}
+                    >
+                        <div
+                            className="bg-gradient-to-br from-[#1a1a2e] to-[#16213e] border border-white/10 rounded-3xl max-w-5xl w-full max-h-[95vh] overflow-auto shadow-2xl"
+                            onClick={e => e.stopPropagation()}
+                        >
+                            {/* Header */}
+                            <div className="sticky top-0 bg-gradient-to-b from-[#1a1a2e] to-transparent p-6 pb-4">
+                                <div className="flex justify-between items-start">
+                                    <div className="flex-1 pr-4">
+                                        <h2 className="text-2xl md:text-3xl font-bold text-white mb-2 leading-tight">
+                                            {selectedItem.title}
+                                        </h2>
+                                        {selectedItem.subtitle && (
+                                            <p className="text-blue-300/70 text-sm">{selectedItem.subtitle}</p>
+                                        )}
+                                    </div>
+                                    <div className="flex gap-2">
+                                        {isAdmin && (
+                                            <>
+                                                <button
+                                                    onClick={() => promoteToGallery(selectedItem)}
+                                                    disabled={promotingToGallery}
+                                                    className="w-10 h-10 rounded-full bg-green-500/20 hover:bg-green-500/40 flex items-center justify-center transition-all disabled:opacity-50"
+                                                    title="갤러리에 추가"
+                                                >
+                                                    <span className="text-green-400">{promotingToGallery ? '⏳' : '📤'}</span>
+                                                </button>
+                                                <button
+                                                    onClick={() => {
+                                                        setEditingItem(selectedItem);
+                                                        setSelectedItem(null);
+                                                    }}
+                                                    className="w-10 h-10 rounded-full bg-blue-500/20 hover:bg-blue-500/40 flex items-center justify-center transition-all"
+                                                    title="편집"
+                                                >
+                                                    <span className="text-blue-400">✏️</span>
+                                                </button>
+                                                <button
+                                                    onClick={() => setShowDeleteConfirm(selectedItem.id)}
+                                                    className="w-10 h-10 rounded-full bg-red-500/20 hover:bg-red-500/40 flex items-center justify-center transition-all"
+                                                    title="삭제"
+                                                >
+                                                    <span className="text-red-400">🗑️</span>
+                                                </button>
+                                            </>
+                                        )}
+                                        <button
+                                            onClick={() => setSelectedItem(null)}
+                                            className="w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition-all"
+                                        >
+                                            <span className="text-white/70 text-xl">×</span>
+                                        </button>
+                                    </div>
+                                </div>
+
+                                {/* Tags */}
+                                {getTags(selectedItem).length > 0 && (
+                                    <div className="flex flex-wrap gap-2 mt-4">
+                                        {getTags(selectedItem).map((tag, i) => (
+                                            <button
+                                                key={i}
+                                                onClick={() => {
+                                                    setTagFilters(prev => ({ ...prev, [tag]: 'include' }));
+                                                    setSelectedItem(null);
+                                                }}
+                                                className="px-3 py-1 text-xs rounded-full bg-blue-500/20 text-blue-300 border border-blue-500/30 hover:bg-blue-500/30 transition"
+                                            >
                                                 #{tag}
-                                            </span>
+                                            </button>
                                         ))}
                                     </div>
                                 )}
                             </div>
 
-                            {/* 이미지 URL */}
-                            <div>
-                                <label className="text-white/50 text-xs uppercase tracking-wider mb-1 block">이미지 URL</label>
-                                <input
-                                    type="text"
-                                    value={editingItem.image || ''}
-                                    onChange={(e) => handleEditChange('image', e.target.value)}
-                                    placeholder="https://drive.google.com/..."
-                                    className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder-white/30 focus:outline-none focus:border-blue-500/50"
-                                />
-                                {editingItem.image && (
-                                    <div className="mt-3 rounded-xl overflow-hidden border border-white/10">
-                                        <img
-                                            src={editingItem.image}
-                                            alt="Preview"
-                                            className="w-full max-h-48 object-contain bg-black/30"
-                                            onError={(e) => {
-                                                (e.target as HTMLImageElement).style.display = 'none';
-                                            }}
-                                        />
+                            {/* Content */}
+                            <div className="px-6 pb-6">
+                                {/* Layout with floating image on left */}
+                                <div className={`${selectedItem.image && !selectedItem.image.includes('unsplash.com') ? 'md:flex md:gap-6' : ''}`}>
+                                    {/* Floating Image - Left side on desktop */}
+                                    {selectedItem.image && !selectedItem.image.includes('unsplash.com') && (
+                                        <div className="md:sticky md:top-24 md:self-start mb-4 md:mb-0 md:flex-shrink-0">
+                                            <div className="relative group/img">
+                                                <div className="md:w-96 lg:w-[480px] overflow-hidden rounded-xl border border-white/10 bg-black/30 shadow-lg hover:shadow-xl hover:shadow-blue-500/10 transition-all duration-300">
+                                                    <img
+                                                        src={selectedItem.image}
+                                                        alt={selectedItem.title}
+                                                        className="w-full h-auto max-h-[85vh] md:max-h-[90vh] object-contain cursor-pointer hover:scale-[1.02] transition-transform duration-300"
+                                                        onClick={() => window.open(selectedItem.image, '_blank')}
+                                                        onError={(e) => {
+                                                            (e.target as HTMLImageElement).parentElement!.parentElement!.style.display = 'none';
+                                                        }}
+                                                    />
+                                                </div>
+                                                {/* Hover hint */}
+                                                <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover/img:opacity-100 transition-opacity bg-black/40 rounded-xl pointer-events-none">
+                                                    <span className="text-white/80 text-xs bg-black/60 px-2 py-1 rounded-full">🔍 클릭하여 확대</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* Text Content - Right side on desktop */}
+                                    <div className="flex-1 min-w-0">
+                                        <div className="text-white/80 text-base leading-relaxed whitespace-pre-wrap mb-6">
+                                            {getContent(selectedItem)}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {selectedItem.content?.[0]?.date && (
+                                    <div className="mt-8 pt-4 border-t border-white/10">
+                                        <p className="text-white/40 text-sm flex items-center gap-2">
+                                            <span>📅</span>
+                                            {formatDate(selectedItem.content[0].date)}
+                                        </p>
                                     </div>
                                 )}
-                            </div>
 
-                            {/* 버튼 */}
-                            <div className="flex gap-3 pt-4">
-                                <button
-                                    onClick={() => setShowDeleteConfirm(editingItem.id)}
-                                    className="px-6 py-3 rounded-xl bg-red-500/20 text-red-400 hover:bg-red-500/30 transition"
-                                >
-                                    🗑️ 삭제
-                                </button>
-                                <button
-                                    onClick={() => setEditingItem(null)}
-                                    className="flex-1 py-3 rounded-xl bg-white/10 text-white/70 hover:bg-white/20 transition"
-                                >
-                                    취소
-                                </button>
-                                <button
-                                    onClick={handleSave}
-                                    disabled={saving}
-                                    className="flex-1 py-3 rounded-xl bg-gradient-to-r from-blue-500 to-purple-500 text-white hover:opacity-90 transition disabled:opacity-50"
-                                >
-                                    {saving ? '저장 중...' : '💾 저장'}
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {/* Selected Item Detail Modal */}
-            {selectedItem && !editingItem && (
-                <div
-                    className="fixed inset-0 bg-black/90 backdrop-blur-xl z-50 flex items-center justify-center p-4"
-                    onClick={() => setSelectedItem(null)}
-                >
-                    <div
-                        className="bg-gradient-to-br from-[#1a1a2e] to-[#16213e] border border-white/10 rounded-3xl max-w-5xl w-full max-h-[95vh] overflow-auto shadow-2xl"
-                        onClick={e => e.stopPropagation()}
-                    >
-                        {/* Header */}
-                        <div className="sticky top-0 bg-gradient-to-b from-[#1a1a2e] to-transparent p-6 pb-4">
-                            <div className="flex justify-between items-start">
-                                <div className="flex-1 pr-4">
-                                    <h2 className="text-2xl md:text-3xl font-bold text-white mb-2 leading-tight">
-                                        {selectedItem.title}
-                                    </h2>
-                                    {selectedItem.subtitle && (
-                                        <p className="text-blue-300/70 text-sm">{selectedItem.subtitle}</p>
-                                    )}
-                                </div>
-                                <div className="flex gap-2">
-                                    {isAdmin && (
-                                        <>
-                                            <button
-                                                onClick={() => promoteToGallery(selectedItem)}
-                                                disabled={promotingToGallery}
-                                                className="w-10 h-10 rounded-full bg-green-500/20 hover:bg-green-500/40 flex items-center justify-center transition-all disabled:opacity-50"
-                                                title="갤러리에 추가"
-                                            >
-                                                <span className="text-green-400">{promotingToGallery ? '⏳' : '📤'}</span>
-                                            </button>
+                                {/* Memos Section */}
+                                <div className="mt-8 pt-6 border-t border-white/10">
+                                    <div className="flex items-center justify-between mb-4">
+                                        <h4 className="text-white/70 text-sm font-medium flex items-center gap-2">
+                                            📝 메모
+                                            {memos[selectedItem.id]?.length > 0 && (
+                                                <span className="px-2 py-0.5 text-xs rounded-full bg-blue-500/20 text-blue-300">
+                                                    {memos[selectedItem.id].length}
+                                                </span>
+                                            )}
+                                        </h4>
+                                        {currentUser && showMemoInput !== selectedItem.id && (
                                             <button
                                                 onClick={() => {
-                                                    setEditingItem(selectedItem);
-                                                    setSelectedItem(null);
+                                                    setShowMemoInput(selectedItem.id);
+                                                    setNewMemoText('');
                                                 }}
-                                                className="w-10 h-10 rounded-full bg-blue-500/20 hover:bg-blue-500/40 flex items-center justify-center transition-all"
-                                                title="편집"
+                                                className="px-3 py-1.5 text-xs rounded-lg bg-gradient-to-r from-blue-500/20 to-purple-500/20 text-blue-300 hover:from-blue-500/30 hover:to-purple-500/30 transition-all"
                                             >
-                                                <span className="text-blue-400">✏️</span>
+                                                + 메모 추가
                                             </button>
-                                            <button
-                                                onClick={() => setShowDeleteConfirm(selectedItem.id)}
-                                                className="w-10 h-10 rounded-full bg-red-500/20 hover:bg-red-500/40 flex items-center justify-center transition-all"
-                                                title="삭제"
-                                            >
-                                                <span className="text-red-400">🗑️</span>
-                                            </button>
-                                        </>
-                                    )}
-                                    <button
-                                        onClick={() => setSelectedItem(null)}
-                                        className="w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition-all"
-                                    >
-                                        <span className="text-white/70 text-xl">×</span>
-                                    </button>
-                                </div>
-                            </div>
-
-                            {/* Tags */}
-                            {getTags(selectedItem).length > 0 && (
-                                <div className="flex flex-wrap gap-2 mt-4">
-                                    {getTags(selectedItem).map((tag, i) => (
-                                        <button
-                                            key={i}
-                                            onClick={() => {
-                                                setTagFilters(prev => ({ ...prev, [tag]: 'include' }));
-                                                setSelectedItem(null);
-                                            }}
-                                            className="px-3 py-1 text-xs rounded-full bg-blue-500/20 text-blue-300 border border-blue-500/30 hover:bg-blue-500/30 transition"
-                                        >
-                                            #{tag}
-                                        </button>
-                                    ))}
-                                </div>
-                            )}
-                        </div>
-
-                        {/* Content */}
-                        <div className="px-6 pb-6">
-                            {/* Layout with floating image on left */}
-                            <div className={`${selectedItem.image && !selectedItem.image.includes('unsplash.com') ? 'md:flex md:gap-6' : ''}`}>
-                                {/* Floating Image - Left side on desktop */}
-                                {selectedItem.image && !selectedItem.image.includes('unsplash.com') && (
-                                    <div className="md:sticky md:top-24 md:self-start mb-4 md:mb-0 md:flex-shrink-0">
-                                        <div className="relative group/img">
-                                            <div className="md:w-96 lg:w-[480px] overflow-hidden rounded-xl border border-white/10 bg-black/30 shadow-lg hover:shadow-xl hover:shadow-blue-500/10 transition-all duration-300">
-                                                <img
-                                                    src={selectedItem.image}
-                                                    alt={selectedItem.title}
-                                                    className="w-full h-auto max-h-[85vh] md:max-h-[90vh] object-contain cursor-pointer hover:scale-[1.02] transition-transform duration-300"
-                                                    onClick={() => window.open(selectedItem.image, '_blank')}
-                                                    onError={(e) => {
-                                                        (e.target as HTMLImageElement).parentElement!.parentElement!.style.display = 'none';
-                                                    }}
-                                                />
-                                            </div>
-                                            {/* Hover hint */}
-                                            <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover/img:opacity-100 transition-opacity bg-black/40 rounded-xl pointer-events-none">
-                                                <span className="text-white/80 text-xs bg-black/60 px-2 py-1 rounded-full">🔍 클릭하여 확대</span>
-                                            </div>
-                                        </div>
-                                    </div>
-                                )}
-
-                                {/* Text Content - Right side on desktop */}
-                                <div className="flex-1 min-w-0">
-                                    <div className="text-white/80 text-base leading-relaxed whitespace-pre-wrap mb-6">
-                                        {getContent(selectedItem)}
-                                    </div>
-                                </div>
-                            </div>
-
-                            {selectedItem.content?.[0]?.date && (
-                                <div className="mt-8 pt-4 border-t border-white/10">
-                                    <p className="text-white/40 text-sm flex items-center gap-2">
-                                        <span>📅</span>
-                                        {formatDate(selectedItem.content[0].date)}
-                                    </p>
-                                </div>
-                            )}
-
-                            {/* Memos Section */}
-                            <div className="mt-8 pt-6 border-t border-white/10">
-                                <div className="flex items-center justify-between mb-4">
-                                    <h4 className="text-white/70 text-sm font-medium flex items-center gap-2">
-                                        📝 메모
-                                        {memos[selectedItem.id]?.length > 0 && (
-                                            <span className="px-2 py-0.5 text-xs rounded-full bg-blue-500/20 text-blue-300">
-                                                {memos[selectedItem.id].length}
-                                            </span>
                                         )}
-                                    </h4>
-                                    {currentUser && showMemoInput !== selectedItem.id && (
-                                        <button
-                                            onClick={() => {
-                                                setShowMemoInput(selectedItem.id);
-                                                setNewMemoText('');
-                                            }}
-                                            className="px-3 py-1.5 text-xs rounded-lg bg-gradient-to-r from-blue-500/20 to-purple-500/20 text-blue-300 hover:from-blue-500/30 hover:to-purple-500/30 transition-all"
-                                        >
-                                            + 메모 추가
-                                        </button>
-                                    )}
-                                </div>
-
-                                {/* Add Memo Input */}
-                                {showMemoInput === selectedItem.id && currentUser && (
-                                    <div className="mb-4 p-4 bg-white/5 rounded-xl border border-white/10">
-                                        <textarea
-                                            value={newMemoText}
-                                            onChange={(e) => setNewMemoText(e.target.value)}
-                                            placeholder="메모를 입력하세요..."
-                                            rows={3}
-                                            className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white placeholder-white/30 focus:outline-none focus:border-blue-500/50 resize-none text-sm"
-                                        />
-                                        <div className="flex justify-end gap-2 mt-3">
-                                            <button
-                                                onClick={() => setShowMemoInput(null)}
-                                                className="px-4 py-2 text-xs rounded-lg bg-white/10 text-white/70 hover:bg-white/20 transition"
-                                            >
-                                                취소
-                                            </button>
-                                            <button
-                                                onClick={() => handleAddMemo(selectedItem.id)}
-                                                disabled={savingMemo || !newMemoText.trim()}
-                                                className="px-4 py-2 text-xs rounded-lg bg-gradient-to-r from-blue-500 to-purple-500 text-white hover:opacity-90 transition disabled:opacity-50"
-                                            >
-                                                {savingMemo ? '저장 중...' : '저장'}
-                                            </button>
-                                        </div>
                                     </div>
-                                )}
 
-                                {/* Not logged in message */}
-                                {!currentUser && (
-                                    <p className="text-white/40 text-sm text-center py-4">
-                                        메모를 추가하려면 로그인하세요
-                                    </p>
-                                )}
+                                    {/* Add Memo Input */}
+                                    {showMemoInput === selectedItem.id && currentUser && (
+                                        <div className="mb-4 p-4 bg-white/5 rounded-xl border border-white/10">
+                                            <textarea
+                                                value={newMemoText}
+                                                onChange={(e) => setNewMemoText(e.target.value)}
+                                                placeholder="메모를 입력하세요..."
+                                                rows={3}
+                                                className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white placeholder-white/30 focus:outline-none focus:border-blue-500/50 resize-none text-sm"
+                                            />
+                                            <div className="flex justify-end gap-2 mt-3">
+                                                <button
+                                                    onClick={() => setShowMemoInput(null)}
+                                                    className="px-4 py-2 text-xs rounded-lg bg-white/10 text-white/70 hover:bg-white/20 transition"
+                                                >
+                                                    취소
+                                                </button>
+                                                <button
+                                                    onClick={() => handleAddMemo(selectedItem.id)}
+                                                    disabled={savingMemo || !newMemoText.trim()}
+                                                    className="px-4 py-2 text-xs rounded-lg bg-gradient-to-r from-blue-500 to-purple-500 text-white hover:opacity-90 transition disabled:opacity-50"
+                                                >
+                                                    {savingMemo ? '저장 중...' : '저장'}
+                                                </button>
+                                            </div>
+                                        </div>
+                                    )}
 
-                                {/* Memos List */}
-                                <div className="space-y-3">
-                                    {memos[selectedItem.id]?.map((memo) => (
-                                        <div
-                                            key={memo.id}
-                                            className="p-4 bg-gradient-to-br from-white/5 to-white/[0.02] rounded-xl border border-white/10 group"
-                                        >
-                                            {editingMemo?.memoId === memo.id ? (
-                                                /* Edit Mode */
-                                                <div>
-                                                    <textarea
-                                                        value={editingMemo.text}
-                                                        onChange={(e) => setEditingMemo({ ...editingMemo, text: e.target.value })}
-                                                        rows={3}
-                                                        className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white placeholder-white/30 focus:outline-none focus:border-blue-500/50 resize-none text-sm"
-                                                    />
-                                                    <div className="flex justify-end gap-2 mt-2">
-                                                        <button
-                                                            onClick={() => setEditingMemo(null)}
-                                                            className="px-3 py-1.5 text-xs rounded-lg bg-white/10 text-white/70 hover:bg-white/20 transition"
-                                                        >
-                                                            취소
-                                                        </button>
-                                                        <button
-                                                            onClick={handleUpdateMemo}
-                                                            disabled={savingMemo}
-                                                            className="px-3 py-1.5 text-xs rounded-lg bg-blue-500 text-white hover:bg-blue-600 transition disabled:opacity-50"
-                                                        >
-                                                            {savingMemo ? '저장 중...' : '저장'}
-                                                        </button>
+                                    {/* Not logged in message */}
+                                    {!currentUser && (
+                                        <p className="text-white/40 text-sm text-center py-4">
+                                            메모를 추가하려면 로그인하세요
+                                        </p>
+                                    )}
+
+                                    {/* Memos List */}
+                                    <div className="space-y-3">
+                                        {memos[selectedItem.id]?.map((memo) => (
+                                            <div
+                                                key={memo.id}
+                                                className="p-4 bg-gradient-to-br from-white/5 to-white/[0.02] rounded-xl border border-white/10 group"
+                                            >
+                                                {editingMemo?.memoId === memo.id ? (
+                                                    /* Edit Mode */
+                                                    <div>
+                                                        <textarea
+                                                            value={editingMemo.text}
+                                                            onChange={(e) => setEditingMemo({ ...editingMemo, text: e.target.value })}
+                                                            rows={3}
+                                                            className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white placeholder-white/30 focus:outline-none focus:border-blue-500/50 resize-none text-sm"
+                                                        />
+                                                        <div className="flex justify-end gap-2 mt-2">
+                                                            <button
+                                                                onClick={() => setEditingMemo(null)}
+                                                                className="px-3 py-1.5 text-xs rounded-lg bg-white/10 text-white/70 hover:bg-white/20 transition"
+                                                            >
+                                                                취소
+                                                            </button>
+                                                            <button
+                                                                onClick={handleUpdateMemo}
+                                                                disabled={savingMemo}
+                                                                className="px-3 py-1.5 text-xs rounded-lg bg-blue-500 text-white hover:bg-blue-600 transition disabled:opacity-50"
+                                                            >
+                                                                {savingMemo ? '저장 중...' : '저장'}
+                                                            </button>
+                                                        </div>
                                                     </div>
-                                                </div>
-                                            ) : (
-                                                /* View Mode */
-                                                <>
-                                                    <div className="flex items-start justify-between gap-3">
-                                                        <div className="flex items-center gap-2 mb-2">
-                                                            {memo.userPhoto ? (
-                                                                <img
-                                                                    src={memo.userPhoto}
-                                                                    alt={memo.userName}
-                                                                    className="w-6 h-6 rounded-full"
-                                                                />
-                                                            ) : (
-                                                                <div className="w-6 h-6 rounded-full bg-blue-500/30 flex items-center justify-center text-xs text-blue-300">
-                                                                    {memo.userName?.[0] || '?'}
+                                                ) : (
+                                                    /* View Mode */
+                                                    <>
+                                                        <div className="flex items-start justify-between gap-3">
+                                                            <div className="flex items-center gap-2 mb-2">
+                                                                {memo.userPhoto ? (
+                                                                    <img
+                                                                        src={memo.userPhoto}
+                                                                        alt={memo.userName}
+                                                                        className="w-6 h-6 rounded-full"
+                                                                    />
+                                                                ) : (
+                                                                    <div className="w-6 h-6 rounded-full bg-blue-500/30 flex items-center justify-center text-xs text-blue-300">
+                                                                        {memo.userName?.[0] || '?'}
+                                                                    </div>
+                                                                )}
+                                                                <span className="text-white/60 text-xs">{memo.userName}</span>
+                                                                <span className="text-white/30 text-[10px]">
+                                                                    {memo.createdAt?.toDate?.()?.toLocaleDateString('ko-KR') || ''}
+                                                                </span>
+                                                            </div>
+                                                            {currentUser?.uid === memo.userId && (
+                                                                <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition">
+                                                                    <button
+                                                                        onClick={() => setEditingMemo({
+                                                                            itemId: selectedItem.id,
+                                                                            memoId: memo.id,
+                                                                            text: memo.text
+                                                                        })}
+                                                                        className="p-1.5 rounded-lg bg-white/10 hover:bg-blue-500/30 text-white/50 hover:text-blue-300 transition text-xs"
+                                                                        title="편집"
+                                                                    >
+                                                                        ✏️
+                                                                    </button>
+                                                                    <button
+                                                                        onClick={() => handleDeleteMemo(selectedItem.id, memo.id)}
+                                                                        className="p-1.5 rounded-lg bg-white/10 hover:bg-red-500/30 text-white/50 hover:text-red-300 transition text-xs"
+                                                                        title="삭제"
+                                                                    >
+                                                                        🗑️
+                                                                    </button>
                                                                 </div>
                                                             )}
-                                                            <span className="text-white/60 text-xs">{memo.userName}</span>
-                                                            <span className="text-white/30 text-[10px]">
-                                                                {memo.createdAt?.toDate?.()?.toLocaleDateString('ko-KR') || ''}
-                                                            </span>
                                                         </div>
-                                                        {currentUser?.uid === memo.userId && (
-                                                            <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition">
-                                                                <button
-                                                                    onClick={() => setEditingMemo({
-                                                                        itemId: selectedItem.id,
-                                                                        memoId: memo.id,
-                                                                        text: memo.text
-                                                                    })}
-                                                                    className="p-1.5 rounded-lg bg-white/10 hover:bg-blue-500/30 text-white/50 hover:text-blue-300 transition text-xs"
-                                                                    title="편집"
-                                                                >
-                                                                    ✏️
-                                                                </button>
-                                                                <button
-                                                                    onClick={() => handleDeleteMemo(selectedItem.id, memo.id)}
-                                                                    className="p-1.5 rounded-lg bg-white/10 hover:bg-red-500/30 text-white/50 hover:text-red-300 transition text-xs"
-                                                                    title="삭제"
-                                                                >
-                                                                    🗑️
-                                                                </button>
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                    <p className="text-white/80 text-sm whitespace-pre-wrap">{memo.text}</p>
-                                                </>
-                                            )}
-                                        </div>
-                                    ))}
+                                                        <p className="text-white/80 text-sm whitespace-pre-wrap">{memo.text}</p>
+                                                    </>
+                                                )}
+                                            </div>
+                                        ))}
+                                    </div>
+
+                                    {/* No memos yet */}
+                                    {(!memos[selectedItem.id] || memos[selectedItem.id].length === 0) && currentUser && (
+                                        <p className="text-white/30 text-sm text-center py-4">
+                                            아직 메모가 없습니다
+                                        </p>
+                                    )}
                                 </div>
 
-                                {/* No memos yet */}
-                                {(!memos[selectedItem.id] || memos[selectedItem.id].length === 0) && currentUser && (
-                                    <p className="text-white/30 text-sm text-center py-4">
-                                        아직 메모가 없습니다
-                                    </p>
-                                )}
-                            </div>
+                                {/* Related Posts Section */}
+                                {(() => {
+                                    const currentTags = getTags(selectedItem);
+                                    if (currentTags.length === 0) return null;
 
-                            {/* Related Posts Section */}
-                            {(() => {
-                                const currentTags = getTags(selectedItem);
-                                if (currentTags.length === 0) return null;
+                                    const relatedItems = items.filter(item => {
+                                        if (item.id === selectedItem.id) return false;
+                                        const itemTags = getTags(item);
+                                        return currentTags.some(tag => itemTags.includes(tag));
+                                    }).slice(0, 4); // 최대 4개
 
-                                const relatedItems = items.filter(item => {
-                                    if (item.id === selectedItem.id) return false;
-                                    const itemTags = getTags(item);
-                                    return currentTags.some(tag => itemTags.includes(tag));
-                                }).slice(0, 4); // 최대 4개
+                                    if (relatedItems.length === 0) return null;
 
-                                if (relatedItems.length === 0) return null;
-
-                                return (
-                                    <div className="mt-8 pt-6 border-t border-white/10">
-                                        <h4 className="text-white/70 text-sm font-medium mb-4 flex items-center gap-2">
-                                            🔗 관련 글
-                                            <span className="px-2 py-0.5 text-xs rounded-full bg-purple-500/20 text-purple-300">
-                                                {relatedItems.length}
-                                            </span>
-                                        </h4>
-                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                            {relatedItems.map(item => (
-                                                <div
-                                                    key={item.id}
-                                                    onClick={() => setSelectedItem(item)}
-                                                    className="p-4 bg-white/5 hover:bg-white/10 rounded-xl border border-white/10 hover:border-purple-500/30 cursor-pointer transition-all group"
-                                                >
-                                                    <h5 className="text-white font-medium text-sm mb-1 group-hover:text-purple-300 transition line-clamp-1">
-                                                        {item.title}
-                                                    </h5>
-                                                    <p className="text-white/40 text-xs line-clamp-2 mb-2">
-                                                        {item.subtitle || item.desc?.slice(0, 60)}
-                                                    </p>
-                                                    <div className="flex flex-wrap gap-1">
-                                                        {getTags(item).slice(0, 3).map((tag, i) => (
-                                                            <span
-                                                                key={i}
-                                                                className={`px-2 py-0.5 text-[10px] rounded-full ${currentTags.includes(tag)
+                                    return (
+                                        <div className="mt-8 pt-6 border-t border-white/10">
+                                            <h4 className="text-white/70 text-sm font-medium mb-4 flex items-center gap-2">
+                                                🔗 관련 글
+                                                <span className="px-2 py-0.5 text-xs rounded-full bg-purple-500/20 text-purple-300">
+                                                    {relatedItems.length}
+                                                </span>
+                                            </h4>
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                                {relatedItems.map(item => (
+                                                    <div
+                                                        key={item.id}
+                                                        onClick={() => setSelectedItem(item)}
+                                                        className="p-4 bg-white/5 hover:bg-white/10 rounded-xl border border-white/10 hover:border-purple-500/30 cursor-pointer transition-all group"
+                                                    >
+                                                        <h5 className="text-white font-medium text-sm mb-1 group-hover:text-purple-300 transition line-clamp-1">
+                                                            {item.title}
+                                                        </h5>
+                                                        <p className="text-white/40 text-xs line-clamp-2 mb-2">
+                                                            {item.subtitle || item.desc?.slice(0, 60)}
+                                                        </p>
+                                                        <div className="flex flex-wrap gap-1">
+                                                            {getTags(item).slice(0, 3).map((tag, i) => (
+                                                                <span
+                                                                    key={i}
+                                                                    className={`px-2 py-0.5 text-[10px] rounded-full ${currentTags.includes(tag)
                                                                         ? 'bg-purple-500/30 text-purple-300'
                                                                         : 'bg-white/10 text-white/50'
-                                                                    }`}
-                                                            >
-                                                                #{tag}
-                                                            </span>
-                                                        ))}
+                                                                        }`}
+                                                                >
+                                                                    #{tag}
+                                                                </span>
+                                                            ))}
+                                                        </div>
                                                     </div>
-                                                </div>
-                                            ))}
+                                                ))}
+                                            </div>
                                         </div>
-                                    </div>
-                                );
-                            })()}
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {/* Main Content */}
-            <div className="p-6 md:p-10 pt-24 md:pt-28">
-                <div className="max-w-6xl mx-auto">
-                    {/* Header */}
-                    <div className="mb-6 flex items-center justify-between">
-                        <div>
-                            <h2 className="text-3xl md:text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-400 mb-3">
-                                최근 소식
-                            </h2>
-                            <p className="text-white/40 text-sm">iPhone에서 보낸 메모와 업데이트</p>
-                        </div>
-                        <div className="flex items-center gap-3">
-                            {isAdmin && (
-                                <>
-                                    <button
-                                        onClick={toggleSelectAll}
-                                        className="px-3 py-1.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg text-xs text-white/70 transition"
-                                    >
-                                        {selectedIds.size === filteredItems.length && filteredItems.length > 0
-                                            ? '전체 해제'
-                                            : '전체 선택'}
-                                    </button>
-                                    <span className="px-3 py-1 bg-blue-500/20 text-blue-300 text-xs rounded-full">
-                                        👑 관리자 모드
-                                    </span>
-                                </>
-                            )}
-                        </div>
-                    </div>
-
-                    {/* Tag Cloud */}
-                    {allTags.length > 0 && (
-                        <div className="mb-6 p-4 bg-white/5 rounded-2xl border border-white/10">
-                            <div className="flex items-center gap-2 mb-3">
-                                <span className="text-white/50 text-xs uppercase tracking-wider">태그</span>
-                                <span className="text-white/30 text-[10px]">(클릭: 포함 → 제외 → 해제)</span>
-                                {Object.keys(tagFilters).length > 0 && (
-                                    <button
-                                        onClick={() => setTagFilters({})}
-                                        className="text-xs text-blue-400 hover:text-blue-300 ml-auto"
-                                    >
-                                        필터 초기화
-                                    </button>
-                                )}
-                            </div>
-                            <div className="flex flex-wrap gap-2">
-                                {allTags.map(({ tag }) => {
-                                    const filterMode = tagFilters[tag];
-                                    const dynamicCount = dynamicTagCounts[tag] || 0;
-                                    const isZeroCount = dynamicCount === 0 && Object.keys(tagFilters).length > 0;
-                                    return (
-                                        <button
-                                            key={tag}
-                                            onClick={() => setTagFilters(prev => {
-                                                const current = prev[tag];
-                                                if (!current) {
-                                                    // 미선택 → 포함
-                                                    return { ...prev, [tag]: 'include' };
-                                                } else if (current === 'include') {
-                                                    // 포함 → 제외
-                                                    return { ...prev, [tag]: 'exclude' };
-                                                } else {
-                                                    // 제외 → 해제
-                                                    const { [tag]: _, ...rest } = prev;
-                                                    return rest;
-                                                }
-                                            })}
-                                            className={`px-3 py-1.5 text-xs rounded-full transition-all flex items-center gap-1 ${filterMode === 'include'
-                                                ? 'bg-gradient-to-r from-blue-500 to-purple-500 text-white shadow-lg'
-                                                : filterMode === 'exclude'
-                                                    ? 'bg-gradient-to-r from-red-500 to-orange-500 text-white shadow-lg line-through'
-                                                    : isZeroCount
-                                                        ? 'bg-white/5 text-white/30 hover:bg-white/10 hover:text-white/50'
-                                                        : 'bg-white/10 text-white/70 hover:bg-white/20 hover:text-white'
-                                                }`}
-                                        >
-                                            {filterMode === 'include' && <span>✓</span>}
-                                            {filterMode === 'exclude' && <span>✗</span>}
-                                            #{tag}
-                                            <span className={`ml-1 text-[10px] ${isZeroCount ? 'opacity-30' : 'opacity-60'}`}>
-                                                {dynamicCount}
-                                            </span>
-                                        </button>
                                     );
-                                })}
+                                })()}
                             </div>
                         </div>
-                    )}
-
-                    {/* Search Bar */}
-                    <div className="mb-8">
-                        <div className="relative max-w-md">
-                            <input
-                                type="text"
-                                placeholder="검색..."
-                                value={searchQuery}
-                                onChange={(e) => setSearchQuery(e.target.value)}
-                                className="w-full px-5 py-3 pl-12 rounded-2xl bg-white/5 border border-white/10 text-white placeholder-white/30 focus:outline-none focus:border-blue-500/50 focus:bg-white/10 transition-all"
-                            />
-                            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-white/30">🔍</span>
-                        </div>
                     </div>
+                )}
 
-                    {/* Filter Status */}
-                    {Object.keys(tagFilters).length > 0 && (
-                        <div className="mb-6 flex flex-wrap items-center gap-2">
-                            <span className="text-white/50 text-sm">필터:</span>
-                            {Object.entries(tagFilters).map(([tag, mode]) => (
-                                <span
-                                    key={tag}
-                                    className={`px-3 py-1 rounded-full text-sm flex items-center gap-2 ${mode === 'include'
-                                        ? 'bg-blue-500/20 text-blue-300'
-                                        : 'bg-red-500/20 text-red-300 line-through'
-                                        }`}
-                                >
-                                    {mode === 'include' ? '✓' : '✗'} #{tag}
-                                    <button
-                                        onClick={() => setTagFilters(prev => {
-                                            const { [tag]: _, ...rest } = prev;
-                                            return rest;
-                                        })}
-                                        className="hover:text-white"
-                                    >×</button>
-                                </span>
-                            ))}
-                            <span className="text-white/30 text-sm">({filteredItems.length}개)</span>
-                        </div>
-                    )}
-
-                    {/* No Results */}
-                    {filteredItems.length === 0 && (
-                        <div className="text-center py-12">
-                            <p className="text-white/50">
-                                {searchQuery ? `"${searchQuery}"에 대한 결과가 없습니다` : '결과가 없습니다'}
-                            </p>
-                        </div>
-                    )}
-
-                    {/* Cards Grid */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8">
-                        {filteredItems.map((item, index) => (
-                            <div
-                                key={item.id}
-                                className={`group relative bg-gradient-to-br from-white/5 to-white/[0.02] hover:from-white/10 hover:to-white/5 rounded-2xl p-6 cursor-pointer transition-all duration-500 hover:scale-[1.02] hover:shadow-xl hover:shadow-blue-500/10 border
-                                    ${selectedIds.has(item.id)
-                                        ? 'border-blue-500/50 ring-2 ring-blue-500/20'
-                                        : 'border-white/10 hover:border-blue-500/30'}`}
-                                style={{ animationDelay: `${index * 50}ms` }}
-                            >
-                                {/* Admin Selection Checkbox */}
+                {/* Main Content */}
+                <div className="p-6 md:p-10 pt-24 md:pt-28">
+                    <div className="max-w-6xl mx-auto">
+                        {/* Header */}
+                        <div className="mb-6 flex items-center justify-between">
+                            <div>
+                                <h2 className="text-3xl md:text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-400 mb-3">
+                                    최근 소식
+                                </h2>
+                                <p className="text-white/40 text-sm">iPhone에서 보낸 메모와 업데이트</p>
+                            </div>
+                            <div className="flex items-center gap-3">
                                 {isAdmin && (
-                                    <div
-                                        className="absolute top-3 left-3 z-20"
-                                        onClick={(e) => e.stopPropagation()}
-                                    >
-                                        <div
-                                            onClick={(e) => toggleSelection(item.id, e)}
-                                            className={`w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-all cursor-pointer
-                                                ${selectedIds.has(item.id)
-                                                    ? 'bg-blue-500 border-blue-500'
-                                                    : 'bg-black/40 border-white/30 hover:border-white/70'}`}
-                                        >
-                                            {selectedIds.has(item.id) && (
-                                                <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                                                </svg>
-                                            )}
-                                        </div>
-                                    </div>
-                                )}
-                                {/* Admin Buttons */}
-                                {isAdmin && (
-                                    <div className="absolute top-3 right-3 flex gap-1 opacity-0 group-hover:opacity-100 transition-all z-10">
+                                    <>
                                         <button
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                setEditingItem(item);
-                                            }}
-                                            className="w-8 h-8 rounded-full bg-blue-500/20 hover:bg-blue-500/40 flex items-center justify-center"
-                                            title="편집"
+                                            onClick={toggleSelectAll}
+                                            className="px-3 py-1.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg text-xs text-white/70 transition"
                                         >
-                                            <span className="text-blue-400 text-sm">✏️</span>
+                                            {selectedIds.size === filteredItems.length && filteredItems.length > 0
+                                                ? '전체 해제'
+                                                : '전체 선택'}
                                         </button>
-                                        <button
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                setShowDeleteConfirm(item.id);
-                                            }}
-                                            className="w-8 h-8 rounded-full bg-red-500/20 hover:bg-red-500/40 flex items-center justify-center"
-                                            title="삭제"
-                                        >
-                                            <span className="text-red-400 text-sm">🗑️</span>
-                                        </button>
-                                    </div>
+                                        <span className="px-3 py-1 bg-blue-500/20 text-blue-300 text-xs rounded-full">
+                                            👑 관리자 모드
+                                        </span>
+                                    </>
                                 )}
+                            </div>
+                        </div>
 
-                                <div onClick={() => setSelectedItem(item)}>
-                                    {/* Accent Line */}
-                                    <div className="absolute top-0 left-6 right-6 h-[2px] bg-gradient-to-r from-transparent via-blue-500/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-
-                                    <h3 className="text-white font-semibold text-lg mb-3 group-hover:text-blue-300 transition-colors line-clamp-2">
-                                        {item.title}
-                                    </h3>
-
-                                    <p className="text-white/50 text-sm mb-4 line-clamp-2">
-                                        {item.subtitle || item.desc?.slice(0, 80)}
-                                    </p>
-
-                                    <p className="text-white/30 text-xs line-clamp-3 mb-4">
-                                        {getContent(item).slice(0, 120)}...
-                                    </p>
-
-                                    {/* Tags Preview */}
-                                    {getTags(item).length > 0 && (
-                                        <div className="flex flex-wrap gap-1.5 mb-4">
-                                            {getTags(item).slice(0, 3).map((tag, i) => (
-                                                <span
-                                                    key={i}
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        setTagFilters(prev => ({ ...prev, [tag]: 'include' }));
-                                                    }}
-                                                    className="px-2 py-0.5 text-[10px] rounded-full bg-purple-500/20 text-purple-300 hover:bg-purple-500/30 cursor-pointer transition"
-                                                >
-                                                    #{tag}
+                        {/* Tag Cloud */}
+                        {allTags.length > 0 && (
+                            <div className="mb-6 p-4 bg-white/5 rounded-2xl border border-white/10">
+                                <div className="flex items-center gap-2 mb-3">
+                                    <span className="text-white/50 text-xs uppercase tracking-wider">태그</span>
+                                    <span className="text-white/30 text-[10px]">(클릭: 포함 → 제외 → 해제)</span>
+                                    {Object.keys(tagFilters).length > 0 && (
+                                        <button
+                                            onClick={() => setTagFilters({})}
+                                            className="text-xs text-blue-400 hover:text-blue-300"
+                                        >
+                                            필터 초기화
+                                        </button>
+                                    )}
+                                    {isAdmin && (
+                                        <button
+                                            onClick={() => setShowTagManager(true)}
+                                            className="text-xs text-purple-400 hover:text-purple-300 ml-auto flex items-center gap-1"
+                                        >
+                                            🏷️ 분류 관리
+                                        </button>
+                                    )}
+                                </div>
+                                <div className="flex flex-wrap gap-2">
+                                    {allTags.map(({ tag }) => {
+                                        const filterMode = tagFilters[tag];
+                                        const dynamicCount = dynamicTagCounts[tag] || 0;
+                                        const isZeroCount = dynamicCount === 0 && Object.keys(tagFilters).length > 0;
+                                        return (
+                                            <button
+                                                key={tag}
+                                                onClick={() => setTagFilters(prev => {
+                                                    const current = prev[tag];
+                                                    if (!current) {
+                                                        // 미선택 → 포함
+                                                        return { ...prev, [tag]: 'include' };
+                                                    } else if (current === 'include') {
+                                                        // 포함 → 제외
+                                                        return { ...prev, [tag]: 'exclude' };
+                                                    } else {
+                                                        // 제외 → 해제
+                                                        const { [tag]: _, ...rest } = prev;
+                                                        return rest;
+                                                    }
+                                                })}
+                                                className={`px-3 py-1.5 text-xs rounded-full transition-all flex items-center gap-1 ${filterMode === 'include'
+                                                    ? 'bg-gradient-to-r from-blue-500 to-purple-500 text-white shadow-lg'
+                                                    : filterMode === 'exclude'
+                                                        ? 'bg-gradient-to-r from-red-500 to-orange-500 text-white shadow-lg line-through'
+                                                        : isZeroCount
+                                                            ? 'bg-white/5 text-white/30 hover:bg-white/10 hover:text-white/50'
+                                                            : 'bg-white/10 text-white/70 hover:bg-white/20 hover:text-white'
+                                                    }`}
+                                            >
+                                                {filterMode === 'include' && <span>✓</span>}
+                                                {filterMode === 'exclude' && <span>✗</span>}
+                                                #{tag}
+                                                <span className={`ml-1 text-[10px] ${isZeroCount ? 'opacity-30' : 'opacity-60'}`}>
+                                                    {dynamicCount}
                                                 </span>
-                                            ))}
-                                            {getTags(item).length > 3 && (
-                                                <span className="text-white/30 text-[10px]">+{getTags(item).length - 3}</span>
-                                            )}
-                                        </div>
-                                    )}
-
-                                    {/* Date */}
-                                    {item.content?.[0]?.date && (
-                                        <div className="flex items-center gap-2 text-white/30 text-[11px]">
-                                            <span>📅</span>
-                                            <span>{formatDate(item.content[0].date)}</span>
-                                        </div>
-                                    )}
-
-                                    {/* Memo Count Badge */}
-                                    {getMemoCount(item.id) > 0 && (
-                                        <div className="flex items-center gap-1.5 mt-2 text-[11px] text-yellow-300/70">
-                                            <span>📝</span>
-                                            <span>메모 {getMemoCount(item.id)}개</span>
-                                        </div>
-                                    )}
-
-                                    {/* Image Thumbnail - Below Content */}
-                                    {item.image && !item.image.includes('unsplash.com') && (
-                                        <div className="relative w-full h-56 md:h-64 mt-4 overflow-hidden rounded-xl">
-                                            <img
-                                                src={item.image}
-                                                alt={item.title}
-                                                className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-                                                onError={(e) => {
-                                                    (e.target as HTMLImageElement).style.display = 'none';
-                                                }}
-                                            />
-                                            <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
-                                        </div>
-                                    )}
-
-                                    {/* Hover Arrow */}
-                                    <div className="absolute bottom-6 right-6 opacity-0 group-hover:opacity-100 transition-all transform translate-x-2 group-hover:translate-x-0">
-                                        <span className="text-blue-400">→</span>
-                                    </div>
+                                            </button>
+                                        );
+                                    })}
                                 </div>
                             </div>
-                        ))}
+                        )}
+
+                        {/* Search Bar */}
+                        <div className="mb-8">
+                            <div className="relative max-w-md">
+                                <input
+                                    type="text"
+                                    placeholder="검색..."
+                                    value={searchQuery}
+                                    onChange={(e) => setSearchQuery(e.target.value)}
+                                    className="w-full px-5 py-3 pl-12 rounded-2xl bg-white/5 border border-white/10 text-white placeholder-white/30 focus:outline-none focus:border-blue-500/50 focus:bg-white/10 transition-all"
+                                />
+                                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-white/30">🔍</span>
+                            </div>
+                        </div>
+
+                        {/* Filter Status */}
+                        {Object.keys(tagFilters).length > 0 && (
+                            <div className="mb-6 flex flex-wrap items-center gap-2">
+                                <span className="text-white/50 text-sm">필터:</span>
+                                {Object.entries(tagFilters).map(([tag, mode]) => (
+                                    <span
+                                        key={tag}
+                                        className={`px-3 py-1 rounded-full text-sm flex items-center gap-2 ${mode === 'include'
+                                            ? 'bg-blue-500/20 text-blue-300'
+                                            : 'bg-red-500/20 text-red-300 line-through'
+                                            }`}
+                                    >
+                                        {mode === 'include' ? '✓' : '✗'} #{tag}
+                                        <button
+                                            onClick={() => setTagFilters(prev => {
+                                                const { [tag]: _, ...rest } = prev;
+                                                return rest;
+                                            })}
+                                            className="hover:text-white"
+                                        >×</button>
+                                    </span>
+                                ))}
+                                <span className="text-white/30 text-sm">({filteredItems.length}개)</span>
+                            </div>
+                        )}
+
+                        {/* No Results */}
+                        {filteredItems.length === 0 && (
+                            <div className="text-center py-12">
+                                <p className="text-white/50">
+                                    {searchQuery ? `"${searchQuery}"에 대한 결과가 없습니다` : '결과가 없습니다'}
+                                </p>
+                            </div>
+                        )}
+
+                        {/* Cards Grid */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8">
+                            {filteredItems.map((item, index) => (
+                                <div
+                                    key={item.id}
+                                    className={`group relative bg-gradient-to-br from-white/5 to-white/[0.02] hover:from-white/10 hover:to-white/5 rounded-2xl p-6 cursor-pointer transition-all duration-500 hover:scale-[1.02] hover:shadow-xl hover:shadow-blue-500/10 border
+                                    ${selectedIds.has(item.id)
+                                            ? 'border-blue-500/50 ring-2 ring-blue-500/20'
+                                            : 'border-white/10 hover:border-blue-500/30'}`}
+                                    style={{ animationDelay: `${index * 50}ms` }}
+                                >
+                                    {/* Admin Selection Checkbox */}
+                                    {isAdmin && (
+                                        <div
+                                            className="absolute top-3 left-3 z-20"
+                                            onClick={(e) => e.stopPropagation()}
+                                        >
+                                            <div
+                                                onClick={(e) => toggleSelection(item.id, e)}
+                                                className={`w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-all cursor-pointer
+                                                ${selectedIds.has(item.id)
+                                                        ? 'bg-blue-500 border-blue-500'
+                                                        : 'bg-black/40 border-white/30 hover:border-white/70'}`}
+                                            >
+                                                {selectedIds.has(item.id) && (
+                                                    <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                                                    </svg>
+                                                )}
+                                            </div>
+                                        </div>
+                                    )}
+                                    {/* Admin Buttons */}
+                                    {isAdmin && (
+                                        <div className="absolute top-3 right-3 flex gap-1 opacity-0 group-hover:opacity-100 transition-all z-10">
+                                            <button
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    setEditingItem(item);
+                                                }}
+                                                className="w-8 h-8 rounded-full bg-blue-500/20 hover:bg-blue-500/40 flex items-center justify-center"
+                                                title="편집"
+                                            >
+                                                <span className="text-blue-400 text-sm">✏️</span>
+                                            </button>
+                                            <button
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    setShowDeleteConfirm(item.id);
+                                                }}
+                                                className="w-8 h-8 rounded-full bg-red-500/20 hover:bg-red-500/40 flex items-center justify-center"
+                                                title="삭제"
+                                            >
+                                                <span className="text-red-400 text-sm">🗑️</span>
+                                            </button>
+                                        </div>
+                                    )}
+
+                                    <div onClick={() => setSelectedItem(item)}>
+                                        {/* Accent Line */}
+                                        <div className="absolute top-0 left-6 right-6 h-[2px] bg-gradient-to-r from-transparent via-blue-500/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+
+                                        <h3 className="text-white font-semibold text-lg mb-3 group-hover:text-blue-300 transition-colors line-clamp-2">
+                                            {item.title}
+                                        </h3>
+
+                                        <p className="text-white/50 text-sm mb-4 line-clamp-2">
+                                            {item.subtitle || item.desc?.slice(0, 80)}
+                                        </p>
+
+                                        <p className="text-white/30 text-xs line-clamp-3 mb-4">
+                                            {getContent(item).slice(0, 120)}...
+                                        </p>
+
+                                        {/* Tags Preview */}
+                                        {getTags(item).length > 0 && (
+                                            <div className="flex flex-wrap gap-1.5 mb-4">
+                                                {getTags(item).slice(0, 3).map((tag, i) => (
+                                                    <span
+                                                        key={i}
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            setTagFilters(prev => ({ ...prev, [tag]: 'include' }));
+                                                        }}
+                                                        className="px-2 py-0.5 text-[10px] rounded-full bg-purple-500/20 text-purple-300 hover:bg-purple-500/30 cursor-pointer transition"
+                                                    >
+                                                        #{tag}
+                                                    </span>
+                                                ))}
+                                                {getTags(item).length > 3 && (
+                                                    <span className="text-white/30 text-[10px]">+{getTags(item).length - 3}</span>
+                                                )}
+                                            </div>
+                                        )}
+
+                                        {/* Date */}
+                                        {item.content?.[0]?.date && (
+                                            <div className="flex items-center gap-2 text-white/30 text-[11px]">
+                                                <span>📅</span>
+                                                <span>{formatDate(item.content[0].date)}</span>
+                                            </div>
+                                        )}
+
+                                        {/* Memo Count Badge */}
+                                        {getMemoCount(item.id) > 0 && (
+                                            <div className="flex items-center gap-1.5 mt-2 text-[11px] text-yellow-300/70">
+                                                <span>📝</span>
+                                                <span>메모 {getMemoCount(item.id)}개</span>
+                                            </div>
+                                        )}
+
+                                        {/* Image Thumbnail - Below Content */}
+                                        {item.image && !item.image.includes('unsplash.com') && (
+                                            <div className="relative w-full h-56 md:h-64 mt-4 overflow-hidden rounded-xl">
+                                                <img
+                                                    src={item.image}
+                                                    alt={item.title}
+                                                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                                                    onError={(e) => {
+                                                        (e.target as HTMLImageElement).style.display = 'none';
+                                                    }}
+                                                />
+                                                <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+                                            </div>
+                                        )}
+
+                                        {/* Hover Arrow */}
+                                        <div className="absolute bottom-6 right-6 opacity-0 group-hover:opacity-100 transition-all transform translate-x-2 group-hover:translate-x-0">
+                                            <span className="text-blue-400">→</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
                     </div>
                 </div>
             </div>
-        </div>
+
+            {/* Tag Category Manager Modal */}
+            {
+                showTagManager && (
+                    <TagCategoryManager
+                        allTags={allTags}
+                        isAdmin={isAdmin}
+                        onClose={() => setShowTagManager(false)}
+                    />
+                )
+            }
+        </>
     );
 };
 
