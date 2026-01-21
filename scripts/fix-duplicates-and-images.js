@@ -21,17 +21,33 @@ if (!admin.apps.length) {
 }
 const db = admin.firestore();
 
-// Google Drive URL 변환
+// Google Drive URL 변환 (lh3.googleusercontent.com 사용)
 function convertGoogleDriveUrl(url) {
     if (!url) return url;
+
+    // Already in lh3 format - return as is
+    if (url.includes('lh3.googleusercontent.com')) {
+        return url;
+    }
+
+    // Regular Google Drive File link: /file/d/FILE_ID/...
     const fileIdMatch = url.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
     if (fileIdMatch && fileIdMatch[1]) {
-        return `https://drive.google.com/uc?export=view&id=${fileIdMatch[1]}`;
+        return `https://lh3.googleusercontent.com/d/${fileIdMatch[1]}`;
     }
+
+    // Format: ?id=FILE_ID or &id=FILE_ID
     const idParamMatch = url.match(/[?&]id=([a-zA-Z0-9_-]+)/);
     if (idParamMatch && idParamMatch[1]) {
-        return `https://drive.google.com/uc?export=view&id=${idParamMatch[1]}`;
+        return `https://lh3.googleusercontent.com/d/${idParamMatch[1]}`;
     }
+
+    // Already converted to uc?export=view format - extract ID and convert to lh3
+    const ucMatch = url.match(/uc\?export=view&id=([a-zA-Z0-9_-]+)/);
+    if (ucMatch && ucMatch[1]) {
+        return `https://lh3.googleusercontent.com/d/${ucMatch[1]}`;
+    }
+
     return url;
 }
 
