@@ -379,7 +379,7 @@ export const RecentUpdates: React.FC<RecentUpdatesProps> = ({ isAdmin = false })
     };
 
     // 편집 핸들러
-    const handleEditChange = (field: string, value: string) => {
+    const handleEditChange = (field: string, value: any) => {
         if (!editingItem) return;
         setEditingItem({ ...editingItem, [field]: value });
     };
@@ -639,7 +639,7 @@ export const RecentUpdates: React.FC<RecentUpdatesProps> = ({ isAdmin = false })
 
                             {/* 이미지 URL */}
                             <div>
-                                <label className="text-white/50 text-xs uppercase tracking-wider mb-1 block">이미지 URL</label>
+                                <label className="text-white/50 text-xs uppercase tracking-wider mb-1 block">대표 이미지 URL</label>
                                 <input
                                     type="text"
                                     value={editingItem.image || ''}
@@ -657,6 +657,68 @@ export const RecentUpdates: React.FC<RecentUpdatesProps> = ({ isAdmin = false })
                                                 (e.target as HTMLImageElement).style.display = 'none';
                                             }}
                                         />
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* 추가 이미지 URLs */}
+                            <div>
+                                <label className="text-white/50 text-xs uppercase tracking-wider mb-1 block">
+                                    추가 이미지 URL (한 줄에 하나씩)
+                                </label>
+                                <textarea
+                                    value={(editingItem as any).additionalImages?.join('\n') || ''}
+                                    onChange={(e) => handleEditChange('additionalImages', e.target.value.split('\n').filter(url => url.trim()))}
+                                    placeholder="https://drive.google.com/image1&#10;https://drive.google.com/image2"
+                                    rows={3}
+                                    className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder-white/30 focus:outline-none focus:border-blue-500/50 resize-none text-sm"
+                                />
+                                {(editingItem as any).additionalImages?.length > 0 && (
+                                    <div className="flex gap-2 mt-2 overflow-x-auto pb-2">
+                                        {(editingItem as any).additionalImages.map((url: string, i: number) => (
+                                            <img
+                                                key={i}
+                                                src={url}
+                                                alt={`추가 ${i + 1}`}
+                                                className="w-16 h-16 object-cover rounded-lg border border-white/10"
+                                                onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                                            />
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* 외부 링크 */}
+                            <div>
+                                <label className="text-white/50 text-xs uppercase tracking-wider mb-1 block">
+                                    관련 링크 (한 줄에 하나씩: 제목|URL)
+                                </label>
+                                <textarea
+                                    value={(editingItem as any).externalLinks?.map((l: any) => `${l.title}|${l.url}`).join('\n') || ''}
+                                    onChange={(e) => {
+                                        const links = e.target.value.split('\n').filter(line => line.trim()).map(line => {
+                                            const [title, url] = line.split('|');
+                                            return { title: title?.trim() || url?.trim() || '', url: url?.trim() || title?.trim() || '' };
+                                        });
+                                        handleEditChange('externalLinks', links);
+                                    }}
+                                    placeholder="네이버 블로그|https://blog.naver.com/...&#10;유튜브 영상|https://youtube.com/..."
+                                    rows={3}
+                                    className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder-white/30 focus:outline-none focus:border-blue-500/50 resize-none text-sm"
+                                />
+                                {(editingItem as any).externalLinks?.length > 0 && (
+                                    <div className="flex flex-wrap gap-2 mt-2">
+                                        {(editingItem as any).externalLinks.map((link: any, i: number) => (
+                                            <a
+                                                key={i}
+                                                href={link.url}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="px-3 py-1.5 text-xs rounded-full bg-blue-500/20 text-blue-300 hover:bg-blue-500/30 transition flex items-center gap-1"
+                                            >
+                                                🔗 {link.title}
+                                            </a>
+                                        ))}
                                     </div>
                                 )}
                             </div>
@@ -805,6 +867,45 @@ export const RecentUpdates: React.FC<RecentUpdatesProps> = ({ isAdmin = false })
                                         <span>📅</span>
                                         {formatDate(selectedItem.content[0].date)}
                                     </p>
+                                </div>
+                            )}
+
+                            {/* 추가 이미지 갤러리 */}
+                            {(selectedItem as any).additionalImages?.length > 0 && (
+                                <div className="mt-6 pt-4 border-t border-white/10">
+                                    <h5 className="text-white/50 text-xs uppercase tracking-wider mb-3">📸 추가 이미지</h5>
+                                    <div className="flex gap-3 overflow-x-auto pb-2">
+                                        {(selectedItem as any).additionalImages.map((url: string, i: number) => (
+                                            <img
+                                                key={i}
+                                                src={url}
+                                                alt={`추가 이미지 ${i + 1}`}
+                                                onClick={() => window.open(url, '_blank')}
+                                                className="h-24 w-auto rounded-xl border border-white/10 cursor-pointer hover:scale-105 transition-transform"
+                                                onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                                            />
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* 외부 링크 */}
+                            {(selectedItem as any).externalLinks?.length > 0 && (
+                                <div className="mt-6 pt-4 border-t border-white/10">
+                                    <h5 className="text-white/50 text-xs uppercase tracking-wider mb-3">🔗 관련 링크</h5>
+                                    <div className="flex flex-wrap gap-2">
+                                        {(selectedItem as any).externalLinks.map((link: any, i: number) => (
+                                            <a
+                                                key={i}
+                                                href={link.url}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="px-4 py-2 rounded-xl bg-gradient-to-r from-blue-500/20 to-purple-500/20 text-blue-300 hover:from-blue-500/30 hover:to-purple-500/30 transition-all flex items-center gap-2 text-sm"
+                                            >
+                                                🔗 {link.title}
+                                            </a>
+                                        ))}
+                                    </div>
                                 </div>
                             )}
 
