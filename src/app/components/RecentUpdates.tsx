@@ -140,8 +140,14 @@ export const RecentUpdates: React.FC<RecentUpdatesProps> = ({ isAdmin = false })
                     } as UpdateItem));
 
                 updates.sort((a, b) => {
-                    const dateA = a.createdAt?.toDate?.() || new Date(0);
-                    const dateB = b.createdAt?.toDate?.() || new Date(0);
+                    // content[0].date (실제 작성 날짜) 우선, 없으면 createdAt 사용
+                    const getDate = (item: UpdateItem) => {
+                        const contentDate = item.content?.[0]?.date;
+                        if (contentDate) return new Date(contentDate);
+                        return item.createdAt?.toDate?.() || new Date(0);
+                    };
+                    const dateA = getDate(a);
+                    const dateB = getDate(b);
                     return dateB.getTime() - dateA.getTime();
                 });
                 setItems(updates);
