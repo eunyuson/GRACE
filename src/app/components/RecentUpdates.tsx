@@ -960,6 +960,60 @@ export const RecentUpdates: React.FC<RecentUpdatesProps> = ({ isAdmin = false })
                                     </p>
                                 )}
                             </div>
+
+                            {/* Related Posts Section */}
+                            {(() => {
+                                const currentTags = getTags(selectedItem);
+                                if (currentTags.length === 0) return null;
+
+                                const relatedItems = items.filter(item => {
+                                    if (item.id === selectedItem.id) return false;
+                                    const itemTags = getTags(item);
+                                    return currentTags.some(tag => itemTags.includes(tag));
+                                }).slice(0, 4); // 최대 4개
+
+                                if (relatedItems.length === 0) return null;
+
+                                return (
+                                    <div className="mt-8 pt-6 border-t border-white/10">
+                                        <h4 className="text-white/70 text-sm font-medium mb-4 flex items-center gap-2">
+                                            🔗 관련 글
+                                            <span className="px-2 py-0.5 text-xs rounded-full bg-purple-500/20 text-purple-300">
+                                                {relatedItems.length}
+                                            </span>
+                                        </h4>
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                            {relatedItems.map(item => (
+                                                <div
+                                                    key={item.id}
+                                                    onClick={() => setSelectedItem(item)}
+                                                    className="p-4 bg-white/5 hover:bg-white/10 rounded-xl border border-white/10 hover:border-purple-500/30 cursor-pointer transition-all group"
+                                                >
+                                                    <h5 className="text-white font-medium text-sm mb-1 group-hover:text-purple-300 transition line-clamp-1">
+                                                        {item.title}
+                                                    </h5>
+                                                    <p className="text-white/40 text-xs line-clamp-2 mb-2">
+                                                        {item.subtitle || item.desc?.slice(0, 60)}
+                                                    </p>
+                                                    <div className="flex flex-wrap gap-1">
+                                                        {getTags(item).slice(0, 3).map((tag, i) => (
+                                                            <span
+                                                                key={i}
+                                                                className={`px-2 py-0.5 text-[10px] rounded-full ${currentTags.includes(tag)
+                                                                        ? 'bg-purple-500/30 text-purple-300'
+                                                                        : 'bg-white/10 text-white/50'
+                                                                    }`}
+                                                            >
+                                                                #{tag}
+                                                            </span>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                );
+                            })()}
                         </div>
                     </div>
                 </div>
