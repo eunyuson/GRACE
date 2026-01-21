@@ -395,16 +395,16 @@ async function syncSheetsToFirestore() {
         // 4. 삭제된 항목 확인 (재동기화 방지)
         const deletedIds = await getDeletedItemIds();
 
-        // 5. 새 항목 필터링
+        // 5. 새 항목 필터링 (타임스탬프로 비교)
         const newItems = freshSheetData.filter(row => {
-            // Generate stable ID for comparison
-            const rowId = `sheet_${row.created_at}`;
+            // Extract timestamp for comparison (same as normalizeId)
+            const timestamp = row.created_at;
 
-            if (syncedIds.has(rowId)) {
+            if (syncedIds.has(timestamp)) {
                 return false; // 이미 동기화됨
             }
-            if (deletedIds.has(rowId)) {
-                console.log(`⏭️ Skipping deleted item: ${rowId}`);
+            if (deletedIds.has(timestamp)) {
+                console.log(`⏭️ Skipping deleted item: ${timestamp}`);
                 return false; // 이미 삭제됨
             }
             return true;
