@@ -670,17 +670,14 @@ export const RecentUpdates: React.FC<RecentUpdatesProps> = ({ isAdmin = false })
                                     🗑️ 삭제
                                 </button>
                                 <button
-                                    onClick={() => setEditingItem(null)}
-                                    className="flex-1 py-3 rounded-xl bg-white/10 text-white/70 hover:bg-white/20 transition"
-                                >
-                                    취소
-                                </button>
-                                <button
-                                    onClick={handleSave}
+                                    onClick={async () => {
+                                        await handleSave();
+                                        setEditingItem(null);
+                                    }}
                                     disabled={saving}
                                     className="flex-1 py-3 rounded-xl bg-gradient-to-r from-blue-500 to-purple-500 text-white hover:opacity-90 transition disabled:opacity-50"
                                 >
-                                    {saving ? '저장 중...' : '💾 저장'}
+                                    {saving ? '저장 중...' : '✓ 저장 후 닫기'}
                                 </button>
                             </div>
                         </div>
@@ -822,44 +819,41 @@ export const RecentUpdates: React.FC<RecentUpdatesProps> = ({ isAdmin = false })
                                             </span>
                                         )}
                                     </h4>
-                                    {currentUser && showMemoInput !== selectedItem.id && (
-                                        <button
-                                            onClick={() => {
-                                                setShowMemoInput(selectedItem.id);
-                                                setNewMemoText('');
-                                            }}
-                                            className="px-3 py-1.5 text-xs rounded-lg bg-gradient-to-r from-blue-500/20 to-purple-500/20 text-blue-300 hover:from-blue-500/30 hover:to-purple-500/30 transition-all"
-                                        >
-                                            + 메모 추가
-                                        </button>
-                                    )}
                                 </div>
 
-                                {/* Add Memo Input */}
-                                {showMemoInput === selectedItem.id && currentUser && (
-                                    <div className="mb-4 p-4 bg-white/5 rounded-xl border border-white/10">
+                                {/* Add Memo Input - Always visible for logged in users */}
+                                {currentUser && (
+                                    <div className="mb-4">
                                         <textarea
                                             value={newMemoText}
                                             onChange={(e) => setNewMemoText(e.target.value)}
-                                            placeholder="메모를 입력하세요..."
-                                            rows={3}
-                                            className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white placeholder-white/30 focus:outline-none focus:border-blue-500/50 resize-none text-sm"
+                                            onBlur={async () => {
+                                                if (newMemoText.trim() && selectedItem) {
+                                                    setSavingMemo(true);
+                                                    try {
+                                                        await addDoc(collection(db, 'updates', selectedItem.id, 'memos'), {
+                                                            text: newMemoText.trim(),
+                                                            userId: currentUser.uid,
+                                                            userName: currentUser.displayName || '익명',
+                                                            userPhoto: currentUser.photoURL || '',
+                                                            createdAt: serverTimestamp(),
+                                                            updatedAt: serverTimestamp()
+                                                        });
+                                                        setNewMemoText('');
+                                                    } catch (error) {
+                                                        console.error('Auto-save memo error:', error);
+                                                    } finally {
+                                                        setSavingMemo(false);
+                                                    }
+                                                }
+                                            }}
+                                            placeholder="메모를 입력하고 바깥을 클릭하면 자동 저장됩니다..."
+                                            rows={2}
+                                            className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder-white/30 focus:outline-none focus:border-blue-500/50 resize-none text-sm"
                                         />
-                                        <div className="flex justify-end gap-2 mt-3">
-                                            <button
-                                                onClick={() => setShowMemoInput(null)}
-                                                className="px-4 py-2 text-xs rounded-lg bg-white/10 text-white/70 hover:bg-white/20 transition"
-                                            >
-                                                취소
-                                            </button>
-                                            <button
-                                                onClick={() => handleAddMemo(selectedItem.id)}
-                                                disabled={savingMemo || !newMemoText.trim()}
-                                                className="px-4 py-2 text-xs rounded-lg bg-gradient-to-r from-blue-500 to-purple-500 text-white hover:opacity-90 transition disabled:opacity-50"
-                                            >
-                                                {savingMemo ? '저장 중...' : '저장'}
-                                            </button>
-                                        </div>
+                                        <p className="text-white/30 text-xs mt-1 flex items-center gap-1">
+                                            {savingMemo ? '⚙️ 저장 중...' : '💡 입력 후 바깥 클릭 시 자동 저장'}
+                                        </p>
                                     </div>
                                 )}
 
@@ -1000,8 +994,8 @@ export const RecentUpdates: React.FC<RecentUpdatesProps> = ({ isAdmin = false })
                                                             <span
                                                                 key={i}
                                                                 className={`px-2 py-0.5 text-[10px] rounded-full ${currentTags.includes(tag)
-                                                                        ? 'bg-purple-500/30 text-purple-300'
-                                                                        : 'bg-white/10 text-white/50'
+                                                                    ? 'bg-purple-500/30 text-purple-300'
+                                                                    : 'bg-white/10 text-white/50'
                                                                     }`}
                                                             >
                                                                 #{tag}
