@@ -62,14 +62,21 @@ export const MyReflections: React.FC<MyReflectionsProps> = ({ onSelectCallback }
         );
 
         const unsubscribe = onSnapshot(q, (snapshot) => {
-            const fetchedMemos = snapshot.docs.map((doc) => {
+            console.log('[MyReflections] Query returned:', snapshot.size, 'documents');
+            console.log('[MyReflections] Current user UID:', currentUser.uid);
+
+            const allMemos = snapshot.docs.map((doc) => {
                 const data = doc.data();
+                console.log('[MyReflections] Memo:', doc.ref.path, 'userId:', data.userId);
                 return {
                     id: doc.id,
                     ...data,
                     _path: doc.ref.path
                 } as Memo;
-            }).filter((memo) => memo._path && memo._path.includes('/gallery/'));
+            });
+
+            const fetchedMemos = allMemos.filter((memo) => memo._path && memo._path.includes('/gallery/'));
+            console.log('[MyReflections] After filtering:', fetchedMemos.length, 'memos');
 
             setMemos(fetchedMemos);
             setLoading(false);
