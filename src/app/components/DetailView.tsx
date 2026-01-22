@@ -236,7 +236,7 @@ export const DetailView: React.FC<DetailViewProps> = ({ isOpen, onClose, item, o
             // Update metadata in case it changed (though unlikely for title/image)
             parentTitle: item.title,
             parentImage: mainImage,
-            parentDate: item.date // Useful for sorting by event date
+            parentDate: item.date || '' // Useful for sorting by event date
           });
         } else {
           // Create new
@@ -252,7 +252,7 @@ export const DetailView: React.FC<DetailViewProps> = ({ isOpen, onClose, item, o
             parentId: item.id,
             parentTitle: item.title,
             parentImage: mainImage,
-            parentDate: item.date
+            parentDate: item.date || ''
           });
         }
         setLastSavedText(memoText);
@@ -677,7 +677,7 @@ export const DetailView: React.FC<DetailViewProps> = ({ isOpen, onClose, item, o
                                             updatedAt: serverTimestamp(),
                                             parentTitle: item.title,
                                             parentImage: mainImage,
-                                            parentDate: item.date
+                                            parentDate: item.date || ''
                                           });
                                         } else {
                                           await addDoc(collection(db, 'gallery', String(item.id), 'memos'), {
@@ -691,7 +691,7 @@ export const DetailView: React.FC<DetailViewProps> = ({ isOpen, onClose, item, o
                                             parentId: item.id,
                                             parentTitle: item.title,
                                             parentImage: mainImage,
-                                            parentDate: item.date
+                                            parentDate: item.date || ''
                                           });
                                         }
                                         setLastSavedText(memoText);
