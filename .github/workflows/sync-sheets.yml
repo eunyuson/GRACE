@@ -1,9 +1,9 @@
 name: Sync Google Sheets to Firestore (v3)
 
 on:
-  # 6분마다 자동 실행 (GitHub Actions 갱신 유도)
-  schedule:
-    - cron: '*/6 * * * *'
+  # DISABLED: 6분마다 자동 실행 (갤러리 오염 문제 해결 전까지 중지)
+  # schedule:
+  #   - cron: '*/6 * * * *'
   # 수동 실행 가능
   workflow_dispatch:
   # main 브랜치 푸시 시에도 실행
