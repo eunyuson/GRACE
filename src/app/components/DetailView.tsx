@@ -64,6 +64,56 @@ export const DetailView: React.FC<DetailViewProps> = ({ isOpen, onClose, item, o
   // Floating panel open/close state for QT
   const [isFloatingPanelOpen, setIsFloatingPanelOpen] = React.useState(false);
 
+  // Panel resizing state
+  const [panelSize, setPanelSize] = React.useState<{ width: number; height: number } | null>(null);
+  const [isResizing, setIsResizing] = React.useState(false);
+  const resizeStartPos = React.useRef<{ x: number; y: number; w: number; h: number } | null>(null);
+
+  const handleResizeStart = (e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsResizing(true);
+    // Since anchored bottom-right:
+    // width/height at start
+    const panel = document.getElementById('qt-memo-panel');
+    if (panel) {
+      resizeStartPos.current = {
+        x: e.clientX,
+        y: e.clientY,
+        w: panelSize?.width || panel.offsetWidth,
+        h: panelSize?.height || panel.offsetHeight
+      };
+    }
+  };
+
+  React.useEffect(() => {
+    const handleResizeMove = (e: MouseEvent) => {
+      if (!isResizing || !resizeStartPos.current) return;
+
+      const deltaX = resizeStartPos.current.x - e.clientX; // Moving left increases width
+      const deltaY = resizeStartPos.current.y - e.clientY; // Moving up increases height
+
+      const newWidth = Math.max(300, Math.min(1000, resizeStartPos.current.w + deltaX));
+      const newHeight = Math.max(300, Math.min(1000, resizeStartPos.current.h + deltaY));
+
+      setPanelSize({ width: newWidth, height: newHeight });
+    };
+
+    const handleResizeEnd = () => {
+      setIsResizing(false);
+      resizeStartPos.current = null;
+    };
+
+    if (isResizing) {
+      window.addEventListener('mousemove', handleResizeMove);
+      window.addEventListener('mouseup', handleResizeEnd);
+    }
+
+    return () => {
+      window.removeEventListener('mousemove', handleResizeMove);
+      window.removeEventListener('mouseup', handleResizeEnd);
+    };
+  }, [isResizing]);
+
 
   // Memo state for QT (Personal Reflection Mode)
   const [currentUser, setCurrentUser] = React.useState<User | null>(null);
@@ -507,11 +557,22 @@ export const DetailView: React.FC<DetailViewProps> = ({ isOpen, onClose, item, o
 
                     {/* Floating Slide Panel - Personal Reflection UI */}
                     <div
-                      className={`fixed bottom-24 right-6 z-[55] w-[90vw] md:w-[500px] h-[60vh] max-h-[800px] bg-[#0a0a0a]/30 backdrop-blur-2xl rounded-3xl border border-white/20 overflow-hidden transition-all duration-500 transform ${isFloatingPanelOpen
+                      id="qt-memo-panel"
+                      style={panelSize ? { width: panelSize.width, height: panelSize.height } : undefined}
+                      className={`fixed bottom-24 right-6 z-[55] ${!panelSize ? 'w-[90vw] md:w-[500px] h-[60vh] max-h-[800px]' : ''} bg-[#0a0a0a]/30 backdrop-blur-2xl rounded-3xl border border-white/20 overflow-hidden transition-all duration-500 transform ${isFloatingPanelOpen
                         ? 'translate-y-0 opacity-100 scale-100 shadow-[0_20px_80px_rgba(0,0,0,0.8)]'
                         : 'translate-y-12 opacity-0 scale-95 pointer-events-none'
                         }`}
                     >
+                      {/* Resize Handle (Top-Left) */}
+                      <div
+                        onMouseDown={handleResizeStart}
+                        className="absolute top-0 left-0 w-6 h-6 z-[60] cursor-nw-resize flex items-center justify-center group"
+                        title="Resize Panel"
+                      >
+                        <div className="w-2 h-2 rounded-full bg-white/30 group-hover:bg-white/80 transition-colors"></div>
+                      </div>
+
                       {/* Panel Header */}
                       <div className="flex items-center justify-between px-6 py-4 border-b border-white/10 bg-white/5">
                         <div className="flex gap-4">
