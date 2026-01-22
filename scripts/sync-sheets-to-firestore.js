@@ -210,28 +210,28 @@ function convertToGalleryItem(row, index) {
     // 이미지 URL 우선순위:
     // 1. 시트의 imageUrl 컬럼
     // 2. payload 안의 imageUrl 또는 image
-    // 3. 기본 placeholder
+    // 3. payload 안에 있는 images 배열의 첫 번째
+    // 4. body 내의 markdown 이미지 링크 Extract
     let imageUrl = '';
 
     // 시트의 imageUrl 컬럼 확인
     if (row.imageUrl && row.imageUrl.trim()) {
         imageUrl = row.imageUrl.trim();
     }
-    // payload 안의 imageUrl 확인
-    else if (payload.imageUrl && payload.imageUrl.trim()) {
-        imageUrl = payload.imageUrl.trim();
-    }
-    // payload 안의 image 확인
-    else if (payload.image && payload.image.trim()) {
-        imageUrl = payload.image.trim();
+    // payload 안의 데이터 확인
+    else {
+        if (payload.imageUrl && payload.imageUrl.trim()) imageUrl = payload.imageUrl.trim();
+        else if (payload.image && payload.image.trim()) imageUrl = payload.image.trim();
+        else if (Array.isArray(payload.images) && payload.images.length > 0) imageUrl = payload.images[0];
     }
 
     // Convert Google Drive URL if present
     imageUrl = convertGoogleDriveUrl(imageUrl);
 
-    console.log(`📸 Image URL for "${payload.title}": ${imageUrl || '(none - will use default)'}`);
-
+    // Fallback: Default placeholder if no image found (avoid 'none' logging)
     const defaultImage = 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?q=80&w=1200&auto=format&fit=crop';
+
+    console.log(`📸 Image for "${payload.title}": ${imageUrl ? 'Found' : 'Not Found (Using Default)'} - Raw: ${imageUrl || '(empty)'}`);
 
     // 태그를 키워드로 변환
     const tags = payload.tags || [];
