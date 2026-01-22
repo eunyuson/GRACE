@@ -162,17 +162,40 @@ export const MyReflections: React.FC<MyReflectionsProps> = ({ onSelectCallback }
                         <span className="text-xl">⚠️</span>
                         <p className="font-bold">{error.message}</p>
                     </div>
-                    {error.link && (
-                        <a
-                            href={error.link}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="bg-yellow-500 text-black px-4 py-2 rounded-lg font-bold hover:bg-yellow-400 transition-colors text-sm"
-                        >
-                            👉 여기를 눌러 설정 완료하기 (클릭 후 'Create Index' 버튼 누름)
-                        </a>
+
+                    {/* Primary Button (Auto or Manual Link) */}
+                    <a
+                        href={error.link || "https://console.firebase.google.com/project/ass246429/firestore/indexes"}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="bg-yellow-500 text-black px-4 py-2 rounded-lg font-bold hover:bg-yellow-400 transition-colors text-sm flex items-center gap-2"
+                    >
+                        <span>👉 설정 페이지로 이동</span>
+                        <span className="text-[10px] opacity-70 font-normal">
+                            {error.link ? "(자동 설정)" : "(수동 설정 필요)"}
+                        </span>
+                    </a>
+
+                    {/* Manual Instructions (Show if no auto-link found) */}
+                    {!error.link && (
+                        <div className="mt-2 text-xs bg-black/20 p-3 rounded border border-yellow-500/20 w-full">
+                            <p className="font-bold mb-1">[수동 설정 방법]</p>
+                            <ol className="list-decimal list-inside space-y-1 opacity-80">
+                                <li>위 버튼을 눌러 <strong>Firestore Indexes</strong> 페이지로 이동</li>
+                                <li><strong>'Create Index'</strong> 버튼 클릭</li>
+                                <li>Collection ID: <code className="bg-black/40 px-1 rounded text-yellow-300">memos</code> (Collection Group 체크)</li>
+                                <li>Fields:
+                                    <ul className="list-disc list-inside ml-4 mt-1 space-y-1">
+                                        <li>Field path: <code className="text-yellow-300">userId</code> / Mode: <strong>Ascending</strong></li>
+                                        <li>Field path: <code className="text-yellow-300">createdAt</code> / Mode: <strong>Descending</strong></li>
+                                    </ul>
+                                </li>
+                                <li><strong>Create Index</strong> 클릭</li>
+                            </ol>
+                        </div>
                     )}
-                    <p className="text-xs opacity-60">* 설정을 완료하고 약 3~5분 뒤에 새로고침하면 정상 작동합니다.</p>
+
+                    <p className="text-xs opacity-60 mt-1">* 설정을 완료하고 약 3~5분 뒤에 새로고침하면 정상 작동합니다.</p>
                 </div>
             )}
 
