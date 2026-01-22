@@ -97,7 +97,10 @@ export const MyReflections: React.FC<MyReflectionsProps> = ({ onSelectCallback }
 
             setAvailableTags(sortedTags);
         }, (err: any) => {
-            console.error("Error fetching memos:", err);
+            console.error("[MyReflections] Error fetching memos:", err);
+            console.error("[MyReflections] Error code:", err.code);
+            console.error("[MyReflections] Error message:", err.message);
+            console.error("[MyReflections] Current user at error time:", currentUser?.uid);
             setLoading(false);
 
             if (err.code === 'failed-precondition') {
@@ -111,8 +114,10 @@ export const MyReflections: React.FC<MyReflectionsProps> = ({ onSelectCallback }
                     message: '시스템 설정(인덱스)이 필요합니다. 아래 버튼을 눌러 설정을 완료해주세요.',
                     link
                 });
+            } else if (err.code === 'permission-denied') {
+                setError({ message: '권한이 없습니다. 다시 로그인해 주세요.' });
             } else {
-                setError({ message: '메모를 불러오는 중 오류가 발생했습니다.' });
+                setError({ message: `메모를 불러오는 중 오류가 발생했습니다. (${err.code || 'unknown'})` });
             }
         });
 
