@@ -708,14 +708,6 @@ export const DetailView: React.FC<DetailViewProps> = ({ isOpen, onClose, item, o
                                   >
                                     {isSaving ? '저장 중...' : '💾 저장하기'}
                                   </button>
-                                  {memoText === lastSavedText && memoText.length > 0 && (
-                                    <a
-                                      href="/?tab=reflections"
-                                      className="text-center text-xs text-yellow-400/70 hover:text-yellow-400 underline underline-offset-2"
-                                    >
-                                      → 나의 묵상 모아보기
-                                    </a>
-                                  )}
                                 </div>
                               </>
                             ) : (
