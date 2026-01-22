@@ -662,10 +662,60 @@ export const DetailView: React.FC<DetailViewProps> = ({ isOpen, onClose, item, o
                                   className="flex-1 w-full bg-transparent border-0 text-white/90 placeholder-white/20 text-base leading-relaxed resize-none focus:outline-none focus:ring-0 selection:bg-yellow-500/30"
                                   spellCheck={false}
                                 />
-                                <div className="mt-4 text-center">
-                                  <span className="text-[10px] text-white/20 block">
-                                    작성한 내용은 자동으로 안전하게 저장됩니다.
-                                  </span>
+                                <div className="mt-4 flex flex-col gap-2">
+                                  <button
+                                    onClick={async () => {
+                                      if (!currentUser || !item?.id || memoText.trim() === '') return;
+                                      setIsSaving(true);
+                                      const tags = extractHashtags(memoText);
+                                      const mainImage = item.image || (item.content && item.content.find(c => c.image)?.image) || '';
+                                      try {
+                                        if (myMemo) {
+                                          await updateDoc(doc(db, 'gallery', String(item.id), 'memos', myMemo.id), {
+                                            text: memoText,
+                                            tags: tags,
+                                            updatedAt: serverTimestamp(),
+                                            parentTitle: item.title,
+                                            parentImage: mainImage,
+                                            parentDate: item.date
+                                          });
+                                        } else {
+                                          await addDoc(collection(db, 'gallery', String(item.id), 'memos'), {
+                                            text: memoText,
+                                            tags: tags,
+                                            userId: currentUser.uid,
+                                            userName: currentUser.displayName || '익명',
+                                            userPhoto: currentUser.photoURL || '',
+                                            createdAt: serverTimestamp(),
+                                            updatedAt: serverTimestamp(),
+                                            parentId: item.id,
+                                            parentTitle: item.title,
+                                            parentImage: mainImage,
+                                            parentDate: item.date
+                                          });
+                                        }
+                                        setLastSavedText(memoText);
+                                        alert('묵상이 저장되었습니다! ✅');
+                                      } catch (e) {
+                                        console.error('Save failed:', e);
+                                        alert('저장에 실패했습니다.');
+                                      } finally {
+                                        setIsSaving(false);
+                                      }
+                                    }}
+                                    disabled={isSaving || memoText.trim() === ''}
+                                    className="w-full py-2.5 px-4 bg-gradient-to-r from-yellow-500 to-amber-500 hover:from-yellow-400 hover:to-amber-400 text-black font-semibold rounded-lg transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                                  >
+                                    {isSaving ? '저장 중...' : '💾 저장하기'}
+                                  </button>
+                                  {memoText === lastSavedText && memoText.length > 0 && (
+                                    <a
+                                      href="/?tab=reflections"
+                                      className="text-center text-xs text-yellow-400/70 hover:text-yellow-400 underline underline-offset-2"
+                                    >
+                                      → 나의 묵상 모아보기
+                                    </a>
+                                  )}
                                 </div>
                               </>
                             ) : (

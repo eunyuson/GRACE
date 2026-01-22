@@ -106,6 +106,9 @@ async function debugCollections() {
     console.log('\n📊 분석 결과:');
     console.log('-'.repeat(40));
 
+    // gallery 컬렉션 다시 읽기 (위에서 주석처리했으므로)
+    const gallerySnapshot = await db.collection('gallery').get();
+
     // gallery에 shortcut source가 있는지 확인
     const galleryWithShortcut = gallerySnapshot.docs.filter(doc =>
         doc.data().source === 'shortcut' || doc.data().sheetRowId
