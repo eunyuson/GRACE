@@ -69,33 +69,13 @@ const Home = () => {
       ) : (
         <MyReflections
           onSelectCallback={(parentId) => {
-            // We need to trigger the DetailView. 
-            // Since DetailView is controlled by Gallery context/URL state usually,
-            // The simple way is to use window location or navigation, but Gallery component handles the view.
-            // Actually, Gallery.tsx checks existing URL params or internal state.
-            // If we want to open a detail view FROM here, we might need access to setItem or navigate.
-            // Let's use direct navigation for now: /?id=... logic if supported, or just switch tab and scroll?
-            // Gallery component uses query param 'item' or specific routing. 
-            // Let's try to pass a simple state update if Gallery logic supports it, 
-            // OR navigate to home and letting Gallery pick it up if query param is set?
-            // Since current routing is hash or simple state in main, let's try assuming Gallery will open if we switch tab to 'gallery' and set some global context?
-            // Actually, the easier path is to just let the user go to Gallery found via ID manually? No that's bad UX.
-            // DetailView works by overlay. RecentUpdates uses 'onSelect' prop passed from App? No, RecentUpdates is standalone.
-            // Let's check how RecentUpdates opens items.
-            // RecentUpdates doesn't seem to open items in the same overlay currently based on App.tsx code?
-            // Ah, RecentUpdates might implement its own item opening or not support it yet.
-            // Wait, Gallery has DetailView inside it. 
-            // RecentUpdates likely just links to valid URLs or has its own DetailView?
-            // Let's look at Gallery.tsx to see how it opens items.
-            // Ideally we pass a "selectedItemId" prop to Gallery, but App state manages activeTab.
-            // WORKAROUND: For now, switching to 'gallery' tab is safer, providing ID might require context refactor.
-            // Let's just switch to Gallery for now, and maybe scroll?
+            // Navigate to Gallery and open the item using the existing deep link logic in Gallery.tsx
+            // 1. Set tab to gallery
             setActiveTab('gallery');
-            // In a perfect world we would open the item. 
-            // Let's assume the user can find it or we add context later. 
-            // Adding complex routing change might be risky without seeing Gallery logic.
-            // I'll just setActiveTab('gallery') for now and alert user or console log.
-            // Actually, let's leave the callback as a placeholder or simple alert if not fully integrated.
+            // 2. Update URL query parameter without full reload, so Gallery.tsx detects it
+            const newUrl = new URL(window.location.href);
+            newUrl.searchParams.set('item', parentId);
+            window.history.pushState({}, '', newUrl);
           }}
         />
       )}
