@@ -18,6 +18,7 @@ interface Memo {
     parentTitle?: string;
     parentImage?: string;
     parentDate?: string;
+    _path?: string;
 }
 
 interface MyReflectionsProps {
@@ -68,9 +69,7 @@ export const MyReflections: React.FC<MyReflectionsProps> = ({ onSelectCallback }
                     // Internal check: store path to distinguish source
                     _path: doc.ref.path
                 }))
-                // Filter out memos from 'updates' collection (Recent News)
-                // We only want 'gallery' (QT/Meditations) in My Reflections
-                .filter((memo: any) => memo._path.includes('/gallery/'))
+                .filter(memo => memo._path?.includes('/gallery/'))
                 as Memo[];
 
             setMemos(fetchedMemos);
