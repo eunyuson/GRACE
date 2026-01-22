@@ -64,8 +64,7 @@ export const DetailView: React.FC<DetailViewProps> = ({ isOpen, onClose, item, o
   // Floating panel open/close state for QT
   const [isFloatingPanelOpen, setIsFloatingPanelOpen] = React.useState(false);
 
-  // Memo state for QT
-  const [currentUser, setCurrentUser] = React.useState<User | null>(null);
+
   // Memo state for QT (Personal Reflection Mode)
   const [currentUser, setCurrentUser] = React.useState<User | null>(null);
   const [myMemo, setMyMemo] = React.useState<Memo | null>(null);
