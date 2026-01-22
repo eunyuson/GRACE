@@ -58,7 +58,7 @@ const db = admin.firestore();
 
 // Google Sheets API 초기화
 async function getGoogleSheetsClient() {
-    console.log('🚀 Sync Script Version: 3.0.0 (Forced Update & Image Fix)');
+    console.log('🚀 Sync Script Version: 3.0.1 (Forced Cleaner & Updates Routing)');
 
     const auth = new google.auth.GoogleAuth({
         credentials: GOOGLE_SERVICE_ACCOUNT,
