@@ -31,6 +31,8 @@ export const MyReflections: React.FC<MyReflectionsProps> = ({ onSelectCallback }
     const [selectedTags, setSelectedTags] = useState<string[]>([]);
     const [availableTags, setAvailableTags] = useState<{ tag: string; count: number }[]>([]);
 
+    const [error, setError] = useState<string | null>(null);
+
     // Auth check
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, (user) => {
@@ -48,6 +50,8 @@ export const MyReflections: React.FC<MyReflectionsProps> = ({ onSelectCallback }
         if (!currentUser) return;
 
         setLoading(true);
+        setError(null);
+
         // Collection Group Query to get all memos by this user across all gallery items
         // IMPORTANT: This requires an index in Firestore console
         const q = query(
@@ -80,11 +84,14 @@ export const MyReflections: React.FC<MyReflectionsProps> = ({ onSelectCallback }
                 .sort((a, b) => b.count - a.count);
 
             setAvailableTags(sortedTags);
-        }, (error) => {
-            console.error("Error fetching memos:", error);
+        }, (err) => {
+            console.error("Error fetching memos:", err);
             setLoading(false);
-            // If error is 'failed-precondition', it means index is missing.
-            // We can handle UI feedback here if needed.
+            if (err.code === 'failed-precondition') {
+                setError('인덱스 생성 필요: 관리자 콘솔을 확인해주세요.');
+            } else {
+                setError('메모를 불러오는 중 오류가 발생했습니다.');
+            }
         });
 
         return () => unsubscribe();
@@ -138,6 +145,14 @@ export const MyReflections: React.FC<MyReflectionsProps> = ({ onSelectCallback }
                 </motion.div>
             </div>
 
+            {/* Error Message */}
+            {error && (
+                <div className="mb-8 p-4 border border-red-500/50 bg-red-500/10 rounded-xl text-red-200 text-sm">
+                    ⚠️ {error} <br />
+                    (개발자 도구 콘솔에서 Firebase 인덱스 생성 링크를 확인해야 할 수 있습니다.)
+                </div>
+            )}
+
             {/* Tag Filters */}
             {availableTags.length > 0 && (
                 <motion.div
@@ -151,8 +166,8 @@ export const MyReflections: React.FC<MyReflectionsProps> = ({ onSelectCallback }
                             key={tag}
                             onClick={() => toggleTag(tag)}
                             className={`px-4 py-1.5 rounded-full text-xs md:text-sm border transition-all duration-300 ${selectedTags.includes(tag)
-                                    ? 'bg-white text-black border-white'
-                                    : 'bg-transparent text-white/60 border-white/20 hover:border-white/50'
+                                ? 'bg-white text-black border-white'
+                                : 'bg-transparent text-white/60 border-white/20 hover:border-white/50'
                                 }`}
                         >
                             #{tag} <span className="opacity-50 ml-1 text-[10px]">{count}</span>
