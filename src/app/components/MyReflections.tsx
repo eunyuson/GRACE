@@ -31,7 +31,7 @@ export const MyReflections: React.FC<MyReflectionsProps> = ({ onSelectCallback }
     const [selectedTags, setSelectedTags] = useState<string[]>([]);
     const [availableTags, setAvailableTags] = useState<{ tag: string; count: number }[]>([]);
 
-    const [error, setError] = useState<string | null>(null);
+    const [error, setError] = useState<{ message: string; link?: string } | null>(null);
 
     // Auth check
     useEffect(() => {
@@ -84,13 +84,23 @@ export const MyReflections: React.FC<MyReflectionsProps> = ({ onSelectCallback }
                 .sort((a, b) => b.count - a.count);
 
             setAvailableTags(sortedTags);
-        }, (err) => {
+        }, (err: any) => {
             console.error("Error fetching memos:", err);
             setLoading(false);
+
             if (err.code === 'failed-precondition') {
-                setError('인덱스 생성 필요: 관리자 콘솔을 확인해주세요.');
+                // Try to extract link from error message
+                // Message format: "The query requires an index. You can create it here: https://console.firebase.google.com/..."
+                const message = err.message || '';
+                const linkMatch = message.match(/https:\/\/console\.firebase\.google\.com[^\s]*/);
+                const link = linkMatch ? linkMatch[0] : undefined;
+
+                setError({
+                    message: '시스템 설정(인덱스)이 필요합니다. 아래 버튼을 눌러 설정을 완료해주세요.',
+                    link
+                });
             } else {
-                setError('메모를 불러오는 중 오류가 발생했습니다.');
+                setError({ message: '메모를 불러오는 중 오류가 발생했습니다.' });
             }
         });
 
@@ -147,9 +157,22 @@ export const MyReflections: React.FC<MyReflectionsProps> = ({ onSelectCallback }
 
             {/* Error Message */}
             {error && (
-                <div className="mb-8 p-4 border border-red-500/50 bg-red-500/10 rounded-xl text-red-200 text-sm">
-                    ⚠️ {error} <br />
-                    (개발자 도구 콘솔에서 Firebase 인덱스 생성 링크를 확인해야 할 수 있습니다.)
+                <div className="mb-8 p-6 border border-yellow-500/50 bg-yellow-500/10 rounded-xl text-yellow-100 flex flex-col items-start gap-3">
+                    <div className="flex items-center gap-2">
+                        <span className="text-xl">⚠️</span>
+                        <p className="font-bold">{error.message}</p>
+                    </div>
+                    {error.link && (
+                        <a
+                            href={error.link}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="bg-yellow-500 text-black px-4 py-2 rounded-lg font-bold hover:bg-yellow-400 transition-colors text-sm"
+                        >
+                            👉 여기를 눌러 설정 완료하기 (클릭 후 'Create Index' 버튼 누름)
+                        </a>
+                    )}
+                    <p className="text-xs opacity-60">* 설정을 완료하고 약 3~5분 뒤에 새로고침하면 정상 작동합니다.</p>
                 </div>
             )}
 
