@@ -2,7 +2,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { onAuthStateChanged, User } from 'firebase/auth';
-import { collection, query, onSnapshot, addDoc, updateDoc, deleteDoc, doc, orderBy, serverTimestamp } from 'firebase/firestore';
+import { collection, query, onSnapshot, addDoc, updateDoc, deleteDoc, doc, orderBy, serverTimestamp, where, limit } from 'firebase/firestore';
 import { auth, db } from '../firebase';
 import { useGallery } from '../context/GalleryContext';
 import { useCursor } from '../context/CursorContext';
@@ -66,10 +66,12 @@ export const DetailView: React.FC<DetailViewProps> = ({ isOpen, onClose, item, o
 
   // Memo state for QT
   const [currentUser, setCurrentUser] = React.useState<User | null>(null);
-  const [memos, setMemos] = React.useState<Memo[]>([]);
-  const [newMemoText, setNewMemoText] = React.useState('');
-  const [editingMemo, setEditingMemo] = React.useState<{ id: string; text: string } | null>(null);
-  const [savingMemo, setSavingMemo] = React.useState(false);
+  // Memo state for QT (Personal Reflection Mode)
+  const [currentUser, setCurrentUser] = React.useState<User | null>(null);
+  const [myMemo, setMyMemo] = React.useState<Memo | null>(null);
+  const [memoText, setMemoText] = React.useState('');
+  const [isSaving, setIsSaving] = React.useState(false);
+  const [lastSavedText, setLastSavedText] = React.useState('');
 
   // Custom smooth scroll with easing
   const smoothScrollTo = React.useCallback((container: HTMLElement, targetPosition: number, duration: number = 600) => {
@@ -120,68 +122,80 @@ export const DetailView: React.FC<DetailViewProps> = ({ isOpen, onClose, item, o
     return () => unsubscribe();
   }, []);
 
-  // Subscribe to memos for the current item (QT)
+  // Subscribe to USER's memo for the current item (QT) - Personal Reflection
   React.useEffect(() => {
-    if (!item?.id) {
-      setMemos([]);
+    if (!item?.id || !currentUser) {
+      setMyMemo(null);
+      setMemoText('');
+      setLastSavedText('');
       return;
     }
     const q = query(
       collection(db, 'gallery', String(item.id), 'memos'),
-      orderBy('createdAt', 'desc')
+      where('userId', '==', currentUser.uid),
+      orderBy('createdAt', 'desc'),
+      limit(1)
     );
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      const memoList: Memo[] = [];
-      snapshot.forEach((doc) => {
-        memoList.push({ id: doc.id, ...doc.data() } as Memo);
-      });
-      setMemos(memoList);
+      if (!snapshot.empty) {
+        const doc = snapshot.docs[0];
+        const data = doc.data();
+        setMyMemo({ id: doc.id, ...data } as Memo);
+        // Only update text from DB if we are not currently editing (to avoid race conditions)
+        // Or strictly sync on initial load/remote update
+        // Here we rely on local state for editing, but need to init
+        if (memoText === '' && lastSavedText === '') {
+          setMemoText(data.text);
+          setLastSavedText(data.text);
+        }
+      } else {
+        setMyMemo(null);
+        // Don't clear text if user started typing before sync? Actually safer to clear or init.
+      }
     });
     return () => unsubscribe();
-  }, [item?.id]);
+  }, [item?.id, currentUser]);
 
-  // Memo handlers
-  const handleAddMemo = async () => {
-    if (!currentUser || !item?.id || !newMemoText.trim() || savingMemo) return;
-    setSavingMemo(true);
-    try {
-      await addDoc(collection(db, 'gallery', String(item.id), 'memos'), {
-        text: newMemoText.trim(),
-        userId: currentUser.uid,
-        userName: currentUser.displayName || '익명',
-        userPhoto: currentUser.photoURL || '',
-        createdAt: serverTimestamp(),
-      });
-      setNewMemoText('');
-    } catch (e) {
-      console.error('Failed to add memo:', e);
-    } finally {
-      setSavingMemo(false);
-    }
-  };
+  // Auto-save logic
+  React.useEffect(() => {
+    // Skip if text hasn't changed from what's saved
+    if (memoText === lastSavedText) return;
 
-  const handleUpdateMemo = async () => {
-    if (!editingMemo || !item?.id || !editingMemo.text.trim()) return;
-    try {
-      await updateDoc(doc(db, 'gallery', String(item.id), 'memos', editingMemo.id), {
-        text: editingMemo.text.trim(),
-        updatedAt: serverTimestamp(),
-      });
-      setEditingMemo(null);
-    } catch (e) {
-      console.error('Failed to update memo:', e);
-    }
-  };
+    // Debounce save
+    const timeoutId = setTimeout(async () => {
+      if (!currentUser || !item?.id) return;
 
-  const handleDeleteMemo = async (memoId: string) => {
-    if (!item?.id) return;
-    if (!window.confirm('메모를 삭제하시겠습니까?')) return;
-    try {
-      await deleteDoc(doc(db, 'gallery', String(item.id), 'memos', memoId));
-    } catch (e) {
-      console.error('Failed to delete memo:', e);
-    }
-  };
+      setIsSaving(true);
+      try {
+        if (myMemo) {
+          // Update existing
+          await updateDoc(doc(db, 'gallery', String(item.id), 'memos', myMemo.id), {
+            text: memoText,
+            updatedAt: serverTimestamp(),
+          });
+        } else {
+          // Create new
+          await addDoc(collection(db, 'gallery', String(item.id), 'memos'), {
+            text: memoText,
+            userId: currentUser.uid,
+            userName: currentUser.displayName || '익명',
+            userPhoto: currentUser.photoURL || '',
+            createdAt: serverTimestamp(),
+            updatedAt: serverTimestamp(),
+          });
+        }
+        setLastSavedText(memoText);
+      } catch (e) {
+        console.error('Auto-save failed:', e);
+      } finally {
+        setIsSaving(false);
+      }
+    }, 1500); // 1.5s debounce
+
+    return () => clearTimeout(timeoutId);
+  }, [memoText, lastSavedText, currentUser, item?.id, myMemo]);
+
+  // Handlers removed in favor of auto-save logic
 
   React.useEffect(() => {
     if (contentRef.current) {
@@ -488,154 +502,104 @@ export const DetailView: React.FC<DetailViewProps> = ({ isOpen, onClose, item, o
                       }}
                     >
                       <span className="text-white text-2xl">{isFloatingPanelOpen ? '✕' : '📝'}</span>
-                      {!isFloatingPanelOpen && memos.length > 0 && (
-                        <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-[10px] rounded-full flex items-center justify-center font-bold">
-                          {memos.length}
-                        </span>
+                      {!isFloatingPanelOpen && myMemo && (
+                        <span className="absolute -top-1 -right-1 w-3 h-3 bg-yellow-400 rounded-full border border-black/50"></span>
                       )}
                     </button>
 
-                    {/* Floating Slide Panel */}
+                    {/* Floating Slide Panel - Personal Reflection UI */}
                     <div
-                      className={`fixed bottom-24 right-6 z-[55] w-[90vw] md:w-[380px] max-h-[60vh] bg-[#0a0a0a]/95 backdrop-blur-xl rounded-2xl border border-white/10 shadow-2xl overflow-hidden transition-all duration-300 transform ${isFloatingPanelOpen
-                        ? 'translate-y-0 opacity-100 scale-100'
-                        : 'translate-y-8 opacity-0 scale-95 pointer-events-none'
+                      className={`fixed bottom-24 right-6 z-[55] w-[90vw] md:w-[500px] h-[60vh] max-h-[800px] bg-[#0a0a0a]/30 backdrop-blur-2xl rounded-3xl border border-white/20 overflow-hidden transition-all duration-500 transform ${isFloatingPanelOpen
+                        ? 'translate-y-0 opacity-100 scale-100 shadow-[0_20px_80px_rgba(0,0,0,0.8)]'
+                        : 'translate-y-12 opacity-0 scale-95 pointer-events-none'
                         }`}
-                      style={{
-                        boxShadow: '0 20px 60px rgba(0,0,0,0.6)'
-                      }}
                     >
-                      {/* Panel Header with Tabs */}
-                      <div className="flex border-b border-white/10 bg-black/30">
-                        <button
-                          onClick={() => setSidePanelTab('memos')}
-                          className={`flex-1 py-3 px-4 text-sm font-medium transition-colors ${sidePanelTab === 'memos'
-                            ? 'text-yellow-400 border-b-2 border-yellow-400 bg-yellow-400/5'
-                            : 'text-white/50 hover:text-white/80'
-                            }`}
-                        >
-                          📝 메모 {memos.length > 0 && `(${memos.length})`}
-                        </button>
-                        <button
-                          onClick={() => setSidePanelTab('comments')}
-                          className={`flex-1 py-3 px-4 text-sm font-medium transition-colors ${sidePanelTab === 'comments'
-                            ? 'text-blue-400 border-b-2 border-blue-400 bg-blue-400/5'
-                            : 'text-white/50 hover:text-white/80'
-                            }`}
-                        >
-                          💬 댓글
-                        </button>
+                      {/* Panel Header */}
+                      <div className="flex items-center justify-between px-6 py-4 border-b border-white/10 bg-white/5">
+                        <div className="flex gap-4">
+                          <button
+                            onClick={() => setSidePanelTab('memos')}
+                            className={`text-sm font-medium transition-colors relative ${sidePanelTab === 'memos'
+                              ? 'text-white'
+                              : 'text-white/40 hover:text-white/70'
+                              }`}
+                          >
+                            나의 묵상
+                            {sidePanelTab === 'memos' && (
+                              <motion.div
+                                layoutId="activeTab"
+                                className="absolute -bottom-[21px] left-0 right-0 h-[2px] bg-yellow-400"
+                              />
+                            )}
+                          </button>
+                          <button
+                            onClick={() => setSidePanelTab('comments')}
+                            className={`text-sm font-medium transition-colors relative ${sidePanelTab === 'comments'
+                              ? 'text-white'
+                              : 'text-white/40 hover:text-white/70'
+                              }`}
+                          >
+                            댓글
+                            {sidePanelTab === 'comments' && (
+                              <motion.div
+                                layoutId="activeTab"
+                                className="absolute -bottom-[21px] left-0 right-0 h-[2px] bg-blue-400"
+                              />
+                            )}
+                          </button>
+                        </div>
+                        {isSaving && (
+                          <div className="flex items-center gap-2 text-[10px] text-white/50 animate-pulse">
+                            <div className="w-1.5 h-1.5 rounded-full bg-yellow-400"></div>
+                            저장 중...
+                          </div>
+                        )}
+                        {!isSaving && memoText === lastSavedText && memoText.length > 0 && (
+                          <div className="flex items-center gap-1 text-[10px] text-white/30">
+                            <span>✓</span> 저장됨
+                          </div>
+                        )}
                       </div>
 
                       {/* Panel Content */}
-                      <div className="overflow-y-auto max-h-[calc(60vh-50px)]">
+                      <div className="h-[calc(100%-57px)]">
                         {sidePanelTab === 'memos' ? (
-                          <div className="p-4 space-y-4">
-                            {/* Add Memo */}
+                          <div className="h-full flex flex-col p-6">
                             {currentUser ? (
-                              <div className="space-y-2">
+                              <>
+                                <div className="mb-2 text-xs text-white/30 font-light flex justify-between">
+                                  <span>{new Date().toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' })}</span>
+                                  <span>{memoText.length}자</span>
+                                </div>
                                 <textarea
-                                  value={newMemoText}
-                                  onChange={(e) => setNewMemoText(e.target.value)}
-                                  placeholder="오늘의 묵상을 기록해보세요..."
-                                  className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white text-sm placeholder-white/30 resize-none focus:outline-none focus:border-yellow-400/50"
-                                  rows={2}
+                                  value={memoText}
+                                  onChange={(e) => setMemoText(e.target.value)}
+                                  placeholder="오늘의 말씀 묵상을 이곳에 자유롭게 기록하세요..."
+                                  className="flex-1 w-full bg-transparent border-0 text-white/90 placeholder-white/20 text-base leading-relaxed resize-none focus:outline-none focus:ring-0 selection:bg-yellow-500/30"
+                                  spellCheck={false}
                                 />
-                                <button
-                                  onClick={handleAddMemo}
-                                  disabled={!newMemoText.trim() || savingMemo}
-                                  className="w-full py-2 bg-gradient-to-r from-yellow-500 to-orange-500 text-white text-sm font-medium rounded-lg hover:from-yellow-400 hover:to-orange-400 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-                                >
-                                  {savingMemo ? '저장 중...' : '메모 추가'}
-                                </button>
-                              </div>
+                                <div className="mt-4 text-center">
+                                  <span className="text-[10px] text-white/20 block">
+                                    작성한 내용은 자동으로 안전하게 저장됩니다.
+                                  </span>
+                                </div>
+                              </>
                             ) : (
-                              <div className="text-center py-3 text-white/40 text-sm">
-                                로그인하면 메모를 추가할 수 있습니다
-                              </div>
-                            )}
-
-                            {/* Memo List */}
-                            {memos.length > 0 ? (
-                              <div className="space-y-3">
-                                {memos.map((memo) => (
-                                  <div
-                                    key={memo.id}
-                                    className="p-3 bg-white/5 rounded-lg border border-white/10"
-                                  >
-                                    {editingMemo?.id === memo.id ? (
-                                      <div className="space-y-2">
-                                        <textarea
-                                          value={editingMemo.text}
-                                          onChange={(e) => setEditingMemo({ ...editingMemo, text: e.target.value })}
-                                          className="w-full px-2 py-1 bg-white/10 border border-yellow-400/50 rounded text-white text-sm resize-none focus:outline-none"
-                                          rows={2}
-                                        />
-                                        <div className="flex gap-2">
-                                          <button
-                                            onClick={handleUpdateMemo}
-                                            className="px-3 py-1 bg-yellow-500 text-white text-xs rounded hover:bg-yellow-400"
-                                          >
-                                            저장
-                                          </button>
-                                          <button
-                                            onClick={() => setEditingMemo(null)}
-                                            className="px-3 py-1 bg-white/10 text-white/70 text-xs rounded hover:bg-white/20"
-                                          >
-                                            취소
-                                          </button>
-                                        </div>
-                                      </div>
-                                    ) : (
-                                      <>
-                                        <div className="flex items-start gap-2 mb-1">
-                                          {memo.userPhoto && (
-                                            <img
-                                              src={memo.userPhoto}
-                                              alt=""
-                                              className="w-5 h-5 rounded-full"
-                                            />
-                                          )}
-                                          <div className="flex-1 min-w-0">
-                                            <div className="text-[10px] text-white/50">
-                                              {memo.userName} • {memo.createdAt?.toDate?.()?.toLocaleDateString('ko-KR') || '방금 전'}
-                                            </div>
-                                          </div>
-                                          {currentUser?.uid === memo.userId && (
-                                            <div className="flex gap-1">
-                                              <button
-                                                onClick={() => setEditingMemo({ id: memo.id, text: memo.text })}
-                                                className="p-0.5 text-white/40 hover:text-yellow-400 text-[10px]"
-                                                title="편집"
-                                              >
-                                                ✏️
-                                              </button>
-                                              <button
-                                                onClick={() => handleDeleteMemo(memo.id)}
-                                                className="p-0.5 text-white/40 hover:text-red-400 text-[10px]"
-                                                title="삭제"
-                                              >
-                                                🗑️
-                                              </button>
-                                            </div>
-                                          )}
-                                        </div>
-                                        <p className="text-white/80 text-sm whitespace-pre-wrap">
-                                          {memo.text}
-                                        </p>
-                                      </>
-                                    )}
-                                  </div>
-                                ))}
-                              </div>
-                            ) : (
-                              <div className="text-center py-6 text-white/30 text-sm">
-                                아직 메모가 없습니다
+                              <div className="h-full flex flex-col items-center justify-center text-center space-y-4">
+                                <div className="w-16 h-16 rounded-full bg-white/5 flex items-center justify-center">
+                                  <span className="text-2xl">🔒</span>
+                                </div>
+                                <div>
+                                  <h3 className="text-white font-medium mb-1">로그인이 필요합니다</h3>
+                                  <p className="text-white/40 text-sm">나만의 묵상 노트를 작성하려면 로그인해주세요.</p>
+                                </div>
                               </div>
                             )}
                           </div>
                         ) : (
-                          <Comments galleryItem={item} variant="side-panel" />
+                          <div className="h-full overflow-y-auto">
+                            <Comments galleryItem={item} variant="side-panel" />
+                          </div>
                         )}
                       </div>
                     </div>
