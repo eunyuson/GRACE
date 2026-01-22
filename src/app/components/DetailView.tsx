@@ -205,6 +205,13 @@ export const DetailView: React.FC<DetailViewProps> = ({ isOpen, onClose, item, o
     return () => unsubscribe();
   }, [item?.id, currentUser]);
 
+  // Helper to extract hashtags
+  const extractHashtags = (text: string): string[] => {
+    const regex = /#[\w가-힣]+/g;
+    const matches = text.match(regex);
+    return matches ? matches.map(tag => tag.slice(1)) : []; // Remove '#'
+  };
+
   // Auto-save logic
   React.useEffect(() => {
     // Skip if text hasn't changed from what's saved
@@ -215,22 +222,37 @@ export const DetailView: React.FC<DetailViewProps> = ({ isOpen, onClose, item, o
       if (!currentUser || !item?.id) return;
 
       setIsSaving(true);
+      const tags = extractHashtags(memoText);
+      // Main image or fallback
+      const mainImage = item.image || (item.content && item.content.find(c => c.image)?.image) || '';
+
       try {
         if (myMemo) {
           // Update existing
           await updateDoc(doc(db, 'gallery', String(item.id), 'memos', myMemo.id), {
             text: memoText,
+            tags: tags,
             updatedAt: serverTimestamp(),
+            // Update metadata in case it changed (though unlikely for title/image)
+            parentTitle: item.title,
+            parentImage: mainImage,
+            parentDate: item.date // Useful for sorting by event date
           });
         } else {
           // Create new
           await addDoc(collection(db, 'gallery', String(item.id), 'memos'), {
             text: memoText,
+            tags: tags,
             userId: currentUser.uid,
             userName: currentUser.displayName || '익명',
             userPhoto: currentUser.photoURL || '',
             createdAt: serverTimestamp(),
             updatedAt: serverTimestamp(),
+            // Denormalized data for "My Reflections" list view
+            parentId: item.id,
+            parentTitle: item.title,
+            parentImage: mainImage,
+            parentDate: item.date
           });
         }
         setLastSavedText(memoText);
