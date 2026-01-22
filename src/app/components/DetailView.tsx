@@ -565,12 +565,15 @@ export const DetailView: React.FC<DetailViewProps> = ({ isOpen, onClose, item, o
                         }`}
                     >
                       {/* Resize Handle (Top-Left) */}
+                      {/* Resize Handle (Top-Left) */}
                       <div
                         onMouseDown={handleResizeStart}
-                        className="absolute top-0 left-0 w-6 h-6 z-[60] cursor-nw-resize flex items-center justify-center group"
+                        className="absolute top-2 left-2 w-8 h-8 z-[60] cursor-nw-resize flex items-center justify-center group bg-black/20 hover:bg-black/40 rounded-full backdrop-blur-sm transition-all border border-white/10"
                         title="Resize Panel"
                       >
-                        <div className="w-2 h-2 rounded-full bg-white/30 group-hover:bg-white/80 transition-colors"></div>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-white/50 group-hover:text-white transition-colors rotate-90">
+                          <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7" />
+                        </svg>
                       </div>
 
                       {/* Panel Header */}
