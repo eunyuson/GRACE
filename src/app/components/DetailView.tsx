@@ -434,8 +434,7 @@ export const DetailView: React.FC<DetailViewProps> = ({ isOpen, onClose, item, o
               <motion.div
                 initial={{ scale: 0.95, opacity: 0, y: 50 }}
                 animate={{ scale: 1, opacity: 1, y: 0 }}
-                transition={{ ...transition, delay: 0.2 }}
-                className={`w-full ${isDailyReading ? 'mb-0 h-[calc(100vh-120px)] md:h-[calc(100vh-80px)]' : 'mb-[8vh] min-h-[70vh]'} bg-[#111] overflow-hidden relative`}
+                className={`w-full ${isDailyReading ? 'mb-0 h-[85vh] md:h-[125vh]' : 'mb-[8vh] min-h-[70vh]'} bg-[#111] overflow-hidden relative`}
               >
                 {isDailyReading ? (
                   /* Daily Meditation QT Special Layout - Full Screen PDF with Floating Panel */
