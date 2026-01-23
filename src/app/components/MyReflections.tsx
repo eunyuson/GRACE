@@ -75,7 +75,7 @@ export const MyReflections: React.FC<MyReflectionsProps> = ({ onSelectCallback }
                 } as Memo;
             });
 
-            const fetchedMemos = allMemos.filter((memo) => memo._path && memo._path.includes('/gallery/'));
+            const fetchedMemos = allMemos.filter((memo) => memo._path && memo._path.startsWith('gallery/'));
             console.log('[MyReflections] After filtering:', fetchedMemos.length, 'memos');
 
             setMemos(fetchedMemos);
