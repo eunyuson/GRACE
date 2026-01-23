@@ -122,6 +122,7 @@ export const DetailView: React.FC<DetailViewProps> = ({ isOpen, onClose, item, o
   const [isSaving, setIsSaving] = React.useState(false);
   const [lastSavedText, setLastSavedText] = React.useState('');
   const [recentMemos, setRecentMemos] = React.useState<Memo[]>([]);
+  const [editingMemoId, setEditingMemoId] = React.useState<string | null>(null);
 
   // Custom smooth scroll with easing
   const smoothScrollTo = React.useCallback((container: HTMLElement, targetPosition: number, duration: number = 600) => {
@@ -179,12 +180,14 @@ export const DetailView: React.FC<DetailViewProps> = ({ isOpen, onClose, item, o
       setMemoText('');
       setLastSavedText('');
       setRecentMemos([]);
+      setEditingMemoId(null);
       return;
     }
     // Start with empty text for new memo - no auto-loading of previous memos
     setMemoText('');
     setLastSavedText('');
     setMyMemo(null);
+    setEditingMemoId(null);
 
     // Fetch recent 4 memos for this item by this user
     const q = query(
@@ -617,24 +620,38 @@ export const DetailView: React.FC<DetailViewProps> = ({ isOpen, onClose, item, o
                                       setIsSaving(true);
                                       const tags = extractHashtags(memoText);
                                       const mainImage = item.image || (item.content && item.content.find(c => c.image)?.image) || '';
+
                                       try {
-                                        await addDoc(collection(db, 'gallery', String(item.id), 'memos'), {
-                                          text: memoText,
-                                          tags: tags,
-                                          userId: currentUser.uid,
-                                          userName: currentUser.displayName || '익명',
-                                          userPhoto: currentUser.photoURL || '',
-                                          createdAt: serverTimestamp(),
-                                          updatedAt: serverTimestamp(),
-                                          parentId: item.id,
-                                          parentTitle: item.title,
-                                          parentImage: mainImage,
-                                          parentDate: item.date || ''
-                                        });
-                                        // 저장 후 메모장 비우기 (새 메모 작성 가능)
+                                        if (editingMemoId) {
+                                          // Update existing memo
+                                          await updateDoc(doc(db, 'gallery', String(item.id), 'memos', editingMemoId), {
+                                            text: memoText,
+                                            tags: tags,
+                                            updatedAt: serverTimestamp()
+                                          });
+                                          alert('수정되었습니다! ✅');
+                                          setEditingMemoId(null);
+                                        } else {
+                                          // Create new memo
+                                          await addDoc(collection(db, 'gallery', String(item.id), 'memos'), {
+                                            text: memoText,
+                                            tags: tags,
+                                            userId: currentUser.uid,
+                                            userName: currentUser.displayName || '익명',
+                                            userPhoto: currentUser.photoURL || '',
+                                            createdAt: serverTimestamp(),
+                                            updatedAt: serverTimestamp(),
+                                            parentId: item.id,
+                                            parentTitle: item.title,
+                                            parentImage: mainImage,
+                                            parentDate: item.date || ''
+                                          });
+                                          alert('저장되었습니다! ✅');
+                                        }
+
+                                        // Clear form
                                         setMemoText('');
                                         setLastSavedText('');
-                                        alert('저장되었습니다! ✅');
                                       } catch (e) {
                                         console.error('Save failed:', e);
                                         alert('저장에 실패했습니다.');
@@ -643,10 +660,26 @@ export const DetailView: React.FC<DetailViewProps> = ({ isOpen, onClose, item, o
                                       }
                                     }}
                                     disabled={isSaving || memoText.trim() === ''}
-                                    className="flex-1 py-2.5 px-4 bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-400 hover:to-cyan-400 text-white font-semibold rounded-lg transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                                    className={`flex-1 py-2.5 px-4 text-white font-semibold rounded-lg transition-all disabled:opacity-40 disabled:cursor-not-allowed ${editingMemoId
+                                        ? 'bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-400 hover:to-emerald-400'
+                                        : 'bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-400 hover:to-cyan-400'
+                                      }`}
                                   >
-                                    {isSaving ? '저장 중...' : '💾 저장'}
+                                    {isSaving ? '저장 중...' : (editingMemoId ? '📝 수정 완료' : '💾 저장')}
                                   </button>
+
+                                  {editingMemoId && (
+                                    <button
+                                      onClick={() => {
+                                        setEditingMemoId(null);
+                                        setMemoText('');
+                                        setLastSavedText('');
+                                      }}
+                                      className="px-4 py-2.5 bg-white/10 hover:bg-white/20 text-white/70 rounded-lg transition-colors"
+                                    >
+                                      취소
+                                    </button>
+                                  )}
                                 </div>
 
                                 {/* Recent Memos Section */}
@@ -657,14 +690,24 @@ export const DetailView: React.FC<DetailViewProps> = ({ isOpen, onClose, item, o
                                       {recentMemos.map((memo) => (
                                         <div
                                           key={memo.id}
-                                          className="bg-white/5 rounded-lg p-3 text-sm"
+                                          onClick={() => {
+                                            if (confirm('이 메모를 불러와서 수정하시겠습니까?\n작성 중인 내용은 사라집니다.')) {
+                                              setMemoText(memo.text);
+                                              setEditingMemoId(memo.id);
+                                            }
+                                          }}
+                                          className={`bg-white/5 rounded-lg p-3 text-sm cursor-pointer hover:bg-white/10 transition-colors border ${editingMemoId === memo.id ? 'border-green-500/50 ring-1 ring-green-500/20' : 'border-transparent'
+                                            }`}
                                         >
                                           <p className="text-white/70 line-clamp-3 whitespace-pre-wrap">{memo.text}</p>
-                                          <p className="text-white/30 text-[10px] mt-2">
-                                            {memo.createdAt?.toDate?.()
-                                              ? new Date(memo.createdAt.toDate()).toLocaleDateString('ko-KR', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
-                                              : ''}
-                                          </p>
+                                          <div className="flex justify-between items-center mt-2">
+                                            <p className="text-white/30 text-[10px]">
+                                              {memo.createdAt?.toDate?.()
+                                                ? new Date(memo.createdAt.toDate()).toLocaleDateString('ko-KR', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+                                                : ''}
+                                            </p>
+                                            <span className="text-[10px] text-blue-400 opacity-0 group-hover:opacity-100 transition-opacity">편집하기</span>
+                                          </div>
                                         </div>
                                       ))}
                                     </div>
