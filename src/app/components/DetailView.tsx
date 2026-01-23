@@ -171,7 +171,7 @@ export const DetailView: React.FC<DetailViewProps> = ({ isOpen, onClose, item, o
     return () => unsubscribe();
   }, []);
 
-  // Subscribe to USER's memo for the current item (QT) - Personal Reflection
+  // Reset memo text when item changes (no auto-loading of previous memos)
   React.useEffect(() => {
     if (!item?.id || !currentUser) {
       setMyMemo(null);
@@ -179,30 +179,10 @@ export const DetailView: React.FC<DetailViewProps> = ({ isOpen, onClose, item, o
       setLastSavedText('');
       return;
     }
-    const q = query(
-      collection(db, 'gallery', String(item.id), 'memos'),
-      where('userId', '==', currentUser.uid),
-      orderBy('createdAt', 'desc'),
-      limit(1)
-    );
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      if (!snapshot.empty) {
-        const doc = snapshot.docs[0];
-        const data = doc.data();
-        setMyMemo({ id: doc.id, ...data } as Memo);
-        // Only update text from DB if we are not currently editing (to avoid race conditions)
-        // Or strictly sync on initial load/remote update
-        // Here we rely on local state for editing, but need to init
-        if (memoText === '' && lastSavedText === '') {
-          setMemoText(data.text);
-          setLastSavedText(data.text);
-        }
-      } else {
-        setMyMemo(null);
-        // Don't clear text if user started typing before sync? Actually safer to clear or init.
-      }
-    });
-    return () => unsubscribe();
+    // Start with empty text for new memo - no auto-loading of previous memos
+    setMemoText('');
+    setLastSavedText('');
+    setMyMemo(null);
   }, [item?.id, currentUser]);
 
   // Helper to extract hashtags
@@ -611,7 +591,8 @@ export const DetailView: React.FC<DetailViewProps> = ({ isOpen, onClose, item, o
                                   className="flex-1 w-full bg-transparent border-0 text-white/90 placeholder-white/20 text-base leading-relaxed resize-none focus:outline-none focus:ring-0 selection:bg-yellow-500/30"
                                   spellCheck={false}
                                 />
-                                <div className="mt-4 flex flex-col gap-2">
+                                <div className="mt-4 flex gap-2">
+                                  {/* Save button */}
                                   <button
                                     onClick={async () => {
                                       if (!currentUser || !item?.id || memoText.trim() === '') return;
@@ -619,7 +600,6 @@ export const DetailView: React.FC<DetailViewProps> = ({ isOpen, onClose, item, o
                                       const tags = extractHashtags(memoText);
                                       const mainImage = item.image || (item.content && item.content.find(c => c.image)?.image) || '';
                                       try {
-                                        // Always create NEW document (not update)
                                         await addDoc(collection(db, 'gallery', String(item.id), 'memos'), {
                                           text: memoText,
                                           tags: tags,
@@ -633,11 +613,10 @@ export const DetailView: React.FC<DetailViewProps> = ({ isOpen, onClose, item, o
                                           parentImage: mainImage,
                                           parentDate: item.date || ''
                                         });
-                                        // Reset all states for fresh input
-                                        setMyMemo(null);
-                                        setLastSavedText('');
+                                        // 저장 후 메모장 비우기 (새 메모 작성 가능)
                                         setMemoText('');
-                                        alert('새 묵상이 저장되었습니다! ✅');
+                                        setLastSavedText('');
+                                        alert('저장되었습니다! ✅');
                                       } catch (e) {
                                         console.error('Save failed:', e);
                                         alert('저장에 실패했습니다.');
@@ -646,9 +625,25 @@ export const DetailView: React.FC<DetailViewProps> = ({ isOpen, onClose, item, o
                                       }
                                     }}
                                     disabled={isSaving || memoText.trim() === ''}
-                                    className="w-full py-2.5 px-4 bg-gradient-to-r from-yellow-500 to-amber-500 hover:from-yellow-400 hover:to-amber-400 text-black font-semibold rounded-lg transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                                    className="flex-1 py-2.5 px-4 bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-400 hover:to-cyan-400 text-white font-semibold rounded-lg transition-all disabled:opacity-40 disabled:cursor-not-allowed"
                                   >
-                                    {isSaving ? '저장 중...' : '✍️ 새 글쓰기'}
+                                    {isSaving ? '저장 중...' : '💾 저장'}
+                                  </button>
+                                  {/* New Memo button - clears the text */}
+                                  <button
+                                    onClick={() => {
+                                      if (memoText.trim() !== '' && memoText !== lastSavedText) {
+                                        if (!confirm('저장하지 않은 내용이 있습니다. 새 메모를 작성하시겠습니까?')) {
+                                          return;
+                                        }
+                                      }
+                                      setMemoText('');
+                                      setLastSavedText('');
+                                    }}
+                                    disabled={isSaving}
+                                    className="flex-1 py-2.5 px-4 bg-gradient-to-r from-yellow-500 to-amber-500 hover:from-yellow-400 hover:to-amber-400 text-black font-semibold rounded-lg transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                                  >
+                                    ✍️ 새 메모
                                   </button>
                                 </div>
                               </>
