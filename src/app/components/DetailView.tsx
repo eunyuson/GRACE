@@ -121,6 +121,7 @@ export const DetailView: React.FC<DetailViewProps> = ({ isOpen, onClose, item, o
   const [memoText, setMemoText] = React.useState('');
   const [isSaving, setIsSaving] = React.useState(false);
   const [lastSavedText, setLastSavedText] = React.useState('');
+  const [recentMemos, setRecentMemos] = React.useState<Memo[]>([]);
 
   // Custom smooth scroll with easing
   const smoothScrollTo = React.useCallback((container: HTMLElement, targetPosition: number, duration: number = 600) => {
@@ -177,12 +178,29 @@ export const DetailView: React.FC<DetailViewProps> = ({ isOpen, onClose, item, o
       setMyMemo(null);
       setMemoText('');
       setLastSavedText('');
+      setRecentMemos([]);
       return;
     }
     // Start with empty text for new memo - no auto-loading of previous memos
     setMemoText('');
     setLastSavedText('');
     setMyMemo(null);
+
+    // Fetch recent 4 memos for this item by this user
+    const q = query(
+      collection(db, 'gallery', String(item.id), 'memos'),
+      where('userId', '==', currentUser.uid),
+      orderBy('createdAt', 'desc'),
+      limit(4)
+    );
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const memos = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      })) as Memo[];
+      setRecentMemos(memos);
+    });
+    return () => unsubscribe();
   }, [item?.id, currentUser]);
 
   // Helper to extract hashtags
@@ -630,6 +648,28 @@ export const DetailView: React.FC<DetailViewProps> = ({ isOpen, onClose, item, o
                                     {isSaving ? '저장 중...' : '💾 저장'}
                                   </button>
                                 </div>
+
+                                {/* Recent Memos Section */}
+                                {recentMemos.length > 0 && (
+                                  <div className="mt-6 pt-4 border-t border-white/10">
+                                    <h4 className="text-xs text-white/40 uppercase tracking-wider mb-3">이전 묵상 ({recentMemos.length})</h4>
+                                    <div className="space-y-3 max-h-[200px] overflow-y-auto pr-2 custom-scrollbar">
+                                      {recentMemos.map((memo) => (
+                                        <div
+                                          key={memo.id}
+                                          className="bg-white/5 rounded-lg p-3 text-sm"
+                                        >
+                                          <p className="text-white/70 line-clamp-3 whitespace-pre-wrap">{memo.text}</p>
+                                          <p className="text-white/30 text-[10px] mt-2">
+                                            {memo.createdAt?.toDate?.()
+                                              ? new Date(memo.createdAt.toDate()).toLocaleDateString('ko-KR', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+                                              : ''}
+                                          </p>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
                               </>
                             ) : (
                               <div className="h-full flex flex-col items-center justify-center text-center space-y-4">

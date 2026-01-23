@@ -33,7 +33,7 @@ try {
     console.error('Failed to load credentials', e);
 }
 
-const SHEET_ID = process.env.GOOGLE_SHEET_ID || '1y1mJ-t_t-j-r-e-a-d-s-p-r-e-a-d-s-h-e-e-t-i-d'; // Use ENV or placeholder. 
+const SHEET_ID = process.env.GOOGLE_SHEET_ID || '10JbOBm57VtS8ZjmYUA_xkk8F9RhAElRWKs55Dq0q8ck';
 // Note: Requires SHEET_ID env var or hardcoded. I don't see it in env dump. 
 // Wait, I don't have SHEET_ID. 
 // I should check if it's in the previous versions of the script or user provided it.
