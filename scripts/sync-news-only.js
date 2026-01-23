@@ -274,7 +274,9 @@ function convertToGalleryItem(row, index) {
         source: 'shortcut',
         sheetRowId: stableId,
         createdAt: admin.firestore.FieldValue.serverTimestamp(),
-        syncedAt: admin.firestore.FieldValue.serverTimestamp()
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        syncedAt: admin.firestore.FieldValue.serverTimestamp(),
+        _debug_source: 'sync-news-only-v2'
     };
 }
 
@@ -542,6 +544,9 @@ async function syncSheetsToFirestore() {
     console.log('🔄 Starting sync from Google Sheets to Firestore...');
 
     try {
+        // 0. 시작하자마자 갤러리 오염 청소 (강력 방어)
+        await cleanupGalleryPollution();
+
         // 1. 시트 데이터 가져오기
         const sheetData = await getSheetData();
         console.log(`📊 Found ${sheetData.length} rows in sheet`);
