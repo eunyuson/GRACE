@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { collectionGroup, query, where, onSnapshot, orderBy } from 'firebase/firestore';
+import { collectionGroup, query, where, onSnapshot, orderBy, deleteDoc, doc, updateDoc } from 'firebase/firestore';
 import { db, auth } from '../firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
 
@@ -31,8 +31,52 @@ export const MyReflections: React.FC<MyReflectionsProps> = ({ onSelectCallback }
     const [loading, setLoading] = useState(true);
     const [selectedTags, setSelectedTags] = useState<string[]>([]);
     const [availableTags, setAvailableTags] = useState<{ tag: string; count: number }[]>([]);
+    const [editingMemo, setEditingMemo] = useState<string | null>(null);
+    const [editText, setEditText] = useState('');
 
     const [error, setError] = useState<{ message: string; link?: string } | null>(null);
+
+    // Delete memo handler
+    const handleDeleteMemo = async (memo: Memo) => {
+        if (!memo._path) return;
+        if (!confirm('이 묵상을 삭제하시겠습니까?')) return;
+
+        try {
+            // Parse path like "gallery/docId/memos/memoId"
+            const pathParts = memo._path.split('/');
+            if (pathParts.length === 4) {
+                await deleteDoc(doc(db, pathParts[0], pathParts[1], pathParts[2], pathParts[3]));
+            }
+        } catch (e) {
+            console.error('Delete failed:', e);
+            alert('삭제에 실패했습니다.');
+        }
+    };
+
+    // Edit memo handler
+    const handleEditMemo = async (memo: Memo) => {
+        if (!memo._path || !editText.trim()) return;
+
+        try {
+            const pathParts = memo._path.split('/');
+            if (pathParts.length === 4) {
+                // Extract hashtags from edited text
+                const regex = /#[\w가-힣]+/g;
+                const matches = editText.match(regex);
+                const tags = matches ? matches.map(tag => tag.slice(1)) : [];
+
+                await updateDoc(doc(db, pathParts[0], pathParts[1], pathParts[2], pathParts[3]), {
+                    text: editText,
+                    tags: tags
+                });
+                setEditingMemo(null);
+                setEditText('');
+            }
+        } catch (e) {
+            console.error('Edit failed:', e);
+            alert('수정에 실패했습니다.');
+        }
+    };
 
     // Auth check
     useEffect(() => {
@@ -303,11 +347,35 @@ export const MyReflections: React.FC<MyReflectionsProps> = ({ onSelectCallback }
                                         )}
                                     </div>
 
-                                    {/* Content */}
+                                    {/* Content - Edit Mode or Display Mode */}
                                     <div className="flex-1 mb-6">
-                                        <p className="text-white/80 whitespace-pre-wrap leading-relaxed text-sm md:text-base line-clamp-[10]">
-                                            {memo.text}
-                                        </p>
+                                        {editingMemo === memo.id ? (
+                                            <div className="space-y-3">
+                                                <textarea
+                                                    value={editText}
+                                                    onChange={(e) => setEditText(e.target.value)}
+                                                    className="w-full h-32 bg-black/50 border border-white/20 rounded-lg p-3 text-white/90 text-sm focus:outline-none focus:border-yellow-500/50"
+                                                />
+                                                <div className="flex gap-2">
+                                                    <button
+                                                        onClick={() => handleEditMemo(memo)}
+                                                        className="px-3 py-1.5 bg-yellow-500 text-black text-xs font-bold rounded hover:bg-yellow-400"
+                                                    >
+                                                        저장
+                                                    </button>
+                                                    <button
+                                                        onClick={() => { setEditingMemo(null); setEditText(''); }}
+                                                        className="px-3 py-1.5 bg-white/10 text-white/70 text-xs rounded hover:bg-white/20"
+                                                    >
+                                                        취소
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        ) : (
+                                            <p className="text-white/80 whitespace-pre-wrap leading-relaxed text-sm md:text-base line-clamp-[10]">
+                                                {memo.text}
+                                            </p>
+                                        )}
                                     </div>
 
                                     {/* Tags */}
@@ -325,6 +393,24 @@ export const MyReflections: React.FC<MyReflectionsProps> = ({ onSelectCallback }
                                                     #{tag}
                                                 </span>
                                             ))}
+                                        </div>
+                                    )}
+
+                                    {/* Admin Actions */}
+                                    {currentUser && editingMemo !== memo.id && (
+                                        <div className="flex gap-2 mt-4 pt-4 border-t border-white/5">
+                                            <button
+                                                onClick={() => { setEditingMemo(memo.id); setEditText(memo.text); }}
+                                                className="flex-1 py-1.5 text-xs text-white/50 hover:text-white hover:bg-white/5 rounded transition-colors"
+                                            >
+                                                ✏️ 수정
+                                            </button>
+                                            <button
+                                                onClick={() => handleDeleteMemo(memo)}
+                                                className="flex-1 py-1.5 text-xs text-red-400/50 hover:text-red-400 hover:bg-red-500/10 rounded transition-colors"
+                                            >
+                                                🗑️ 삭제
+                                            </button>
                                         </div>
                                     )}
                                 </div>
