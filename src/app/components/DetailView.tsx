@@ -670,35 +670,25 @@ export const DetailView: React.FC<DetailViewProps> = ({ isOpen, onClose, item, o
                                       const tags = extractHashtags(memoText);
                                       const mainImage = item.image || (item.content && item.content.find(c => c.image)?.image) || '';
                                       try {
-                                        if (myMemo) {
-                                          await updateDoc(doc(db, 'gallery', String(item.id), 'memos', myMemo.id), {
-                                            text: memoText,
-                                            tags: tags,
-                                            updatedAt: serverTimestamp(),
-                                            parentTitle: item.title,
-                                            parentImage: mainImage,
-                                            parentDate: item.date || ''
-                                          });
-                                        } else {
-                                          await addDoc(collection(db, 'gallery', String(item.id), 'memos'), {
-                                            text: memoText,
-                                            tags: tags,
-                                            userId: currentUser.uid,
-                                            userName: currentUser.displayName || '익명',
-                                            userPhoto: currentUser.photoURL || '',
-                                            createdAt: serverTimestamp(),
-                                            updatedAt: serverTimestamp(),
-                                            parentId: item.id,
-                                            parentTitle: item.title,
-                                            parentImage: mainImage,
-                                            parentDate: item.date || ''
-                                          });
-                                        }
+                                        // Always create NEW document (not update)
+                                        await addDoc(collection(db, 'gallery', String(item.id), 'memos'), {
+                                          text: memoText,
+                                          tags: tags,
+                                          userId: currentUser.uid,
+                                          userName: currentUser.displayName || '익명',
+                                          userPhoto: currentUser.photoURL || '',
+                                          createdAt: serverTimestamp(),
+                                          updatedAt: serverTimestamp(),
+                                          parentId: item.id,
+                                          parentTitle: item.title,
+                                          parentImage: mainImage,
+                                          parentDate: item.date || ''
+                                        });
                                         // Reset all states for fresh input
-                                        setMyMemo(null);  // Important: Reset memo reference so next save creates NEW document
+                                        setMyMemo(null);
                                         setLastSavedText('');
                                         setMemoText('');
-                                        alert('묵상이 저장되었습니다! ✅ 새로운 묵상을 작성할 수 있습니다.');
+                                        alert('새 묵상이 저장되었습니다! ✅');
                                       } catch (e) {
                                         console.error('Save failed:', e);
                                         alert('저장에 실패했습니다.');
@@ -709,7 +699,7 @@ export const DetailView: React.FC<DetailViewProps> = ({ isOpen, onClose, item, o
                                     disabled={isSaving || memoText.trim() === ''}
                                     className="w-full py-2.5 px-4 bg-gradient-to-r from-yellow-500 to-amber-500 hover:from-yellow-400 hover:to-amber-400 text-black font-semibold rounded-lg transition-all disabled:opacity-40 disabled:cursor-not-allowed"
                                   >
-                                    {isSaving ? '저장 중...' : '💾 저장하기'}
+                                    {isSaving ? '저장 중...' : '✍️ 새 글쓰기'}
                                   </button>
                                 </div>
                               </>
