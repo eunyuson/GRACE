@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
+import { X, ExternalLink, Youtube, Image as ImageIcon } from 'lucide-react';
 import { collectionGroup, query, where, onSnapshot, orderBy, deleteDoc, doc, updateDoc } from 'firebase/firestore';
 import { db, auth } from '../firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
@@ -13,6 +14,8 @@ interface Memo {
     userPhoto?: string;
     createdAt?: any;
     updatedAt?: any;
+    youtubeUrl?: string;
+    imageUrl?: string;
     // Denormalized parent data
     parentId?: string;
     parentTitle?: string;
@@ -33,6 +36,16 @@ export const MyReflections: React.FC<MyReflectionsProps> = ({ onSelectCallback }
     const [availableTags, setAvailableTags] = useState<{ tag: string; count: number }[]>([]);
     const [editingMemo, setEditingMemo] = useState<string | null>(null);
     const [editText, setEditText] = useState('');
+    const [editYoutubeUrl, setEditYoutubeUrl] = useState('');
+    const [editImageUrl, setEditImageUrl] = useState('');
+    const [viewingMemo, setViewingMemo] = useState<Memo | null>(null);
+
+    // Helper to extract Youtube ID
+    const getYoutubeEmbedUrl = (url?: string) => {
+        if (!url) return null;
+        const match = url.match(/(?:youtu\.be\/|youtube\.com\/watch\?v=|youtube\.com\/embed\/)([a-zA-Z0-9_-]{11})/);
+        return match ? `https://www.youtube.com/embed/${match[1]}` : null;
+    };
 
     const [error, setError] = useState<{ message: string; link?: string } | null>(null);
 
@@ -67,10 +80,15 @@ export const MyReflections: React.FC<MyReflectionsProps> = ({ onSelectCallback }
 
                 await updateDoc(doc(db, pathParts[0], pathParts[1], pathParts[2], pathParts[3]), {
                     text: editText,
-                    tags: tags
+                    tags: tags,
+                    youtubeUrl: editYoutubeUrl,
+                    imageUrl: editImageUrl,
+                    updatedAt: new Date()
                 });
                 setEditingMemo(null);
                 setEditText('');
+                setEditYoutubeUrl('');
+                setEditImageUrl('');
             }
         } catch (e) {
             console.error('Edit failed:', e);
@@ -224,8 +242,6 @@ export const MyReflections: React.FC<MyReflectionsProps> = ({ onSelectCallback }
                             <span className="text-xl">⚠️</span>
                             <p className="font-bold">{error.message}</p>
                         </div>
-
-                        {/* Primary Button (Auto or Manual Link) */}
                         <a
                             href={error.link || "https://console.firebase.google.com/project/ass246429/firestore/indexes"}
                             target="_blank"
@@ -233,31 +249,7 @@ export const MyReflections: React.FC<MyReflectionsProps> = ({ onSelectCallback }
                             className="bg-yellow-500 text-black px-4 py-2 rounded-lg font-bold hover:bg-yellow-400 transition-colors text-sm flex items-center gap-2"
                         >
                             <span>👉 설정 페이지로 이동</span>
-                            <span className="text-[10px] opacity-70 font-normal">
-                                {error.link ? "(자동 설정)" : "(수동 설정 필요)"}
-                            </span>
                         </a>
-
-                        {/* Manual Instructions (Show if no auto-link found) */}
-                        {!error.link && (
-                            <div className="mt-2 text-xs bg-black/20 p-3 rounded border border-yellow-500/20 w-full">
-                                <p className="font-bold mb-1">[수동 설정 방법]</p>
-                                <ol className="list-decimal list-inside space-y-1 opacity-80">
-                                    <li>위 버튼을 눌러 <strong>Firestore Indexes</strong> 페이지로 이동</li>
-                                    <li><strong>'Create Index'</strong> 버튼 클릭</li>
-                                    <li>Collection ID: <code className="bg-black/40 px-1 rounded text-yellow-300">memos</code> (Collection Group 체크)</li>
-                                    <li>Fields:
-                                        <ul className="list-disc list-inside ml-4 mt-1 space-y-1">
-                                            <li>Field path: <code className="text-yellow-300">userId</code> / Mode: <strong>Ascending</strong></li>
-                                            <li>Field path: <code className="text-yellow-300">createdAt</code> / Mode: <strong>Descending</strong></li>
-                                        </ul>
-                                    </li>
-                                    <li><strong>Create Index</strong> 클릭</li>
-                                </ol>
-                            </div>
-                        )}
-
-                        <p className="text-xs opacity-60 mt-1">* 설정을 완료하고 약 3~5분 뒤에 새로고침하면 정상 작동합니다.</p>
                     </div>
                 )}
 
@@ -314,7 +306,12 @@ export const MyReflections: React.FC<MyReflectionsProps> = ({ onSelectCallback }
                                     animate={{ opacity: 1, scale: 1 }}
                                     exit={{ opacity: 0, scale: 0.95 }}
                                     transition={{ duration: 0.3, delay: index * 0.05 }}
-                                    className="bg-[#111] border border-white/10 rounded-3xl p-6 hover:border-white/30 transition-colors group relative overflow-hidden"
+                                    onClick={() => {
+                                        if (editingMemo !== memo.id) {
+                                            setViewingMemo(memo);
+                                        }
+                                    }}
+                                    className="bg-[#111] border border-white/10 rounded-3xl p-6 hover:border-white/30 transition-colors group relative overflow-hidden cursor-pointer"
                                 >
                                     {/* Background Image (Subtle) */}
                                     {memo.parentImage && (
@@ -332,31 +329,54 @@ export const MyReflections: React.FC<MyReflectionsProps> = ({ onSelectCallback }
                                             </span>
                                             {memo.parentId && (
                                                 <a
-                                                    href="#" // Handled by standard Link or callback usually, but item ID is needed
-                                                    // We rely on parent calling logic or proper routing
-                                                    // Assuming we can pass a handler to open detail view
+                                                    href="#"
                                                     onClick={(e) => {
                                                         e.preventDefault();
+                                                        e.stopPropagation();
                                                         if (onSelectCallback && memo.parentId) {
                                                             onSelectCallback(memo.parentId);
                                                         }
                                                     }}
-                                                    className="text-[10px] uppercase tracking-wider text-yellow-500/80 hover:text-yellow-400 border border-yellow-500/30 px-2 py-1 rounded hover:bg-yellow-500/10 transition-all truncate max-w-[150px]"
+                                                    className="text-[10px] uppercase tracking-wider text-yellow-500/80 hover:text-yellow-400 border border-yellow-500/30 px-2 py-1 rounded hover:bg-yellow-500/10 transition-all truncate max-w-[150px] flex items-center gap-1"
                                                 >
-                                                    {memo.parentTitle || 'View Original'} ↗
+                                                    {memo.parentTitle || 'View Original'} <ExternalLink size={10} />
                                                 </a>
                                             )}
                                         </div>
 
                                         {/* Content - Edit Mode or Display Mode */}
-                                        <div className="flex-1 mb-6">
+                                        <div className="flex-1 mb-6" onClick={e => editingMemo === memo.id && e.stopPropagation()}>
                                             {editingMemo === memo.id ? (
                                                 <div className="space-y-3">
                                                     <textarea
                                                         value={editText}
                                                         onChange={(e) => setEditText(e.target.value)}
                                                         className="w-full h-32 bg-black/50 border border-white/20 rounded-lg p-3 text-white/90 text-sm focus:outline-none focus:border-yellow-500/50"
+                                                        placeholder="묵상 내용..."
                                                     />
+                                                    <div className="space-y-2">
+                                                        <div className="flex items-center gap-2 bg-black/30 px-3 py-2 rounded-lg border border-white/10">
+                                                            <Youtube size={16} className="text-red-500" />
+                                                            <input
+                                                                type="text"
+                                                                value={editYoutubeUrl}
+                                                                onChange={(e) => setEditYoutubeUrl(e.target.value)}
+                                                                placeholder="YouTube URL (Optional)"
+                                                                className="flex-1 bg-transparent text-xs text-white placeholder-white/20 focus:outline-none"
+                                                            />
+                                                        </div>
+                                                        <div className="flex items-center gap-2 bg-black/30 px-3 py-2 rounded-lg border border-white/10">
+                                                            <ImageIcon size={16} className="text-blue-400" />
+                                                            <input
+                                                                type="text"
+                                                                value={editImageUrl}
+                                                                onChange={(e) => setEditImageUrl(e.target.value)}
+                                                                placeholder="Image URL (Optional)"
+                                                                className="flex-1 bg-transparent text-xs text-white placeholder-white/20 focus:outline-none"
+                                                            />
+                                                        </div>
+                                                    </div>
+
                                                     <div className="flex gap-2">
                                                         <button
                                                             onClick={() => handleEditMemo(memo)}
@@ -373,9 +393,16 @@ export const MyReflections: React.FC<MyReflectionsProps> = ({ onSelectCallback }
                                                     </div>
                                                 </div>
                                             ) : (
-                                                <p className="text-white/80 whitespace-pre-wrap leading-relaxed text-sm md:text-base line-clamp-[10]">
-                                                    {memo.text}
-                                                </p>
+                                                <>
+                                                    <p className="text-white/80 whitespace-pre-wrap leading-relaxed text-sm md:text-base line-clamp-[8]">
+                                                        {memo.text}
+                                                    </p>
+                                                    {memo.imageUrl && (
+                                                        <div className="mt-3 h-32 w-full rounded-lg overflow-hidden relative">
+                                                            <img src={memo.imageUrl} alt="" className="w-full h-full object-cover" />
+                                                        </div>
+                                                    )}
+                                                </>
                                             )}
                                         </div>
 
@@ -399,9 +426,14 @@ export const MyReflections: React.FC<MyReflectionsProps> = ({ onSelectCallback }
 
                                         {/* Admin Actions */}
                                         {currentUser && editingMemo !== memo.id && (
-                                            <div className="flex gap-2 mt-4 pt-4 border-t border-white/5">
+                                            <div className="flex gap-2 mt-4 pt-4 border-t border-white/5" onClick={e => e.stopPropagation()}>
                                                 <button
-                                                    onClick={() => { setEditingMemo(memo.id); setEditText(memo.text); }}
+                                                    onClick={() => {
+                                                        setEditingMemo(memo.id);
+                                                        setEditText(memo.text);
+                                                        setEditYoutubeUrl(memo.youtubeUrl || '');
+                                                        setEditImageUrl(memo.imageUrl || '');
+                                                    }}
                                                     className="flex-1 py-1.5 text-xs text-white/50 hover:text-white hover:bg-white/5 rounded transition-colors"
                                                 >
                                                     ✏️ 수정
@@ -421,6 +453,99 @@ export const MyReflections: React.FC<MyReflectionsProps> = ({ onSelectCallback }
                     </div>
                 )}
             </div>
+
+            {/* View Modal */}
+            <AnimatePresence>
+                {viewingMemo && (
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        onClick={() => setViewingMemo(null)}
+                        className="fixed inset-0 z-[3000] bg-black/90 backdrop-blur-md flex items-center justify-center p-4"
+                    >
+                        <motion.div
+                            initial={{ scale: 0.9, opacity: 0 }}
+                            animate={{ scale: 1, opacity: 1 }}
+                            exit={{ scale: 0.9, opacity: 0 }}
+                            onClick={(e) => e.stopPropagation()}
+                            className="bg-[#1a1a1a] rounded-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto custom-scrollbar border border-white/10 shadow-2xl relative"
+                        >
+                            <button
+                                onClick={() => setViewingMemo(null)}
+                                className="absolute top-4 right-4 p-2 bg-black/20 hover:bg-black/40 rounded-full text-white/50 hover:text-white transition-colors z-10"
+                            >
+                                <X size={20} />
+                            </button>
+
+                            <div className="p-6 md:p-10">
+                                {/* Header */}
+                                <div className="mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-white/10 pb-6">
+                                    <div>
+                                        <div className="text-sm text-white/40 mb-1">
+                                            {viewingMemo.createdAt?.seconds ? new Date(viewingMemo.createdAt.seconds * 1000).toLocaleDateString() : 'Draft'}
+                                        </div>
+                                        <h2 className="text-2xl md:text-3xl font-bold text-white mb-2">{viewingMemo.parentTitle}</h2>
+                                        <div className="flex gap-2">
+                                            {viewingMemo.tags?.map(tag => (
+                                                <span key={tag} className="text-blue-400 text-sm">#{tag}</span>
+                                            ))}
+                                        </div>
+                                    </div>
+                                    {viewingMemo.parentId && onSelectCallback && (
+                                        <button
+                                            onClick={() => {
+                                                if (viewingMemo.parentId) {
+                                                    onSelectCallback(viewingMemo.parentId);
+                                                    setViewingMemo(null);
+                                                }
+                                            }}
+                                            className="px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg text-sm text-white/70 hover:text-white flex items-center gap-2 transition-colors self-start md:self-center"
+                                        >
+                                            <span>원문 보기</span>
+                                            <ExternalLink size={14} />
+                                        </button>
+                                    )}
+                                </div>
+
+                                {/* Content */}
+                                <div className="space-y-8">
+                                    {/* Text */}
+                                    <div className="prose prose-invert max-w-none">
+                                        <p className="text-white/90 text-lg leading-relaxed whitespace-pre-wrap">
+                                            {viewingMemo.text}
+                                        </p>
+                                    </div>
+
+                                    {/* Media */}
+                                    {(viewingMemo.youtubeUrl || viewingMemo.imageUrl) && (
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-6 border-t border-white/5">
+                                            {viewingMemo.youtubeUrl && getYoutubeEmbedUrl(viewingMemo.youtubeUrl) && (
+                                                <div className="w-full aspect-video rounded-xl overflow-hidden bg-black shadow-lg">
+                                                    <iframe
+                                                        width="100%"
+                                                        height="100%"
+                                                        src={getYoutubeEmbedUrl(viewingMemo.youtubeUrl)!}
+                                                        title="YouTube video player"
+                                                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                                        allowFullScreen
+                                                        className="border-0"
+                                                    ></iframe>
+                                                </div>
+                                            )}
+                                            {viewingMemo.imageUrl && (
+                                                <div className="rounded-xl overflow-hidden bg-black/20 shadow-lg">
+                                                    <img src={viewingMemo.imageUrl} alt="" className="w-full h-auto object-cover" />
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        </motion.div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
         </div>
     );
 };
