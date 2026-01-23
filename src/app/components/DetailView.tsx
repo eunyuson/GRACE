@@ -194,7 +194,7 @@ export const DetailView: React.FC<DetailViewProps> = ({ isOpen, onClose, item, o
       collection(db, 'gallery', String(item.id), 'memos'),
       where('userId', '==', currentUser.uid),
       orderBy('createdAt', 'desc'),
-      limit(4)
+      limit(1)
     );
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const memos = snapshot.docs.map(doc => ({
@@ -661,8 +661,8 @@ export const DetailView: React.FC<DetailViewProps> = ({ isOpen, onClose, item, o
                                     }}
                                     disabled={isSaving || memoText.trim() === ''}
                                     className={`flex-1 py-2.5 px-4 text-white font-semibold rounded-lg transition-all disabled:opacity-40 disabled:cursor-not-allowed ${editingMemoId
-                                        ? 'bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-400 hover:to-emerald-400'
-                                        : 'bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-400 hover:to-cyan-400'
+                                      ? 'bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-400 hover:to-emerald-400'
+                                      : 'bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-400 hover:to-cyan-400'
                                       }`}
                                   >
                                     {isSaving ? '저장 중...' : (editingMemoId ? '📝 수정 완료' : '💾 저장')}
