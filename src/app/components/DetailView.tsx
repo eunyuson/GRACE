@@ -629,22 +629,6 @@ export const DetailView: React.FC<DetailViewProps> = ({ isOpen, onClose, item, o
                                   >
                                     {isSaving ? '저장 중...' : '💾 저장'}
                                   </button>
-                                  {/* New Memo button - clears the text */}
-                                  <button
-                                    onClick={() => {
-                                      if (memoText.trim() !== '' && memoText !== lastSavedText) {
-                                        if (!confirm('저장하지 않은 내용이 있습니다. 새 메모를 작성하시겠습니까?')) {
-                                          return;
-                                        }
-                                      }
-                                      setMemoText('');
-                                      setLastSavedText('');
-                                    }}
-                                    disabled={isSaving}
-                                    className="flex-1 py-2.5 px-4 bg-gradient-to-r from-yellow-500 to-amber-500 hover:from-yellow-400 hover:to-amber-400 text-black font-semibold rounded-lg transition-all disabled:opacity-40 disabled:cursor-not-allowed"
-                                  >
-                                    ✍️ 새 메모
-                                  </button>
                                 </div>
                               </>
                             ) : (
