@@ -212,61 +212,10 @@ export const DetailView: React.FC<DetailViewProps> = ({ isOpen, onClose, item, o
     return matches ? matches.map(tag => tag.slice(1)) : []; // Remove '#'
   };
 
-  // Auto-save logic
-  React.useEffect(() => {
-    // Skip if text hasn't changed from what's saved
-    if (memoText === lastSavedText) return;
+  // Auto-save DISABLED - User must click button to save
+  // This prevents accidental overwrites of existing memos
 
-    // Debounce save
-    const timeoutId = setTimeout(async () => {
-      if (!currentUser || !item?.id) return;
-
-      setIsSaving(true);
-      const tags = extractHashtags(memoText);
-      // Main image or fallback
-      const mainImage = item.image || (item.content && item.content.find(c => c.image)?.image) || '';
-
-      try {
-        if (myMemo) {
-          // Update existing
-          await updateDoc(doc(db, 'gallery', String(item.id), 'memos', myMemo.id), {
-            text: memoText,
-            tags: tags,
-            updatedAt: serverTimestamp(),
-            // Update metadata in case it changed (though unlikely for title/image)
-            parentTitle: item.title,
-            parentImage: mainImage,
-            parentDate: item.date || '' // Useful for sorting by event date
-          });
-        } else {
-          // Create new
-          await addDoc(collection(db, 'gallery', String(item.id), 'memos'), {
-            text: memoText,
-            tags: tags,
-            userId: currentUser.uid,
-            userName: currentUser.displayName || '익명',
-            userPhoto: currentUser.photoURL || '',
-            createdAt: serverTimestamp(),
-            updatedAt: serverTimestamp(),
-            // Denormalized data for "My Reflections" list view
-            parentId: item.id,
-            parentTitle: item.title,
-            parentImage: mainImage,
-            parentDate: item.date || ''
-          });
-        }
-        setLastSavedText(memoText);
-      } catch (e) {
-        console.error('Auto-save failed:', e);
-      } finally {
-        setIsSaving(false);
-      }
-    }, 1500); // 1.5s debounce
-
-    return () => clearTimeout(timeoutId);
-  }, [memoText, lastSavedText, currentUser, item?.id, myMemo]);
-
-  // Handlers removed in favor of auto-save logic
+  // Handlers removed in favor of manual save button
 
   React.useEffect(() => {
     if (contentRef.current) {
