@@ -51,6 +51,11 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
     const containerRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<HTMLInputElement>(null);
 
+    // Swipe state
+    const [touchStart, setTouchStart] = useState<number | null>(null);
+    const [touchEnd, setTouchEnd] = useState<number | null>(null);
+    const minSwipeDistance = 50;
+
     // Load saved page on mount (only for non-QT PDFs)
     useEffect(() => {
         if (!isDailyReading) {
@@ -152,6 +157,30 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
         }
     };
 
+    // Swipe Handlers
+    const handleTouchStart = (e: React.TouchEvent) => {
+        setTouchEnd(null);
+        setTouchStart(e.targetTouches[0].clientX);
+    };
+
+    const handleTouchMove = (e: React.TouchEvent) => {
+        setTouchEnd(e.targetTouches[0].clientX);
+    };
+
+    const handleTouchEnd = () => {
+        if (!touchStart || !touchEnd) return;
+
+        const distance = touchStart - touchEnd;
+        const isLeftSwipe = distance > minSwipeDistance;
+        const isRightSwipe = distance < -minSwipeDistance;
+
+        if (isLeftSwipe) {
+            nextPage();
+        } else if (isRightSwipe) {
+            previousPage();
+        }
+    };
+
     return (
         <div className="w-full h-full flex flex-col bg-[#1a1a1a]">
             {/* Header / Controls */}
@@ -231,13 +260,16 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
             <div
                 className="flex-1 w-full relative bg-[#111] overflow-auto flex items-center justify-center"
                 ref={containerRef}
+                onTouchStart={handleTouchStart}
+                onTouchMove={handleTouchMove}
+                onTouchEnd={handleTouchEnd}
             >
-                {/* Left Navigation Button */}
+                {/* Left Navigation Button - Hidden on Mobile, Visible on Desktop */}
                 {numPages && (
                     <button
                         onClick={previousPage}
                         disabled={pageNumber <= 1}
-                        className="absolute left-2 md:left-4 top-1/2 -translate-y-1/2 z-30 w-10 h-10 md:w-12 md:h-12 flex items-center justify-center bg-black/60 hover:bg-black/80 backdrop-blur-sm rounded-full border border-white/20 text-white hover:text-blue-400 disabled:opacity-20 disabled:hover:text-white transition-all shadow-xl"
+                        className="absolute left-4 top-1/2 -translate-y-1/2 z-30 hidden md:flex w-12 h-12 items-center justify-center bg-black/60 hover:bg-black/80 backdrop-blur-sm rounded-full border border-white/20 text-white hover:text-blue-400 disabled:opacity-20 disabled:hover:text-white transition-all shadow-xl"
                         title="이전 페이지"
                     >
                         <svg width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -246,12 +278,12 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
                     </button>
                 )}
 
-                {/* Right Navigation Button */}
+                {/* Right Navigation Button - Hidden on Mobile, Visible on Desktop */}
                 {numPages && (
                     <button
                         onClick={nextPage}
                         disabled={pageNumber >= (numPages || 1)}
-                        className="absolute right-2 md:right-4 top-1/2 -translate-y-1/2 z-30 w-10 h-10 md:w-12 md:h-12 flex items-center justify-center bg-black/60 hover:bg-black/80 backdrop-blur-sm rounded-full border border-white/20 text-white hover:text-blue-400 disabled:opacity-20 disabled:hover:text-white transition-all shadow-xl"
+                        className="absolute right-4 top-1/2 -translate-y-1/2 z-30 hidden md:flex w-12 h-12 items-center justify-center bg-black/60 hover:bg-black/80 backdrop-blur-sm rounded-full border border-white/20 text-white hover:text-blue-400 disabled:opacity-20 disabled:hover:text-white transition-all shadow-xl"
                         title="다음 페이지"
                     >
                         <svg width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor">
