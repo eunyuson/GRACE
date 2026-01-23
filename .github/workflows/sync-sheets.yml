@@ -2,7 +2,7 @@ name: Sync Google Sheets to Firestore
 
 on:
   schedule:
-    - cron: '*/30 * * * *'  # 30분마다 실행
+    - cron: '*/45 * * * *'  # 45분마다 실행 (충돌 방지 및 갱신)
   workflow_dispatch:      # 수동 실행 버튼
 
 jobs:
@@ -27,4 +27,4 @@ jobs:
           GOOGLE_SERVICE_ACCOUNT: ${{ secrets.GOOGLE_SERVICE_ACCOUNT }}
           FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
           GOOGLE_SHEET_ID: ${{ secrets.GOOGLE_SHEET_ID }}
-        run: node scripts/sync-sheets-to-firestore.js
+        run: node scripts/sync-news-only.js
