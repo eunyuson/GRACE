@@ -203,7 +203,10 @@ function convertToGalleryItem(row, index) {
     let payload = {};
 
     try {
-        payload = JSON.parse(row.payload || '{}');
+        let rawPayload = row.payload || '{}';
+        // Replace smart quotes
+        rawPayload = rawPayload.replace(/[\u201C\u201D]/g, '"');
+        payload = JSON.parse(rawPayload);
     } catch (e) {
         console.error('Failed to parse payload:', row.payload);
         return null;
