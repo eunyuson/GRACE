@@ -1311,19 +1311,35 @@ export const RecentUpdates: React.FC<RecentUpdatesProps> = ({ isAdmin = false })
                                 )}
 
                                 <div onClick={() => setSelectedItem(item)}>
+                                    {/* Image Thumbnail - Moved to Top */}
+                                    {item.image && !item.image.includes('unsplash.com') && (
+                                        <div className="relative w-full aspect-video md:h-48 mb-4 overflow-hidden rounded-xl bg-black/20">
+                                            <img
+                                                src={item.image}
+                                                alt={item.title}
+                                                className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                                                onError={(e) => {
+                                                    (e.target as HTMLImageElement).style.display = 'none';
+                                                }}
+                                            />
+                                            <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent opacity-60" />
+                                        </div>
+                                    )}
+
                                     {/* Accent Line */}
                                     <div className="absolute top-0 left-6 right-6 h-[2px] bg-gradient-to-r from-transparent via-blue-500/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
 
-                                    <h3 className="text-white font-semibold text-lg mb-3 group-hover:text-blue-300 transition-colors line-clamp-2">
+                                    <h3 className="text-white font-semibold text-lg mb-2 group-hover:text-blue-300 transition-colors line-clamp-2">
                                         {item.title}
                                     </h3>
 
-                                    <p className="text-white/50 text-sm mb-4 line-clamp-2">
+                                    <p className="text-white/50 text-sm mb-3 line-clamp-2 leading-relaxed">
                                         {item.subtitle || item.desc?.slice(0, 80)}
                                     </p>
 
-                                    <p className="text-white/30 text-xs line-clamp-3 mb-4">
-                                        {getContent(item).slice(0, 120)}...
+                                    {/* Show text preview only if no image, or if short */}
+                                    <p className="text-white/30 text-xs line-clamp-3 mb-4 leading-relaxed font-light">
+                                        {getContent(item).slice(0, 100)}...
                                     </p>
 
                                     {/* Tags Preview */}
@@ -1336,7 +1352,7 @@ export const RecentUpdates: React.FC<RecentUpdatesProps> = ({ isAdmin = false })
                                                         e.stopPropagation();
                                                         setTagFilters(prev => ({ ...prev, [tag]: 'include' }));
                                                     }}
-                                                    className="px-2 py-0.5 text-[10px] rounded-full bg-purple-500/20 text-purple-300 hover:bg-purple-500/30 cursor-pointer transition"
+                                                    className="px-2 py-0.5 text-[10px] rounded-full bg-blue-500/10 text-blue-300 hover:bg-blue-500/20 cursor-pointer transition border border-blue-500/10"
                                                 >
                                                     #{tag}
                                                 </span>
@@ -1347,38 +1363,22 @@ export const RecentUpdates: React.FC<RecentUpdatesProps> = ({ isAdmin = false })
                                         </div>
                                     )}
 
-                                    {/* Date */}
-                                    {item.content?.[0]?.date && (
-                                        <div className="flex items-center gap-2 text-white/30 text-[11px]">
-                                            <span>📅</span>
-                                            <span>{formatDate(item.content[0].date)}</span>
-                                        </div>
-                                    )}
+                                    {/* Meta Info Row */}
+                                    <div className="flex items-center justify-between mt-auto pt-2 border-t border-white/5">
+                                        {item.content?.[0]?.date && (
+                                            <div className="flex items-center gap-1.5 text-white/30 text-[10px]">
+                                                <span>📅</span>
+                                                <span>{formatDate(item.content[0].date)}</span>
+                                            </div>
+                                        )}
 
-                                    {/* Memo Count Badge */}
-                                    {getMemoCount(item.id) > 0 && (
-                                        <div className="flex items-center gap-1.5 mt-2 text-[11px] text-yellow-300/70">
-                                            <span>📝</span>
-                                            <span>메모 {getMemoCount(item.id)}개</span>
-                                        </div>
-                                    )}
-
-                                    {/* Image Thumbnail - Below Content */}
-                                    {item.image && !item.image.includes('unsplash.com') && (
-                                        <div className="relative w-full h-56 md:h-64 mt-4 overflow-hidden rounded-xl">
-                                            <img
-                                                src={item.image}
-                                                alt={item.title}
-                                                className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-                                                onError={(e) => {
-                                                    (e.target as HTMLImageElement).style.display = 'none';
-                                                }}
-                                            />
-                                            <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
-                                        </div>
-                                    )}
-
-                                    {/* Hover Arrow */}
+                                        {getMemoCount(item.id) > 0 && (
+                                            <div className="flex items-center gap-1 text-[10px] text-yellow-300/60">
+                                                <span>📝</span>
+                                                <span>{getMemoCount(item.id)}</span>
+                                            </div>
+                                        )}
+                                    </div>
                                     <div className="absolute bottom-6 right-6 opacity-0 group-hover:opacity-100 transition-all transform translate-x-2 group-hover:translate-x-0">
                                         <span className="text-blue-400">→</span>
                                     </div>
