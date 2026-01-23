@@ -694,10 +694,10 @@ export const DetailView: React.FC<DetailViewProps> = ({ isOpen, onClose, item, o
                                             parentDate: item.date || ''
                                           });
                                         }
+                                        // Reset all states for fresh input
+                                        setMyMemo(null);  // Important: Reset memo reference so next save creates NEW document
                                         setLastSavedText('');
                                         setMemoText('');
-                                        // Force refresh to get the new memo (it will be a new document now)
-                                        // The onSnapshot will pick up the new memo
                                         alert('묵상이 저장되었습니다! ✅ 새로운 묵상을 작성할 수 있습니다.');
                                       } catch (e) {
                                         console.error('Save failed:', e);
