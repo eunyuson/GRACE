@@ -810,10 +810,10 @@ export const RecentUpdates: React.FC<RecentUpdatesProps> = ({ isAdmin = false })
                             {/* Tags */}
                             {getTags(selectedItem).length > 0 && (
                                 <div className="mt-4 flex flex-col gap-2">
-                                    {/* Level 1 Tags (#) */}
-                                    {getTags(selectedItem).filter(t => t.startsWith('#') && !t.startsWith('##')).length > 0 && (
+                                    {/* Level 1 Tags (# or No Hash) */}
+                                    {getTags(selectedItem).filter(t => !t.startsWith('##')).length > 0 && (
                                         <div className="flex flex-wrap gap-2">
-                                            {getTags(selectedItem).filter(t => t.startsWith('#') && !t.startsWith('##')).map((tag, i) => (
+                                            {getTags(selectedItem).filter(t => !t.startsWith('##')).map((tag, i) => (
                                                 <button
                                                     key={`l1-${i}`}
                                                     onClick={() => {

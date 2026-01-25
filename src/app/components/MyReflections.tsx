@@ -540,10 +540,10 @@ export const MyReflections: React.FC<MyReflectionsProps> = ({ onSelectCallback }
                                         <h2 className="text-2xl md:text-3xl font-bold text-white mb-2">{viewingMemo.parentTitle}</h2>
                                         <div className="flex gap-2">
                                             <div className="flex flex-col gap-1 items-start">
-                                                {/* Level 1 (#) */}
-                                                {(viewingMemo.tags?.filter(t => t.startsWith('#') && !t.startsWith('##')) || []).length > 0 && (
+                                                {/* Level 1 (# or No Hash) */}
+                                                {(viewingMemo.tags?.filter(t => !t.startsWith('##')) || []).length > 0 && (
                                                     <div className="flex gap-2">
-                                                        {(viewingMemo.tags?.filter(t => t.startsWith('#') && !t.startsWith('##')) || []).map(tag => (
+                                                        {(viewingMemo.tags?.filter(t => !t.startsWith('##')) || []).map(tag => (
                                                             <span key={tag} className="text-blue-400 text-sm opacity-90">{tag.replace(/^#/, '')}</span>
                                                         ))}
                                                     </div>
