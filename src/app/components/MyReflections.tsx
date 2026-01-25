@@ -51,9 +51,10 @@ export const MyReflections: React.FC<MyReflectionsProps> = ({ onSelectCallback }
         if (!newMemoText.trim() || !currentUser) return;
 
         try {
-            const regex = /#[\w가-힣]+/g;
+            const regex = /#{1,3}[\w가-힣]+/g;
             const matches = newMemoText.match(regex);
-            const tags = matches ? matches.map(tag => tag.slice(1)) : [];
+            // Store tags WITH the hash prefixes to preserve depth (#, ##, ###)
+            const tags = matches ? matches : [];
 
             await addDoc(collection(db, 'users', currentUser.uid, 'memos'), {
                 text: newMemoText,
@@ -111,10 +112,10 @@ export const MyReflections: React.FC<MyReflectionsProps> = ({ onSelectCallback }
         try {
             const pathParts = memo._path.split('/');
             if (pathParts.length === 4) {
-                // Extract hashtags from edited text
-                const regex = /#[\w가-힣]+/g;
+                // Extract hashtags from edited text (support #, ##, ###)
+                const regex = /#{1,3}[\w가-힣]+/g;
                 const matches = editText.match(regex);
-                const tags = matches ? matches.map(tag => tag.slice(1)) : [];
+                const tags = matches ? matches : [];
 
                 await updateDoc(doc(db, pathParts[0], pathParts[1], pathParts[2], pathParts[3]), {
                     text: editText,
@@ -538,9 +539,32 @@ export const MyReflections: React.FC<MyReflectionsProps> = ({ onSelectCallback }
                                         </div>
                                         <h2 className="text-2xl md:text-3xl font-bold text-white mb-2">{viewingMemo.parentTitle}</h2>
                                         <div className="flex gap-2">
-                                            {viewingMemo.tags?.map(tag => (
-                                                <span key={tag} className="text-blue-400 text-sm">#{tag}</span>
-                                            ))}
+                                            <div className="flex flex-col gap-1 items-start">
+                                                {/* Level 1 (#) */}
+                                                {(viewingMemo.tags?.filter(t => t.startsWith('#') && !t.startsWith('##')) || []).length > 0 && (
+                                                    <div className="flex gap-2">
+                                                        {(viewingMemo.tags?.filter(t => t.startsWith('#') && !t.startsWith('##')) || []).map(tag => (
+                                                            <span key={tag} className="text-blue-400 text-sm opacity-90">{tag}</span>
+                                                        ))}
+                                                    </div>
+                                                )}
+                                                {/* Level 2 (##) */}
+                                                {(viewingMemo.tags?.filter(t => t.startsWith('##') && !t.startsWith('###')) || []).length > 0 && (
+                                                    <div className="flex gap-2">
+                                                        {(viewingMemo.tags?.filter(t => t.startsWith('##') && !t.startsWith('###')) || []).map(tag => (
+                                                            <span key={tag} className="text-purple-400 text-sm opacity-80">{tag}</span>
+                                                        ))}
+                                                    </div>
+                                                )}
+                                                {/* Level 3 (###) */}
+                                                {(viewingMemo.tags?.filter(t => t.startsWith('###')) || []).length > 0 && (
+                                                    <div className="flex gap-2">
+                                                        {(viewingMemo.tags?.filter(t => t.startsWith('###')) || []).map(tag => (
+                                                            <span key={tag} className="text-pink-400 text-sm opacity-70">{tag}</span>
+                                                        ))}
+                                                    </div>
+                                                )}
+                                            </div>
                                         </div>
                                     </div>
                                     {viewingMemo.parentId && onSelectCallback && (
