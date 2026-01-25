@@ -19,18 +19,37 @@ try {
     const firebaseKeyPath = '/Users/shinik/Downloads/ass246429-firebase-adminsdk-fbsvc-c4c9417034.json';
 
     if (process.env.GOOGLE_SERVICE_ACCOUNT) {
+        console.log('🔑 Loading GOOGLE_SERVICE_ACCOUNT from Environment Variables');
         GOOGLE_SERVICE_ACCOUNT = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT);
     } else if (existsSync(googleKeyPath)) {
+        console.log(`🔑 Loading GOOGLE_SERVICE_ACCOUNT from local file: ${googleKeyPath}`);
         GOOGLE_SERVICE_ACCOUNT = JSON.parse(readFileSync(googleKeyPath, 'utf8'));
+    } else {
+        console.warn('⚠️ GOOGLE_SERVICE_ACCOUNT not found in Env or Local path');
     }
 
     if (process.env.FIREBASE_SERVICE_ACCOUNT) {
+        console.log('🔑 Loading FIREBASE_SERVICE_ACCOUNT from Environment Variables');
         FIREBASE_SERVICE_ACCOUNT = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
     } else if (existsSync(firebaseKeyPath)) {
+        console.log(`🔑 Loading FIREBASE_SERVICE_ACCOUNT from local file: ${firebaseKeyPath}`);
         FIREBASE_SERVICE_ACCOUNT = JSON.parse(readFileSync(firebaseKeyPath, 'utf8'));
+    } else {
+        console.warn('⚠️ FIREBASE_SERVICE_ACCOUNT not found in Env or Local path');
     }
 } catch (e) {
-    console.error('Failed to load credentials', e);
+    console.error('❌ Failed to load credentials:', e.message);
+    process.exit(1);
+}
+
+// Validate credentials
+if (!GOOGLE_SERVICE_ACCOUNT.project_id) {
+    console.error('❌ FATAL: GOOGLE_SERVICE_ACCOUNT is missing or invalid. Please check your GitHub Secrets.');
+    process.exit(1);
+}
+if (!FIREBASE_SERVICE_ACCOUNT.project_id) {
+    console.error('❌ FATAL: FIREBASE_SERVICE_ACCOUNT is missing or invalid. Please check your GitHub Secrets.');
+    process.exit(1);
 }
 
 const SHEET_ID = process.env.GOOGLE_SHEET_ID || '10JbOBm57VtS8ZjmYUA_xkk8F9RhAElRWKs55Dq0q8ck';
@@ -629,6 +648,10 @@ async function syncSheetsToFirestore() {
         console.log(`✨ Successfully added ${addedCount} items to Firestore`);
 
         // 9. 정리 및 중복 제거 실행
+        // Cloud Function 트리거 등이 비동기로 갤러리에 복사할 수 있으므로 잠시 대기 후 청소
+        console.log('⏳ Waiting for potential triggers to settle (10s)...');
+        await new Promise(resolve => setTimeout(resolve, 10000));
+
         await cleanupGalleryPollution();
         await fixDuplicatesAndPreserveImages(freshSheetData);
 

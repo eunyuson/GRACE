@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, ExternalLink, Youtube, Image as ImageIcon } from 'lucide-react';
-import { collectionGroup, query, where, onSnapshot, orderBy, deleteDoc, doc, updateDoc } from 'firebase/firestore';
+import { X, ExternalLink, Youtube, Image as ImageIcon, Plus } from 'lucide-react';
+import { collectionGroup, query, where, onSnapshot, orderBy, deleteDoc, doc, updateDoc, addDoc, collection, serverTimestamp } from 'firebase/firestore';
 import { db, auth } from '../firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
 
@@ -39,6 +39,44 @@ export const MyReflections: React.FC<MyReflectionsProps> = ({ onSelectCallback }
     const [editYoutubeUrl, setEditYoutubeUrl] = useState('');
     const [editImageUrl, setEditImageUrl] = useState('');
     const [viewingMemo, setViewingMemo] = useState<Memo | null>(null);
+
+    // New Memo State
+    const [isCreating, setIsCreating] = useState(false);
+    const [newMemoText, setNewMemoText] = useState('');
+    const [newMemoYoutube, setNewMemoYoutube] = useState('');
+    const [newMemoImage, setNewMemoImage] = useState('');
+
+    // Create memo handler
+    const handleCreateMemo = async () => {
+        if (!newMemoText.trim() || !currentUser) return;
+
+        try {
+            const regex = /#[\w가-힣]+/g;
+            const matches = newMemoText.match(regex);
+            const tags = matches ? matches.map(tag => tag.slice(1)) : [];
+
+            await addDoc(collection(db, 'users', currentUser.uid, 'memos'), {
+                text: newMemoText,
+                tags: tags,
+                userId: currentUser.uid,
+                userName: currentUser.displayName || 'Anonymous',
+                userPhoto: currentUser.photoURL || null,
+                createdAt: serverTimestamp(),
+                updatedAt: serverTimestamp(),
+                youtubeUrl: newMemoYoutube,
+                imageUrl: newMemoImage,
+                parentTitle: '나의 묵상', // Default title for standalone
+            });
+
+            setIsCreating(false);
+            setNewMemoText('');
+            setNewMemoYoutube('');
+            setNewMemoImage('');
+        } catch (e) {
+            console.error('Creation failed:', e);
+            alert('작성에 실패했습니다.');
+        }
+    };
 
     // Helper to extract Youtube ID
     const getYoutubeEmbedUrl = (url?: string) => {
@@ -137,7 +175,7 @@ export const MyReflections: React.FC<MyReflectionsProps> = ({ onSelectCallback }
                 } as Memo;
             });
 
-            const fetchedMemos = allMemos.filter((memo) => memo._path && memo._path.startsWith('gallery/'));
+            const fetchedMemos = allMemos.filter((memo) => memo._path && (memo._path.startsWith('gallery/') || memo._path.includes('/users/')));
             console.log('[MyReflections] After filtering:', fetchedMemos.length, 'memos');
 
             setMemos(fetchedMemos);
@@ -233,6 +271,19 @@ export const MyReflections: React.FC<MyReflectionsProps> = ({ onSelectCallback }
                             나의 묵상 기록과 은혜의 흔적들 ({filteredMemos.length})
                         </p>
                     </motion.div>
+
+                    <motion.button
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                        onClick={() => setIsCreating(true)}
+                        className="bg-white text-black px-6 py-3 rounded-full font-bold shadow-lg flex items-center gap-2 hover:bg-gray-100 transition-colors"
+                        initial={{ opacity: 0, x: 20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ duration: 0.6, delay: 0.2 }}
+                    >
+                        <Plus size={20} />
+                        <span>새 묵상 쓰기</span>
+                    </motion.button>
                 </div>
 
                 {/* Error Message */}
@@ -546,6 +597,90 @@ export const MyReflections: React.FC<MyReflectionsProps> = ({ onSelectCallback }
                     </motion.div>
                 )}
             </AnimatePresence>
+
+            {/* Create Modal */}
+            <AnimatePresence>
+                {isCreating && (
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        onClick={() => setIsCreating(false)}
+                        className="fixed inset-0 z-[3000] bg-black/90 backdrop-blur-md flex items-center justify-center p-4"
+                    >
+                        <motion.div
+                            initial={{ scale: 0.9, opacity: 0 }}
+                            animate={{ scale: 1, opacity: 1 }}
+                            exit={{ scale: 0.9, opacity: 0 }}
+                            onClick={(e) => e.stopPropagation()}
+                            className="bg-[#1a1a1a] rounded-2xl w-full max-w-2xl overflow-hidden border border-white/10 shadow-2xl relative"
+                        >
+                            <div className="p-6 md:p-8">
+                                <h2 className="text-2xl font-bold text-white mb-6">새로운 묵상 기록</h2>
+
+                                <textarea
+                                    value={newMemoText}
+                                    onChange={(e) => setNewMemoText(e.target.value)}
+                                    className="w-full h-48 bg-black/50 border border-white/20 rounded-xl p-4 text-white/90 text-base focus:outline-none focus:border-white/50 mb-4 resize-none"
+                                    placeholder="오늘의 묵상을 기록해보세요... (해시태그 #은혜 #감사 활용 가능)"
+                                    autoFocus
+                                />
+
+                                <div className="space-y-3 mb-6">
+                                    <div className="flex items-center gap-3 bg-black/30 px-4 py-3 rounded-xl border border-white/10">
+                                        <Youtube size={20} className="text-red-500" />
+                                        <input
+                                            type="text"
+                                            value={newMemoYoutube}
+                                            onChange={(e) => setNewMemoYoutube(e.target.value)}
+                                            placeholder="YouTube URL (찬양, 설교 등)"
+                                            className="flex-1 bg-transparent text-sm text-white placeholder-white/30 focus:outline-none"
+                                        />
+                                    </div>
+                                    <div className="flex items-center gap-3 bg-black/30 px-4 py-3 rounded-xl border border-white/10">
+                                        <ImageIcon size={20} className="text-blue-400" />
+                                        <input
+                                            type="text"
+                                            value={newMemoImage}
+                                            onChange={(e) => setNewMemoImage(e.target.value)}
+                                            placeholder="이미지 URL"
+                                            className="flex-1 bg-transparent text-sm text-white placeholder-white/30 focus:outline-none"
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="flex justify-end gap-3">
+                                    <button
+                                        onClick={() => setIsCreating(false)}
+                                        className="px-5 py-2.5 rounded-lg text-white/70 hover:bg-white/10 transition-colors"
+                                    >
+                                        취소
+                                    </button>
+                                    <button
+                                        onClick={handleCreateMemo}
+                                        disabled={!newMemoText.trim()}
+                                        className="px-6 py-2.5 bg-white text-black font-bold rounded-lg hover:bg-gray-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                    >
+                                        저장하기
+                                    </button>
+                                </div>
+                            </div>
+                        </motion.div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+            {/* Floating Action Button for New Memo */}
+            <motion.button
+                whileHover={{ scale: 1.1 }}
+                whileTap={{ scale: 0.9 }}
+                onClick={() => setIsCreating(true)}
+                className="fixed bottom-8 right-8 z-[2000] bg-white text-black p-4 rounded-full shadow-2xl hover:bg-gray-100 transition-all shadow-white/10 flex items-center justify-center"
+                initial={{ scale: 0 }}
+                animate={{ scale: 1 }}
+                transition={{ type: "spring", stiffness: 260, damping: 20 }}
+            >
+                <Plus size={24} strokeWidth={3} />
+            </motion.button>
         </div>
     );
 };

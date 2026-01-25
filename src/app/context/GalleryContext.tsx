@@ -81,7 +81,10 @@ export const GalleryProvider: React.FC<{ children: ReactNode }> = ({ children })
           ...doc.data(),
         })) as GalleryItemType[];
 
-        setItems(galleryItems);
+        // Filter out pollutant items (shortcuts that shouldn't be here)
+        const validItems = galleryItems.filter(item => (item as any).source !== 'shortcut');
+
+        setItems(validItems);
         setLoading(false);
         setError(null);
       },
