@@ -222,12 +222,21 @@ function convertToGalleryItem(row, index) {
     let payload = {};
 
     try {
-        let rawPayload = row.payload || '{}';
-        // Replace smart quotes
-        rawPayload = rawPayload.replace(/[\u201C\u201D]/g, '"');
-        payload = JSON.parse(rawPayload);
+        const rawPayload = row.payload || '{}';
+
+        // Attempt 1: Parse raw payload (Best for valid JSON with smart quotes inside content)
+        try {
+            payload = JSON.parse(rawPayload);
+        } catch (e1) {
+            // Attempt 2: Sanitize smart quotes (Best for JSON where structure uses smart quotes)
+            const sanitized = rawPayload
+                .replace(/[\u201C\u201D]/g, '"')
+                .replace(/[\u2018\u2019]/g, "'");
+            payload = JSON.parse(sanitized);
+        }
     } catch (e) {
-        console.error('Failed to parse payload:', row.payload);
+        console.error('Failed to parse payload for row:', row.created_at);
+        // console.error('Error:', e.message);
         return null;
     }
 
