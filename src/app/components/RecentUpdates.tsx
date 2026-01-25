@@ -1200,48 +1200,57 @@ export const RecentUpdates: React.FC<RecentUpdatesProps> = ({ isAdmin = false })
                                     </button>
                                 )}
                             </div>
-                            <div className="flex flex-col gap-3">
+                            <div className="flex flex-col gap-6">
                                 {/* Level 1 Tags (# or No Hash) */}
                                 {allTags.filter(t => !t.tag.startsWith('##')).length > 0 && (
-                                    <div className="flex flex-wrap gap-2">
-                                        {allTags.filter(t => !t.tag.startsWith('##')).map(({ tag }) => {
-                                            const filterMode = tagFilters[tag];
-                                            const dynamicCount = dynamicTagCounts[tag] || 0;
-                                            const isZeroCount = dynamicCount === 0 && Object.keys(tagFilters).length > 0;
-                                            return (
-                                                <button
-                                                    key={tag}
-                                                    onClick={() => setTagFilters(prev => {
-                                                        const current = prev[tag];
-                                                        if (!current) {
-                                                            return { ...prev, [tag]: 'include' };
-                                                        } else if (current === 'include') {
-                                                            return { ...prev, [tag]: 'exclude' };
-                                                        } else {
-                                                            const { [tag]: _, ...rest } = prev;
-                                                            return rest;
-                                                        }
-                                                    })}
-                                                    className={`px-3 py-1.5 text-xs rounded-full transition-all flex items-center gap-1 ${filterMode === 'include'
-                                                        ? 'bg-gradient-to-r from-blue-500 to-purple-500 text-white shadow-lg'
-                                                        : filterMode === 'exclude'
-                                                            ? 'bg-gradient-to-r from-red-500 to-orange-500 text-white shadow-lg line-through'
-                                                            : isZeroCount
-                                                                ? 'bg-white/5 text-blue-200/30 hover:bg-white/10 hover:text-blue-200/50'
-                                                                : 'bg-white/5 text-blue-200/60 border border-blue-500/10 hover:border-blue-500/30'
-                                                        }`}
-                                                >
-                                                    {filterMode === 'include' && <span>✓</span>}
-                                                    {filterMode === 'exclude' && <span>✗</span>}
-                                                    {tag.replace(/^#/, '')}
-                                                    <span className={`ml-1 text-[10px] ${isZeroCount ? 'opacity-30' : 'opacity-60'}`}>
-                                                        {dynamicCount}
-                                                    </span>
-                                                </button>
-                                            );
-                                        })}
+                                    <div className="flex flex-col gap-3">
+                                        {/* Optional Label if needed, or just the group */}
+                                        <div className="flex flex-wrap gap-2">
+                                            {allTags.filter(t => !t.tag.startsWith('##')).map(({ tag }) => {
+                                                const filterMode = tagFilters[tag];
+                                                const dynamicCount = dynamicTagCounts[tag] || 0;
+                                                const isZeroCount = dynamicCount === 0 && Object.keys(tagFilters).length > 0;
+                                                return (
+                                                    <button
+                                                        key={tag}
+                                                        onClick={() => setTagFilters(prev => {
+                                                            const current = prev[tag];
+                                                            if (!current) {
+                                                                return { ...prev, [tag]: 'include' };
+                                                            } else if (current === 'include') {
+                                                                return { ...prev, [tag]: 'exclude' };
+                                                            } else {
+                                                                const { [tag]: _, ...rest } = prev;
+                                                                return rest;
+                                                            }
+                                                        })}
+                                                        className={`px-3 py-1.5 text-xs rounded-full transition-all flex items-center gap-1 ${filterMode === 'include'
+                                                            ? 'bg-gradient-to-r from-blue-500 to-purple-500 text-white shadow-lg'
+                                                            : filterMode === 'exclude'
+                                                                ? 'bg-gradient-to-r from-red-500 to-orange-500 text-white shadow-lg line-through'
+                                                                : isZeroCount
+                                                                    ? 'bg-white/5 text-blue-200/30 hover:bg-white/10 hover:text-blue-200/50'
+                                                                    : 'bg-white/5 text-blue-200/60 border border-blue-500/10 hover:border-blue-500/30'
+                                                            }`}
+                                                    >
+                                                        {filterMode === 'include' && <span>✓</span>}
+                                                        {filterMode === 'exclude' && <span>✗</span>}
+                                                        {tag.replace(/^#/, '')}
+                                                        <span className={`ml-1 text-[10px] ${isZeroCount ? 'opacity-30' : 'opacity-60'}`}>
+                                                            {dynamicCount}
+                                                        </span>
+                                                    </button>
+                                                );
+                                            })}
+                                        </div>
                                     </div>
                                 )}
+
+                                {/* Divider if Level 2 exists */}
+                                {allTags.filter(t => t.tag.startsWith('##') && !t.tag.startsWith('###')).length > 0 &&
+                                    allTags.filter(t => !t.tag.startsWith('##')).length > 0 && (
+                                        <div className="h-px bg-gradient-to-r from-transparent via-white/10 to-transparent w-full" />
+                                    )}
 
                                 {/* Level 2 Tags (##) */}
                                 {allTags.filter(t => t.tag.startsWith('##') && !t.tag.startsWith('###')).length > 0 && (
@@ -1284,6 +1293,12 @@ export const RecentUpdates: React.FC<RecentUpdatesProps> = ({ isAdmin = false })
                                         })}
                                     </div>
                                 )}
+
+                                {/* Divider if Level 3 exists */}
+                                {allTags.filter(t => t.tag.startsWith('###')).length > 0 &&
+                                    (allTags.filter(t => t.tag.startsWith('##') || !t.tag.startsWith('##')).length > 0) && (
+                                        <div className="h-px bg-gradient-to-r from-transparent via-white/10 to-transparent w-full" />
+                                    )}
 
                                 {/* Level 3 Tags (###) */}
                                 {allTags.filter(t => t.tag.startsWith('###')).length > 0 && (
@@ -1480,8 +1495,8 @@ export const RecentUpdates: React.FC<RecentUpdatesProps> = ({ isAdmin = false })
                                                         setTagFilters(prev => ({ ...prev, [tag]: 'include' }));
                                                     }}
                                                     className={`px-2 py-0.5 text-[10px] rounded-full hover:bg-white/20 cursor-pointer transition border border-white/10 ${tag.startsWith('###') ? 'bg-pink-500/10 text-pink-300' :
-                                                            tag.startsWith('##') ? 'bg-purple-500/10 text-purple-300' :
-                                                                'bg-blue-500/10 text-blue-300'
+                                                        tag.startsWith('##') ? 'bg-purple-500/10 text-purple-300' :
+                                                            'bg-blue-500/10 text-blue-300'
                                                         }`}
                                                 >
                                                     #{tag.replace(/^#{1,3}/, '')}
