@@ -544,7 +544,7 @@ export const MyReflections: React.FC<MyReflectionsProps> = ({ onSelectCallback }
                                                 {(viewingMemo.tags?.filter(t => t.startsWith('#') && !t.startsWith('##')) || []).length > 0 && (
                                                     <div className="flex gap-2">
                                                         {(viewingMemo.tags?.filter(t => t.startsWith('#') && !t.startsWith('##')) || []).map(tag => (
-                                                            <span key={tag} className="text-blue-400 text-sm opacity-90">{tag}</span>
+                                                            <span key={tag} className="text-blue-400 text-sm opacity-90">{tag.replace(/^#/, '')}</span>
                                                         ))}
                                                     </div>
                                                 )}
@@ -552,7 +552,7 @@ export const MyReflections: React.FC<MyReflectionsProps> = ({ onSelectCallback }
                                                 {(viewingMemo.tags?.filter(t => t.startsWith('##') && !t.startsWith('###')) || []).length > 0 && (
                                                     <div className="flex gap-2">
                                                         {(viewingMemo.tags?.filter(t => t.startsWith('##') && !t.startsWith('###')) || []).map(tag => (
-                                                            <span key={tag} className="text-purple-400 text-sm opacity-80">{tag}</span>
+                                                            <span key={tag} className="text-purple-400 text-sm opacity-80">{tag.replace(/^##/, '')}</span>
                                                         ))}
                                                     </div>
                                                 )}
@@ -560,7 +560,7 @@ export const MyReflections: React.FC<MyReflectionsProps> = ({ onSelectCallback }
                                                 {(viewingMemo.tags?.filter(t => t.startsWith('###')) || []).length > 0 && (
                                                     <div className="flex gap-2">
                                                         {(viewingMemo.tags?.filter(t => t.startsWith('###')) || []).map(tag => (
-                                                            <span key={tag} className="text-pink-400 text-sm opacity-70">{tag}</span>
+                                                            <span key={tag} className="text-pink-400 text-sm opacity-70">{tag.replace(/^###/, '')}</span>
                                                         ))}
                                                     </div>
                                                 )}

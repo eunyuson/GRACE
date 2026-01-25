@@ -822,7 +822,7 @@ export const RecentUpdates: React.FC<RecentUpdatesProps> = ({ isAdmin = false })
                                                     }}
                                                     className="px-3 py-1 text-xs rounded-full bg-blue-500/20 text-blue-300 border border-blue-500/30 hover:bg-blue-500/30 transition"
                                                 >
-                                                    {tag}
+                                                    {tag.replace(/^#/, '')}
                                                 </button>
                                             ))}
                                         </div>
@@ -840,7 +840,7 @@ export const RecentUpdates: React.FC<RecentUpdatesProps> = ({ isAdmin = false })
                                                     }}
                                                     className="px-3 py-1 text-xs rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/30 hover:bg-purple-500/30 transition"
                                                 >
-                                                    {tag}
+                                                    {tag.replace(/^##/, '')}
                                                 </button>
                                             ))}
                                         </div>
@@ -858,7 +858,7 @@ export const RecentUpdates: React.FC<RecentUpdatesProps> = ({ isAdmin = false })
                                                     }}
                                                     className="px-3 py-1 text-xs rounded-full bg-pink-500/20 text-pink-300 border border-pink-500/30 hover:bg-pink-500/30 transition"
                                                 >
-                                                    {tag}
+                                                    {tag.replace(/^###/, '')}
                                                 </button>
                                             ))}
                                         </div>
