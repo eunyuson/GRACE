@@ -308,30 +308,63 @@ export const MyReflections: React.FC<MyReflectionsProps> = ({ onSelectCallback }
                 {/* Tag Filters */}
                 {availableTags.length > 0 && (
                     <motion.div
-                        className="flex flex-wrap gap-2 mb-12"
+                        className="flex flex-col gap-4 mb-12"
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         transition={{ delay: 0.3 }}
                     >
-                        {availableTags.map(({ tag, count }) => (
-                            <button
-                                key={tag}
-                                onClick={() => toggleTag(tag)}
-                                className={`px-4 py-1.5 rounded-full text-xs md:text-sm border transition-all duration-300 ${selectedTags.includes(tag)
-                                    ? 'bg-white text-black border-white'
-                                    : 'bg-transparent text-white/60 border-white/20 hover:border-white/50'
-                                    }`}
-                            >
-                                #{tag} <span className="opacity-50 ml-1 text-[10px]">{count}</span>
-                            </button>
-                        ))}
-                        {selectedTags.length > 0 && (
-                            <button
-                                onClick={() => setSelectedTags([])}
-                                className="px-4 py-1.5 rounded-full text-xs md:text-sm text-red-400 hover:text-red-300 transition-colors"
-                            >
-                                Clear Filters
-                            </button>
+                        {/* Level 1 Tags (# or No Hash) */}
+                        {availableTags.filter(t => !t.tag.startsWith('##')).length > 0 && (
+                            <div className="flex flex-wrap gap-2">
+                                {availableTags.filter(t => !t.tag.startsWith('##')).map(({ tag, count }) => (
+                                    <button
+                                        key={tag}
+                                        onClick={() => toggleTag(tag)}
+                                        className={`px-4 py-1.5 rounded-full text-xs md:text-sm border transition-all duration-300 ${selectedTags.includes(tag)
+                                            ? 'bg-white text-black border-white'
+                                            : 'bg-transparent text-blue-200/60 border-blue-500/20 hover:border-blue-500/50'
+                                            }`}
+                                    >
+                                        {tag.replace(/^#/, '')} <span className="opacity-50 ml-1 text-[10px]">{count}</span>
+                                    </button>
+                                ))}
+                            </div>
+                        )}
+
+                        {/* Level 2 Tags (##) */}
+                        {availableTags.filter(t => t.tag.startsWith('##') && !t.tag.startsWith('###')).length > 0 && (
+                            <div className="flex flex-wrap gap-2">
+                                {availableTags.filter(t => t.tag.startsWith('##') && !t.tag.startsWith('###')).map(({ tag, count }) => (
+                                    <button
+                                        key={tag}
+                                        onClick={() => toggleTag(tag)}
+                                        className={`px-4 py-1.5 rounded-full text-xs md:text-sm border transition-all duration-300 ${selectedTags.includes(tag)
+                                            ? 'bg-white text-black border-white'
+                                            : 'bg-transparent text-purple-200/60 border-purple-500/20 hover:border-purple-500/50'
+                                            }`}
+                                    >
+                                        {tag.replace(/^##/, '')} <span className="opacity-50 ml-1 text-[10px]">{count}</span>
+                                    </button>
+                                ))}
+                            </div>
+                        )}
+
+                        {/* Level 3 Tags (###) */}
+                        {availableTags.filter(t => t.tag.startsWith('###')).length > 0 && (
+                            <div className="flex flex-wrap gap-2">
+                                {availableTags.filter(t => t.tag.startsWith('###')).map(({ tag, count }) => (
+                                    <button
+                                        key={tag}
+                                        onClick={() => toggleTag(tag)}
+                                        className={`px-4 py-1.5 rounded-full text-xs md:text-sm border transition-all duration-300 ${selectedTags.includes(tag)
+                                            ? 'bg-white text-black border-white'
+                                            : 'bg-transparent text-pink-200/60 border-pink-500/20 hover:border-pink-500/50'
+                                            }`}
+                                    >
+                                        {tag.replace(/^###/, '')} <span className="opacity-50 ml-1 text-[10px]">{count}</span>
+                                    </button>
+                                ))}
+                            </div>
                         )}
                     </motion.div>
                 )}
@@ -464,13 +497,16 @@ export const MyReflections: React.FC<MyReflectionsProps> = ({ onSelectCallback }
                                                 {memo.tags.map(tag => (
                                                     <span
                                                         key={tag}
-                                                        className="text-xs text-blue-400 hover:text-blue-300 cursor-pointer"
+                                                        className={`text-xs cursor-pointer ${tag.startsWith('###') ? 'text-pink-400' :
+                                                                tag.startsWith('##') ? 'text-purple-400' :
+                                                                    'text-blue-400 hover:text-blue-300'
+                                                            }`}
                                                         onClick={(e) => {
                                                             e.stopPropagation();
                                                             toggleTag(tag);
                                                         }}
                                                     >
-                                                        #{tag}
+                                                        #{tag.replace(/^#{1,3}/, '')}
                                                     </span>
                                                 ))}
                                             </div>
