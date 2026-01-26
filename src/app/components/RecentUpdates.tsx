@@ -1249,7 +1249,7 @@ export const RecentUpdates: React.FC<RecentUpdatesProps> = ({ isAdmin = false })
                                 {/* Divider if Level 2 exists */}
                                 {allTags.filter(t => t.tag.startsWith('##') && !t.tag.startsWith('###')).length > 0 &&
                                     allTags.filter(t => !t.tag.startsWith('##')).length > 0 && (
-                                        <div className="h-px bg-gradient-to-r from-transparent via-white/30 to-transparent w-full my-2" />
+                                        <div className="w-full h-px bg-white/20 my-4" />
                                     )}
 
                                 {/* Level 2 Tags (##) */}
@@ -1297,7 +1297,7 @@ export const RecentUpdates: React.FC<RecentUpdatesProps> = ({ isAdmin = false })
                                 {/* Divider if Level 3 exists */}
                                 {allTags.filter(t => t.tag.startsWith('###')).length > 0 &&
                                     (allTags.filter(t => !t.tag.startsWith('###')).length > 0) && (
-                                        <div className="h-px bg-gradient-to-r from-transparent via-white/30 to-transparent w-full my-2" />
+                                        <div className="w-full h-px bg-white/20 my-4" />
                                     )}
 
                                 {/* Level 3 Tags (###) */}
