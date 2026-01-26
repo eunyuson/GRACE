@@ -933,21 +933,25 @@ export const RecentUpdates: React.FC<RecentUpdatesProps> = ({ isAdmin = false })
                             )}
 
                             {/* 외부 링크 */}
-                            {(selectedItem as any).externalLinks?.length > 0 && (
+                            {((selectedItem as any).externalLinks?.length > 0) && (
                                 <div className="mt-6 pt-4 border-t border-white/10">
                                     <h5 className="text-white/50 text-xs uppercase tracking-wider mb-3">🔗 관련 링크</h5>
                                     <div className="flex flex-wrap gap-2">
-                                        {(selectedItem as any).externalLinks.map((link: any, i: number) => (
-                                            <a
-                                                key={i}
-                                                href={link.url}
-                                                target="_blank"
-                                                rel="noopener noreferrer"
-                                                className="px-4 py-2 rounded-xl bg-gradient-to-r from-blue-500/20 to-purple-500/20 text-blue-300 hover:from-blue-500/30 hover:to-purple-500/30 transition-all flex items-center gap-2 text-sm"
-                                            >
-                                                🔗 {link.title}
-                                            </a>
-                                        ))}
+                                        {(selectedItem as any).externalLinks.map((link: any, i: number) => {
+                                            if (!link.title && !link.url) return null;
+                                            return (
+                                                <a
+                                                    key={i}
+                                                    href={link.url}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="px-4 py-2 rounded-xl bg-gradient-to-r from-blue-500/20 to-purple-500/20 text-blue-300 hover:from-blue-500/30 hover:to-purple-500/30 transition-all flex items-center gap-2 text-sm"
+                                                    onClick={(e) => e.stopPropagation()}
+                                                >
+                                                    🔗 {link.title || link.url}
+                                                </a>
+                                            );
+                                        })}
                                     </div>
                                 </div>
                             )}
