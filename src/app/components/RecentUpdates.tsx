@@ -1363,24 +1363,31 @@ export const RecentUpdates: React.FC<RecentUpdatesProps> = ({ isAdmin = false })
                     {Object.keys(tagFilters).length > 0 && (
                         <div className="mb-6 flex flex-wrap items-center gap-2">
                             <span className="text-white/50 text-sm">필터:</span>
-                            {Object.entries(tagFilters).map(([tag, mode]) => (
-                                <span
-                                    key={tag}
-                                    className={`px-3 py-1 rounded-full text-sm flex items-center gap-2 ${mode === 'include'
-                                        ? 'bg-blue-500/20 text-blue-300'
-                                        : 'bg-red-500/20 text-red-300 line-through'
-                                        }`}
-                                >
-                                    {mode === 'include' ? '✓' : '✗'} #{tag}
-                                    <button
-                                        onClick={() => setTagFilters(prev => {
-                                            const { [tag]: _, ...rest } = prev;
-                                            return rest;
-                                        })}
-                                        className="hover:text-white"
-                                    >×</button>
-                                </span>
-                            ))}
+                            {Object.entries(tagFilters).map(([tag, mode]) => {
+                                // Determine style based on level
+                                const isL3 = tag.startsWith('###');
+                                const isL2 = tag.startsWith('##') && !isL3;
+                                const baseColor = isL3 ? 'pink' : isL2 ? 'purple' : 'blue';
+
+                                return (
+                                    <span
+                                        key={tag}
+                                        className={`px-3 py-1 rounded-full text-sm flex items-center gap-2 ${mode === 'include'
+                                            ? `bg-${baseColor}-500/20 text-${baseColor}-300`
+                                            : `bg-red-500/20 text-red-300 line-through`
+                                            }`}
+                                    >
+                                        {mode === 'include' ? '✓' : '✗'} {tag.replace(/^#{1,3}/, '')}
+                                        <button
+                                            onClick={() => setTagFilters(prev => {
+                                                const { [tag]: _, ...rest } = prev;
+                                                return rest;
+                                            })}
+                                            className="hover:text-white"
+                                        >×</button>
+                                    </span>
+                                );
+                            })}
                             <span className="text-white/30 text-sm">({filteredItems.length}개)</span>
                         </div>
                     )}
