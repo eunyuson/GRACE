@@ -818,62 +818,32 @@ export const RecentUpdates: React.FC<RecentUpdatesProps> = ({ isAdmin = false })
                                 </div>
                             </div>
 
-                            {/* Tags */}
+                            {/* Tags - Combined List */}
                             {getTags(selectedItem).length > 0 && (
-                                <div className="mt-4 flex flex-col gap-2">
-                                    {/* Level 1 Tags (# or No Hash) */}
-                                    {getTags(selectedItem).filter(t => !t.startsWith('##')).length > 0 && (
-                                        <div className="flex flex-wrap gap-2">
-                                            {getTags(selectedItem).filter(t => !t.startsWith('##')).map((tag, i) => (
-                                                <button
-                                                    key={`l1-${i}`}
-                                                    onClick={() => {
-                                                        setTagFilters(prev => ({ ...prev, [tag]: 'include' }));
-                                                        setSelectedItem(null);
-                                                    }}
-                                                    className="px-3 py-1 text-xs rounded-full bg-blue-500/20 text-blue-300 border border-blue-500/30 hover:bg-blue-500/30 transition"
-                                                >
-                                                    {tag.replace(/^#/, '')}
-                                                </button>
-                                            ))}
-                                        </div>
-                                    )}
-
-                                    {/* Level 2 Tags (##) */}
-                                    {getTags(selectedItem).filter(t => t.startsWith('##') && !t.startsWith('###')).length > 0 && (
-                                        <div className="flex flex-wrap gap-2">
-                                            {getTags(selectedItem).filter(t => t.startsWith('##') && !t.startsWith('###')).map((tag, i) => (
-                                                <button
-                                                    key={`l2-${i}`}
-                                                    onClick={() => {
-                                                        setTagFilters(prev => ({ ...prev, [tag]: 'include' }));
-                                                        setSelectedItem(null);
-                                                    }}
-                                                    className="px-3 py-1 text-xs rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/30 hover:bg-purple-500/30 transition"
-                                                >
-                                                    {tag.replace(/^##/, '')}
-                                                </button>
-                                            ))}
-                                        </div>
-                                    )}
-
-                                    {/* Level 3 Tags (###) */}
-                                    {getTags(selectedItem).filter(t => t.startsWith('###')).length > 0 && (
-                                        <div className="flex flex-wrap gap-2">
-                                            {getTags(selectedItem).filter(t => t.startsWith('###')).map((tag, i) => (
-                                                <button
-                                                    key={`l3-${i}`}
-                                                    onClick={() => {
-                                                        setTagFilters(prev => ({ ...prev, [tag]: 'include' }));
-                                                        setSelectedItem(null);
-                                                    }}
-                                                    className="px-3 py-1 text-xs rounded-full bg-pink-500/20 text-pink-300 border border-pink-500/30 hover:bg-pink-500/30 transition"
-                                                >
-                                                    {tag.replace(/^###/, '')}
-                                                </button>
-                                            ))}
-                                        </div>
-                                    )}
+                                <div className="mt-4 flex flex-wrap gap-2">
+                                    {getTags(selectedItem)
+                                        .sort((a, b) => {
+                                            // Sort by hierarchy: # -> ## -> ###
+                                            const getLevel = (tag: string) => tag.startsWith('###') ? 3 : tag.startsWith('##') ? 2 : 1;
+                                            return getLevel(a) - getLevel(b);
+                                        })
+                                        .map((tag, i) => (
+                                            <button
+                                                key={i}
+                                                onClick={() => {
+                                                    setTagFilters(prev => ({ ...prev, [tag]: 'include' }));
+                                                    setSelectedItem(null);
+                                                }}
+                                                className={`px-3 py-1 text-xs rounded-full transition border ${tag.startsWith('###')
+                                                        ? 'bg-pink-500/20 text-pink-300 border-pink-500/30 hover:bg-pink-500/30'
+                                                        : tag.startsWith('##')
+                                                            ? 'bg-purple-500/20 text-purple-300 border-purple-500/30 hover:bg-purple-500/30'
+                                                            : 'bg-blue-500/20 text-blue-300 border-blue-500/30 hover:bg-blue-500/30'
+                                                    }`}
+                                            >
+                                                {tag.replace(/^#+/, '')}
+                                            </button>
+                                        ))}
                                 </div>
                             )}
                         </div>
