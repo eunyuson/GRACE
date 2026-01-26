@@ -637,8 +637,8 @@ export const RecentUpdates: React.FC<RecentUpdatesProps> = ({ isAdmin = false })
                                             <span
                                                 key={i}
                                                 className={`px-2 py-1 text-xs rounded-full ${tag.startsWith('###') ? 'bg-pink-500/20 text-pink-300' :
-                                                        tag.startsWith('##') ? 'bg-purple-500/20 text-purple-300' :
-                                                            'bg-blue-500/20 text-blue-300'
+                                                    tag.startsWith('##') ? 'bg-purple-500/20 text-purple-300' :
+                                                        'bg-blue-500/20 text-blue-300'
                                                     }`}
                                             >
                                                 {tag}
@@ -1211,11 +1211,10 @@ export const RecentUpdates: React.FC<RecentUpdatesProps> = ({ isAdmin = false })
                                     </button>
                                 )}
                             </div>
-                            <div className="flex flex-col gap-6">
+                            <div className="flex flex-col gap-3">
                                 {/* Level 1 Tags (# or No Hash) */}
                                 {allTags.filter(t => !t.tag.startsWith('##')).length > 0 && (
                                     <div className="flex flex-col gap-3">
-                                        {/* Optional Label if needed, or just the group */}
                                         <div className="flex flex-wrap gap-2">
                                             {allTags.filter(t => !t.tag.startsWith('##')).map(({ tag }) => {
                                                 const filterMode = tagFilters[tag];
@@ -1256,12 +1255,6 @@ export const RecentUpdates: React.FC<RecentUpdatesProps> = ({ isAdmin = false })
                                         </div>
                                     </div>
                                 )}
-
-                                {/* Divider if Level 2 exists */}
-                                {allTags.filter(t => t.tag.startsWith('##') && !t.tag.startsWith('###')).length > 0 &&
-                                    allTags.filter(t => !t.tag.startsWith('##')).length > 0 && (
-                                        <div className="w-full h-px bg-white/20 my-4" />
-                                    )}
 
                                 {/* Level 2 Tags (##) */}
                                 {allTags.filter(t => t.tag.startsWith('##') && !t.tag.startsWith('###')).length > 0 && (
@@ -1304,12 +1297,6 @@ export const RecentUpdates: React.FC<RecentUpdatesProps> = ({ isAdmin = false })
                                         })}
                                     </div>
                                 )}
-
-                                {/* Divider if Level 3 exists */}
-                                {allTags.filter(t => t.tag.startsWith('###')).length > 0 &&
-                                    (allTags.filter(t => !t.tag.startsWith('###')).length > 0) && (
-                                        <div className="w-full h-px bg-white/20 my-4" />
-                                    )}
 
                                 {/* Level 3 Tags (###) */}
                                 {allTags.filter(t => t.tag.startsWith('###')).length > 0 && (
