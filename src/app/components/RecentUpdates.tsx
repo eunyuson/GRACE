@@ -1183,19 +1183,21 @@ export const RecentUpdates: React.FC<RecentUpdatesProps> = ({ isAdmin = false })
                                     if (confirm('구글 시트에서 최신 데이터를 가져오시겠습니까?\n(잠시 시간이 소요될 수 있습니다)')) {
                                         setLoading(true);
                                         try {
-                                            // Call the sync API endpoint
-                                            const response = await fetch('https://us-central1-gallery-website-design-korea.cloudfunctions.net/syncGoogleSheet', {
-                                                method: 'POST',
+                                            // Call the new Vercel API endpoint
+                                            const response = await fetch('/api/sync', {
+                                                method: 'GET', // Vercel functions usually handle GET or POST
                                             });
                                             if (response.ok) {
-                                                alert('업데이트 완료! 문서가 새로고침 됩니다.');
+                                                const result = await response.json();
+                                                alert(`업데이트 완료! ${result.added}개의 새 항목을 가져왔습니다.`);
                                                 window.location.reload();
                                             } else {
-                                                throw new Error('Sync failed');
+                                                const err = await response.json();
+                                                throw new Error(err.error || 'Sync failed');
                                             }
-                                        } catch (e) {
+                                        } catch (e: any) {
                                             console.error(e);
-                                            alert('동기화 실패: 잠시 후 다시 시도해주세요.');
+                                            alert(`동기화 실패: ${e.message || '잠시 후 다시 시도해주세요.'}`);
                                             setLoading(false);
                                         }
                                     }

@@ -22,21 +22,29 @@ if (!admin.apps.length) {
 
 const db = admin.firestore();
 
-async function checkUpdates() {
-    console.log('🔍 Checking Updates Collection...');
+async function checkTags() {
+    console.log('🔍 Checking Tags in Updates Collection...');
     const snapshot = await db.collection('updates').where('source', '==', 'shortcut').get();
 
-    console.log(`Found ${snapshot.size} shortcut items in Updates collection.`);
-
+    let allTags = new Set();
     snapshot.docs.forEach(doc => {
         const data = doc.data();
         const tagSection = data.content?.find(c => c.keyword === 'TAGS');
-        if (tagSection) {
-            console.log(`[${doc.id}] ${data.title} -> Tags: "${tagSection.text}"`);
-        } else {
-            // console.log(`[${doc.id}] ${data.title} -> No TAGS section`);
+        if (tagSection && tagSection.text) {
+            const tags = tagSection.text.split(',').map(t => t.trim());
+            tags.forEach(t => allTags.add(t));
+        }
+    });
+
+    console.log('--- Tag Analysis ---');
+    Array.from(allTags).forEach(tag => {
+        if (tag.includes('#')) {
+            console.log(`Tag: "${tag}"`);
+            console.log(`   Starts with #: ${tag.startsWith('#')}`);
+            console.log(`   Starts with ##: ${tag.startsWith('##')}`);
+            console.log(`   Char codes: ${tag.split('').map(c => c.charCodeAt(0)).join(', ')}`);
         }
     });
 }
 
-checkUpdates();
+checkTags();

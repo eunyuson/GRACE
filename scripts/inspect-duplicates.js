@@ -22,21 +22,32 @@ if (!admin.apps.length) {
 
 const db = admin.firestore();
 
-async function checkUpdates() {
-    console.log('🔍 Checking Updates Collection...');
+async function inspectSocietyTag() {
+    console.log('🔍 Inspecting items with "사회" tag...');
     const snapshot = await db.collection('updates').where('source', '==', 'shortcut').get();
 
-    console.log(`Found ${snapshot.size} shortcut items in Updates collection.`);
+    let societyCounts = {};
 
     snapshot.docs.forEach(doc => {
         const data = doc.data();
         const tagSection = data.content?.find(c => c.keyword === 'TAGS');
-        if (tagSection) {
-            console.log(`[${doc.id}] ${data.title} -> Tags: "${tagSection.text}"`);
-        } else {
-            // console.log(`[${doc.id}] ${data.title} -> No TAGS section`);
+        if (tagSection && tagSection.text) {
+            const tags = tagSection.text.split(',').map(t => t.trim());
+            const societyTags = tags.filter(t => t.includes('사회') || t.includes('가정') || t.includes('교회'));
+
+            if (societyTags.length > 0) {
+                societyTags.forEach(tag => {
+                    // Check for invisible characters
+                    const charCodes = tag.split('').map(c => c.charCodeAt(0)).join(',');
+                    const key = `${tag} (${charCodes})`;
+                    societyCounts[key] = (societyCounts[key] || 0) + 1;
+                });
+            }
         }
     });
+
+    console.log('--- Duplicate Tag Analysis ---');
+    console.log(JSON.stringify(societyCounts, null, 2));
 }
 
-checkUpdates();
+inspectSocietyTag();

@@ -22,21 +22,27 @@ if (!admin.apps.length) {
 
 const db = admin.firestore();
 
-async function checkUpdates() {
-    console.log('🔍 Checking Updates Collection...');
+async function inspectMalssum() {
+    console.log('🔍 Inspecting items with "말씀" tag...');
     const snapshot = await db.collection('updates').where('source', '==', 'shortcut').get();
 
-    console.log(`Found ${snapshot.size} shortcut items in Updates collection.`);
-
+    let count = 0;
     snapshot.docs.forEach(doc => {
         const data = doc.data();
         const tagSection = data.content?.find(c => c.keyword === 'TAGS');
-        if (tagSection) {
-            console.log(`[${doc.id}] ${data.title} -> Tags: "${tagSection.text}"`);
-        } else {
-            // console.log(`[${doc.id}] ${data.title} -> No TAGS section`);
+        if (tagSection && tagSection.text) {
+            const tags = tagSection.text.split(',').map(t => t.trim());
+            const malssumTags = tags.filter(t => t.includes('말씀'));
+
+            if (malssumTags.length > 0) {
+                console.log(`[${doc.id}] ${data.title}`);
+                console.log(`    Raw Tags: ${JSON.stringify(tags)}`);
+                console.log(`    Malssum Tags: ${JSON.stringify(malssumTags)}`);
+                count++;
+            }
         }
     });
+    console.log(`Found ${count} items with "말씀" related tags.`);
 }
 
-checkUpdates();
+inspectMalssum();
