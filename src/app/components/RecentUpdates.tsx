@@ -1178,6 +1178,32 @@ export const RecentUpdates: React.FC<RecentUpdatesProps> = ({ isAdmin = false })
                             <p className="text-white/40 text-sm">iPhone에서 보낸 메모와 업데이트</p>
                         </div>
                         <div className="flex items-center gap-3">
+                            <button
+                                onClick={async () => {
+                                    if (confirm('구글 시트에서 최신 데이터를 가져오시겠습니까?\n(잠시 시간이 소요될 수 있습니다)')) {
+                                        setLoading(true);
+                                        try {
+                                            // Call the sync API endpoint
+                                            const response = await fetch('https://us-central1-gallery-website-design-korea.cloudfunctions.net/syncGoogleSheet', {
+                                                method: 'POST',
+                                            });
+                                            if (response.ok) {
+                                                alert('업데이트 완료! 문서가 새로고침 됩니다.');
+                                                window.location.reload();
+                                            } else {
+                                                throw new Error('Sync failed');
+                                            }
+                                        } catch (e) {
+                                            console.error(e);
+                                            alert('동기화 실패: 잠시 후 다시 시도해주세요.');
+                                            setLoading(false);
+                                        }
+                                    }
+                                }}
+                                className="px-3 py-1.5 bg-green-500/10 hover:bg-green-500/20 border border-green-500/20 rounded-lg text-xs text-green-400 transition flex items-center gap-2"
+                            >
+                                <span>🔄</span> 새로고침
+                            </button>
                             {isAdmin && (
                                 <>
                                     <button
