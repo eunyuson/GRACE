@@ -22,6 +22,8 @@ interface UpdateItem {
     content: { id?: string; text: string; date?: string; keyword?: string }[];
     createdAt?: any;
     sheetRowId?: string;
+    externalLinks?: { title: string; url: string }[];
+    additionalImages?: string[];
 }
 
 interface RecentUpdatesProps {
@@ -367,7 +369,9 @@ export const RecentUpdates: React.FC<RecentUpdatesProps> = ({ isAdmin = false })
                 desc: editingItem.desc,
                 descTitle: editingItem.title,
                 content: editingItem.content,
-                image: editingItem.image || ''
+                image: editingItem.image || '',
+                externalLinks: editingItem.externalLinks || [],
+                additionalImages: editingItem.additionalImages || []
             });
             setEditingItem(null);
         } catch (error) {
