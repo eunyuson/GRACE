@@ -701,37 +701,58 @@ export const RecentUpdates: React.FC<RecentUpdatesProps> = ({ isAdmin = false })
 
                             {/* 외부 링크 */}
                             <div>
-                                <label className="text-white/50 text-xs uppercase tracking-wider mb-1 block">
-                                    관련 링크 (한 줄에 하나씩: 제목|URL)
+                                <label className="text-white/50 text-xs uppercase tracking-wider mb-2 block">
+                                    관련 링크
                                 </label>
-                                <textarea
-                                    value={(editingItem as any).externalLinks?.map((l: any) => `${l.title}|${l.url}`).join('\n') || ''}
-                                    onChange={(e) => {
-                                        const links = e.target.value.split('\n').filter(line => line.trim()).map(line => {
-                                            const [title, url] = line.split('|');
-                                            return { title: title?.trim() || url?.trim() || '', url: url?.trim() || title?.trim() || '' };
-                                        });
-                                        handleEditChange('externalLinks', links);
-                                    }}
-                                    placeholder="네이버 블로그|https://blog.naver.com/...&#10;유튜브 영상|https://youtube.com/..."
-                                    rows={3}
-                                    className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder-white/30 focus:outline-none focus:border-blue-500/50 resize-none text-sm"
-                                />
-                                {(editingItem as any).externalLinks?.length > 0 && (
-                                    <div className="flex flex-wrap gap-2 mt-2">
-                                        {(editingItem as any).externalLinks.map((link: any, i: number) => (
-                                            <a
-                                                key={i}
-                                                href={link.url}
-                                                target="_blank"
-                                                rel="noopener noreferrer"
-                                                className="px-3 py-1.5 text-xs rounded-full bg-blue-500/20 text-blue-300 hover:bg-blue-500/30 transition flex items-center gap-1"
+                                <div className="space-y-2">
+                                    {/* Existing Links List */}
+                                    {(editingItem as any).externalLinks?.map((link: any, i: number) => (
+                                        <div key={i} className="flex gap-2">
+                                            <input
+                                                type="text"
+                                                value={link.title}
+                                                onChange={(e) => {
+                                                    const newLinks = [...((editingItem as any).externalLinks || [])];
+                                                    newLinks[i] = { ...newLinks[i], title: e.target.value };
+                                                    handleEditChange('externalLinks', newLinks);
+                                                }}
+                                                placeholder="제목 (예: 네이버 블로그)"
+                                                className="flex-1 px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-white placeholder-white/30 focus:outline-none focus:border-blue-500/50 text-sm"
+                                            />
+                                            <input
+                                                type="text"
+                                                value={link.url}
+                                                onChange={(e) => {
+                                                    const newLinks = [...((editingItem as any).externalLinks || [])];
+                                                    newLinks[i] = { ...newLinks[i], url: e.target.value };
+                                                    handleEditChange('externalLinks', newLinks);
+                                                }}
+                                                placeholder="URL (예: https://...)"
+                                                className="flex-[2] px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-white placeholder-white/30 focus:outline-none focus:border-blue-500/50 text-sm"
+                                            />
+                                            <button
+                                                onClick={() => {
+                                                    const newLinks = ((editingItem as any).externalLinks || []).filter((_: any, index: number) => index !== i);
+                                                    handleEditChange('externalLinks', newLinks);
+                                                }}
+                                                className="px-3 py-2 rounded-xl bg-red-500/10 text-red-400 hover:bg-red-500/20"
                                             >
-                                                🔗 {link.title}
-                                            </a>
-                                        ))}
-                                    </div>
-                                )}
+                                                ×
+                                            </button>
+                                        </div>
+                                    ))}
+
+                                    {/* Add New Link Button */}
+                                    <button
+                                        onClick={() => {
+                                            const newLinks = [...((editingItem as any).externalLinks || []), { title: '', url: '' }];
+                                            handleEditChange('externalLinks', newLinks);
+                                        }}
+                                        className="w-full py-2 rounded-xl border border-dashed border-white/20 text-white/50 hover:text-white hover:border-white/40 hover:bg-white/5 transition text-sm flex items-center justify-center gap-2"
+                                    >
+                                        <span>+</span> 링크 추가하기
+                                    </button>
+                                </div>
                             </div>
 
                             {/* 버튼 */}
@@ -835,10 +856,10 @@ export const RecentUpdates: React.FC<RecentUpdatesProps> = ({ isAdmin = false })
                                                     setSelectedItem(null);
                                                 }}
                                                 className={`px-3 py-1 text-xs rounded-full transition border ${tag.startsWith('###')
-                                                        ? 'bg-pink-500/20 text-pink-300 border-pink-500/30 hover:bg-pink-500/30'
-                                                        : tag.startsWith('##')
-                                                            ? 'bg-purple-500/20 text-purple-300 border-purple-500/30 hover:bg-purple-500/30'
-                                                            : 'bg-blue-500/20 text-blue-300 border-blue-500/30 hover:bg-blue-500/30'
+                                                    ? 'bg-pink-500/20 text-pink-300 border-pink-500/30 hover:bg-pink-500/30'
+                                                    : tag.startsWith('##')
+                                                        ? 'bg-purple-500/20 text-purple-300 border-purple-500/30 hover:bg-purple-500/30'
+                                                        : 'bg-blue-500/20 text-blue-300 border-blue-500/30 hover:bg-blue-500/30'
                                                     }`}
                                             >
                                                 {tag.replace(/^#+/, '')}
