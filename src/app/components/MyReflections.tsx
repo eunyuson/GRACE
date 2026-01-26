@@ -453,65 +453,15 @@ export const MyReflections: React.FC<MyReflectionsProps> = ({ onSelectCallback }
                                             )}
                                         </div>
 
-                                        {/* Content - Edit Mode or Display Mode */}
-                                        <div className="flex-1 mb-6" onClick={e => editingMemo === memo.id && e.stopPropagation()}>
-                                            {editingMemo === memo.id ? (
-                                                <div className="space-y-3">
-                                                    <textarea
-                                                        value={editText}
-                                                        onChange={(e) => setEditText(e.target.value)}
-                                                        className="w-full h-32 bg-black/50 border border-white/20 rounded-lg p-3 text-white/90 text-sm focus:outline-none focus:border-yellow-500/50"
-                                                        placeholder="묵상 내용..."
-                                                    />
-                                                    <div className="space-y-2">
-                                                        <div className="flex items-center gap-2 bg-black/30 px-3 py-2 rounded-lg border border-white/10">
-                                                            <Youtube size={16} className="text-red-500" />
-                                                            <input
-                                                                type="text"
-                                                                value={editYoutubeUrl}
-                                                                onChange={(e) => setEditYoutubeUrl(e.target.value)}
-                                                                placeholder="YouTube URL (Optional)"
-                                                                className="flex-1 bg-transparent text-xs text-white placeholder-white/20 focus:outline-none"
-                                                            />
-                                                        </div>
-                                                        <div className="flex items-center gap-2 bg-black/30 px-3 py-2 rounded-lg border border-white/10">
-                                                            <ImageIcon size={16} className="text-blue-400" />
-                                                            <input
-                                                                type="text"
-                                                                value={editImageUrl}
-                                                                onChange={(e) => setEditImageUrl(e.target.value)}
-                                                                placeholder="Image URL (Optional)"
-                                                                className="flex-1 bg-transparent text-xs text-white placeholder-white/20 focus:outline-none"
-                                                            />
-                                                        </div>
-                                                    </div>
-
-                                                    <div className="flex gap-2">
-                                                        <button
-                                                            onClick={() => handleEditMemo(memo)}
-                                                            className="px-3 py-1.5 bg-yellow-500 text-black text-xs font-bold rounded hover:bg-yellow-400"
-                                                        >
-                                                            저장
-                                                        </button>
-                                                        <button
-                                                            onClick={() => { setEditingMemo(null); setEditText(''); }}
-                                                            className="px-3 py-1.5 bg-white/10 text-white/70 text-xs rounded hover:bg-white/20"
-                                                        >
-                                                            취소
-                                                        </button>
-                                                    </div>
+                                        {/* Content - Display Mode Only */}
+                                        <div className="flex-1 mb-6">
+                                            <p className="text-white/80 whitespace-pre-wrap leading-relaxed text-sm md:text-base line-clamp-[8]">
+                                                {memo.text}
+                                            </p>
+                                            {memo.imageUrl && (
+                                                <div className="mt-3 h-32 w-full rounded-lg overflow-hidden relative">
+                                                    <img src={memo.imageUrl} alt="" className="w-full h-full object-cover" />
                                                 </div>
-                                            ) : (
-                                                <>
-                                                    <p className="text-white/80 whitespace-pre-wrap leading-relaxed text-sm md:text-base line-clamp-[8]">
-                                                        {memo.text}
-                                                    </p>
-                                                    {memo.imageUrl && (
-                                                        <div className="mt-3 h-32 w-full rounded-lg overflow-hidden relative">
-                                                            <img src={memo.imageUrl} alt="" className="w-full h-full object-cover" />
-                                                        </div>
-                                                    )}
-                                                </>
                                             )}
                                         </div>
 
@@ -537,7 +487,7 @@ export const MyReflections: React.FC<MyReflectionsProps> = ({ onSelectCallback }
                                         )}
 
                                         {/* Admin Actions */}
-                                        {currentUser && editingMemo !== memo.id && (
+                                        {currentUser && (
                                             <div className="flex gap-2 mt-4 pt-4 border-t border-white/5" onClick={e => e.stopPropagation()}>
                                                 <button
                                                     onClick={() => {
@@ -627,20 +577,37 @@ export const MyReflections: React.FC<MyReflectionsProps> = ({ onSelectCallback }
                                             </div>
                                         </div>
                                     </div>
-                                    {viewingMemo.parentId && onSelectCallback && (
-                                        <button
-                                            onClick={() => {
-                                                if (viewingMemo.parentId) {
-                                                    onSelectCallback(viewingMemo.parentId);
-                                                    setViewingMemo(null);
-                                                }
-                                            }}
-                                            className="px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg text-sm text-white/70 hover:text-white flex items-center gap-2 transition-colors self-start md:self-center"
-                                        >
-                                            <span>원문 보기</span>
-                                            <ExternalLink size={14} />
-                                        </button>
-                                    )}
+                                    <div className="flex gap-2 self-start md:self-center">
+                                        {/* Edit Button in View Modal */}
+                                        {currentUser?.uid === viewingMemo.userId && (
+                                            <button
+                                                onClick={() => {
+                                                    setEditingMemo(viewingMemo.id);
+                                                    setEditText(viewingMemo.text);
+                                                    setEditYoutubeUrl(viewingMemo.youtubeUrl || '');
+                                                    setEditImageUrl(viewingMemo.imageUrl || '');
+                                                    setViewingMemo(null); // Switch to Edit Modal
+                                                }}
+                                                className="px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg text-sm text-white/70 hover:text-white flex items-center gap-2 transition-colors"
+                                            >
+                                                ✏️ 수정
+                                            </button>
+                                        )}
+                                        {viewingMemo.parentId && onSelectCallback && (
+                                            <button
+                                                onClick={() => {
+                                                    if (viewingMemo.parentId) {
+                                                        onSelectCallback(viewingMemo.parentId);
+                                                        setViewingMemo(null);
+                                                    }
+                                                }}
+                                                className="px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg text-sm text-white/70 hover:text-white flex items-center gap-2 transition-colors"
+                                            >
+                                                <span>원문 보기</span>
+                                                <ExternalLink size={14} />
+                                            </button>
+                                        )}
+                                    </div>
                                 </div>
 
                                 {/* Content */}
@@ -697,7 +664,7 @@ export const MyReflections: React.FC<MyReflectionsProps> = ({ onSelectCallback }
                             animate={{ scale: 1, opacity: 1 }}
                             exit={{ scale: 0.9, opacity: 0 }}
                             onClick={(e) => e.stopPropagation()}
-                            className="bg-[#1a1a1a] rounded-2xl w-full max-w-2xl overflow-hidden border border-white/10 shadow-2xl relative"
+                            className="bg-[#1a1a1a] rounded-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto custom-scrollbar border border-white/10 shadow-2xl relative"
                         >
                             <div className="p-6 md:p-8">
                                 <h2 className="text-2xl font-bold text-white mb-6">새로운 묵상 기록</h2>
@@ -705,7 +672,7 @@ export const MyReflections: React.FC<MyReflectionsProps> = ({ onSelectCallback }
                                 <textarea
                                     value={newMemoText}
                                     onChange={(e) => setNewMemoText(e.target.value)}
-                                    className="w-full h-48 bg-black/50 border border-white/20 rounded-xl p-4 text-white/90 text-base focus:outline-none focus:border-white/50 mb-4 resize-none"
+                                    className="w-full h-80 bg-black/50 border border-white/20 rounded-xl p-6 text-white/90 text-lg leading-relaxed focus:outline-none focus:border-white/50 mb-4 resize-none"
                                     placeholder="오늘의 묵상을 기록해보세요... (해시태그 #은혜 #감사 활용 가능)"
                                     autoFocus
                                 />
@@ -753,6 +720,82 @@ export const MyReflections: React.FC<MyReflectionsProps> = ({ onSelectCallback }
                     </motion.div>
                 )}
             </AnimatePresence>
+
+            {/* Edit Modal (New) */}
+            <AnimatePresence>
+                {editingMemo && (
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        onClick={() => setEditingMemo(null)}
+                        className="fixed inset-0 z-[3000] bg-black/90 backdrop-blur-md flex items-center justify-center p-4"
+                    >
+                        <motion.div
+                            initial={{ scale: 0.9, opacity: 0 }}
+                            animate={{ scale: 1, opacity: 1 }}
+                            exit={{ scale: 0.9, opacity: 0 }}
+                            onClick={(e) => e.stopPropagation()}
+                            className="bg-[#1a1a1a] rounded-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto custom-scrollbar border border-white/10 shadow-2xl relative"
+                        >
+                            <div className="p-6 md:p-8">
+                                <h2 className="text-2xl font-bold text-white mb-6">묵상 수정하기</h2>
+
+                                <textarea
+                                    value={editText}
+                                    onChange={(e) => setEditText(e.target.value)}
+                                    className="w-full h-80 bg-black/50 border border-white/20 rounded-xl p-6 text-white/90 text-lg leading-relaxed focus:outline-none focus:border-yellow-500/50 mb-4 resize-none"
+                                    placeholder="묵상 내용..."
+                                    autoFocus
+                                />
+
+                                <div className="space-y-3 mb-6">
+                                    <div className="flex items-center gap-3 bg-black/30 px-4 py-3 rounded-xl border border-white/10">
+                                        <Youtube size={20} className="text-red-500" />
+                                        <input
+                                            type="text"
+                                            value={editYoutubeUrl}
+                                            onChange={(e) => setEditYoutubeUrl(e.target.value)}
+                                            placeholder="YouTube URL (Optional)"
+                                            className="flex-1 bg-transparent text-sm text-white placeholder-white/30 focus:outline-none"
+                                        />
+                                    </div>
+                                    <div className="flex items-center gap-3 bg-black/30 px-4 py-3 rounded-xl border border-white/10">
+                                        <ImageIcon size={20} className="text-blue-400" />
+                                        <input
+                                            type="text"
+                                            value={editImageUrl}
+                                            onChange={(e) => setEditImageUrl(e.target.value)}
+                                            placeholder="Image URL (Optional)"
+                                            className="flex-1 bg-transparent text-sm text-white placeholder-white/30 focus:outline-none"
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="flex justify-end gap-3">
+                                    <button
+                                        onClick={() => setEditingMemo(null)}
+                                        className="px-5 py-2.5 rounded-lg text-white/70 hover:bg-white/10 transition-colors"
+                                    >
+                                        취소
+                                    </button>
+                                    <button
+                                        onClick={() => {
+                                            const memoToEdit = memos.find(m => m.id === editingMemo);
+                                            if (memoToEdit) handleEditMemo(memoToEdit);
+                                        }}
+                                        disabled={!editText.trim()}
+                                        className="px-6 py-2.5 bg-yellow-500 text-black font-bold rounded-lg hover:bg-yellow-400 transition-colors disabled:opacity-50"
+                                    >
+                                        수정 완료
+                                    </button>
+                                </div>
+                            </div>
+                        </motion.div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+
             {/* Floating Action Button for New Memo */}
             <motion.button
                 whileHover={{ scale: 1.1 }}
