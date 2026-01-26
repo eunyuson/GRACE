@@ -1213,13 +1213,12 @@ export const RecentUpdates: React.FC<RecentUpdatesProps> = ({ isAdmin = false })
                             </div>
                             <div className="flex flex-col gap-3">
                                 {/* Level 1 Tags (# or No Hash) */}
-                                {allTags.filter(t => !t.tag.startsWith('##')).length > 0 && (
+                                {allTags.filter(t => !t.tag.startsWith('##') && (dynamicTagCounts[t.tag] || 0) > 0).length > 0 && (
                                     <div className="flex flex-col gap-3">
                                         <div className="flex flex-wrap gap-2">
-                                            {allTags.filter(t => !t.tag.startsWith('##')).map(({ tag }) => {
+                                            {allTags.filter(t => !t.tag.startsWith('##') && (dynamicTagCounts[t.tag] || 0) > 0).map(({ tag }) => {
                                                 const filterMode = tagFilters[tag];
                                                 const dynamicCount = dynamicTagCounts[tag] || 0;
-                                                const isZeroCount = dynamicCount === 0 && Object.keys(tagFilters).length > 0;
                                                 return (
                                                     <button
                                                         key={tag}
@@ -1238,15 +1237,13 @@ export const RecentUpdates: React.FC<RecentUpdatesProps> = ({ isAdmin = false })
                                                             ? 'bg-gradient-to-r from-blue-500 to-purple-500 text-white shadow-lg'
                                                             : filterMode === 'exclude'
                                                                 ? 'bg-gradient-to-r from-red-500 to-orange-500 text-white shadow-lg line-through'
-                                                                : isZeroCount
-                                                                    ? 'bg-white/5 text-blue-200/30 hover:bg-white/10 hover:text-blue-200/50'
-                                                                    : 'bg-white/5 text-blue-200/60 border border-blue-500/10 hover:border-blue-500/30'
+                                                                : 'bg-white/5 text-blue-200/60 border border-blue-500/10 hover:border-blue-500/30'
                                                             }`}
                                                     >
                                                         {filterMode === 'include' && <span>✓</span>}
                                                         {filterMode === 'exclude' && <span>✗</span>}
                                                         {tag.replace(/^#/, '')}
-                                                        <span className={`ml-1 text-[10px] ${isZeroCount ? 'opacity-30' : 'opacity-60'}`}>
+                                                        <span className="ml-1 text-[10px] opacity-60">
                                                             {dynamicCount}
                                                         </span>
                                                     </button>
@@ -1257,12 +1254,11 @@ export const RecentUpdates: React.FC<RecentUpdatesProps> = ({ isAdmin = false })
                                 )}
 
                                 {/* Level 2 Tags (##) */}
-                                {allTags.filter(t => t.tag.startsWith('##') && !t.tag.startsWith('###')).length > 0 && (
+                                {allTags.filter(t => t.tag.startsWith('##') && !t.tag.startsWith('###') && (dynamicTagCounts[t.tag] || 0) > 0).length > 0 && (
                                     <div className="flex flex-wrap gap-2">
-                                        {allTags.filter(t => t.tag.startsWith('##') && !t.tag.startsWith('###')).map(({ tag }) => {
+                                        {allTags.filter(t => t.tag.startsWith('##') && !t.tag.startsWith('###') && (dynamicTagCounts[t.tag] || 0) > 0).map(({ tag }) => {
                                             const filterMode = tagFilters[tag];
                                             const dynamicCount = dynamicTagCounts[tag] || 0;
-                                            const isZeroCount = dynamicCount === 0 && Object.keys(tagFilters).length > 0;
                                             return (
                                                 <button
                                                     key={tag}
@@ -1281,15 +1277,13 @@ export const RecentUpdates: React.FC<RecentUpdatesProps> = ({ isAdmin = false })
                                                         ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-lg'
                                                         : filterMode === 'exclude'
                                                             ? 'bg-gradient-to-r from-red-500 to-orange-500 text-white shadow-lg line-through'
-                                                            : isZeroCount
-                                                                ? 'bg-white/5 text-purple-200/30 hover:bg-white/10 hover:text-purple-200/50'
-                                                                : 'bg-white/5 text-purple-200/60 border border-purple-500/10 hover:border-purple-500/30'
+                                                            : 'bg-white/5 text-purple-200/60 border border-purple-500/10 hover:border-purple-500/30'
                                                         }`}
                                                 >
                                                     {filterMode === 'include' && <span>✓</span>}
                                                     {filterMode === 'exclude' && <span>✗</span>}
                                                     {tag.replace(/^##/, '')}
-                                                    <span className={`ml-1 text-[10px] ${isZeroCount ? 'opacity-30' : 'opacity-60'}`}>
+                                                    <span className="ml-1 text-[10px] opacity-60">
                                                         {dynamicCount}
                                                     </span>
                                                 </button>
@@ -1299,12 +1293,11 @@ export const RecentUpdates: React.FC<RecentUpdatesProps> = ({ isAdmin = false })
                                 )}
 
                                 {/* Level 3 Tags (###) */}
-                                {allTags.filter(t => t.tag.startsWith('###')).length > 0 && (
+                                {allTags.filter(t => t.tag.startsWith('###') && (dynamicTagCounts[t.tag] || 0) > 0).length > 0 && (
                                     <div className="flex flex-wrap gap-2">
-                                        {allTags.filter(t => t.tag.startsWith('###')).map(({ tag }) => {
+                                        {allTags.filter(t => t.tag.startsWith('###') && (dynamicTagCounts[t.tag] || 0) > 0).map(({ tag }) => {
                                             const filterMode = tagFilters[tag];
                                             const dynamicCount = dynamicTagCounts[tag] || 0;
-                                            const isZeroCount = dynamicCount === 0 && Object.keys(tagFilters).length > 0;
                                             return (
                                                 <button
                                                     key={tag}
@@ -1323,15 +1316,13 @@ export const RecentUpdates: React.FC<RecentUpdatesProps> = ({ isAdmin = false })
                                                         ? 'bg-gradient-to-r from-pink-500 to-yellow-500 text-white shadow-lg'
                                                         : filterMode === 'exclude'
                                                             ? 'bg-gradient-to-r from-red-500 to-orange-500 text-white shadow-lg line-through'
-                                                            : isZeroCount
-                                                                ? 'bg-white/5 text-pink-200/30 hover:bg-white/10 hover:text-pink-200/50'
-                                                                : 'bg-white/5 text-pink-200/60 border border-pink-500/10 hover:border-pink-500/30'
+                                                            : 'bg-white/5 text-pink-200/30 hover:bg-white/10 hover:text-pink-200/50'
                                                         }`}
                                                 >
                                                     {filterMode === 'include' && <span>✓</span>}
                                                     {filterMode === 'exclude' && <span>✗</span>}
                                                     {tag.replace(/^###/, '')}
-                                                    <span className={`ml-1 text-[10px] ${isZeroCount ? 'opacity-30' : 'opacity-60'}`}>
+                                                    <span className="ml-1 text-[10px] opacity-60">
                                                         {dynamicCount}
                                                     </span>
                                                 </button>
