@@ -619,18 +619,29 @@ export const RecentUpdates: React.FC<RecentUpdatesProps> = ({ isAdmin = false })
                                 <label className="text-white/50 text-xs uppercase tracking-wider mb-1 block">
                                     태그 (쉼표로 구분)
                                 </label>
+                                <p className="text-xs text-white/30 mb-2">
+                                    • 1단계: <span className="text-blue-300">#태그</span> (또는 태그)<br />
+                                    • 2단계: <span className="text-purple-300">##태그</span><br />
+                                    • 3단계: <span className="text-pink-300">###태그</span>
+                                </p>
                                 <input
                                     type="text"
                                     value={getTagsString(editingItem)}
                                     onChange={(e) => handleTagsChange(e.target.value)}
-                                    placeholder="태그1, 태그2, 태그3"
+                                    placeholder="#태그1, ##태그2, ###태그3"
                                     className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder-white/30 focus:outline-none focus:border-blue-500/50"
                                 />
                                 {getTagsString(editingItem) && (
                                     <div className="flex flex-wrap gap-2 mt-2">
                                         {getTagsString(editingItem).split(',').map((t, i) => t.trim()).filter(Boolean).map((tag, i) => (
-                                            <span key={i} className="px-2 py-1 text-xs rounded-full bg-purple-500/20 text-purple-300">
-                                                #{tag}
+                                            <span
+                                                key={i}
+                                                className={`px-2 py-1 text-xs rounded-full ${tag.startsWith('###') ? 'bg-pink-500/20 text-pink-300' :
+                                                        tag.startsWith('##') ? 'bg-purple-500/20 text-purple-300' :
+                                                            'bg-blue-500/20 text-blue-300'
+                                                    }`}
+                                            >
+                                                {tag}
                                             </span>
                                         ))}
                                     </div>
