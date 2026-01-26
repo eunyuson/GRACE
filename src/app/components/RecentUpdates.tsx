@@ -1484,26 +1484,61 @@ export const RecentUpdates: React.FC<RecentUpdatesProps> = ({ isAdmin = false })
                                         {getContent(item).slice(0, 100)}...
                                     </p>
 
-                                    {/* Tags Preview */}
+                                    {/* Tags Preview - Grouped by Level */}
                                     {getTags(item).length > 0 && (
-                                        <div className="flex flex-wrap gap-1.5 mb-4">
-                                            {getTags(item).slice(0, 3).map((tag, i) => (
-                                                <span
-                                                    key={i}
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        setTagFilters(prev => ({ ...prev, [tag]: 'include' }));
-                                                    }}
-                                                    className={`px-2 py-0.5 text-[10px] rounded-full hover:bg-white/20 cursor-pointer transition border border-white/10 ${tag.startsWith('###') ? 'bg-pink-500/10 text-pink-300' :
-                                                        tag.startsWith('##') ? 'bg-purple-500/10 text-purple-300' :
-                                                            'bg-blue-500/10 text-blue-300'
-                                                        }`}
-                                                >
-                                                    #{tag.replace(/^#{1,3}/, '')}
-                                                </span>
-                                            ))}
-                                            {getTags(item).length > 3 && (
-                                                <span className="text-white/30 text-[10px]">+{getTags(item).length - 3}</span>
+                                        <div className="flex flex-col gap-2 mb-4">
+                                            {/* Level 1 (#) */}
+                                            {getTags(item).filter(t => !t.startsWith('##')).length > 0 && (
+                                                <div className="flex flex-wrap gap-1.5">
+                                                    {getTags(item).filter(t => !t.startsWith('##')).slice(0, 5).map((tag, i) => (
+                                                        <span
+                                                            key={`l1-${i}`}
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                setTagFilters(prev => ({ ...prev, [tag]: 'include' }));
+                                                            }}
+                                                            className="px-2 py-0.5 text-[10px] rounded-full bg-blue-500/10 text-blue-300 hover:bg-blue-500/20 cursor-pointer transition border border-blue-500/10"
+                                                        >
+                                                            #{tag.replace(/^#/, '')}
+                                                        </span>
+                                                    ))}
+                                                </div>
+                                            )}
+
+                                            {/* Level 2 (##) */}
+                                            {getTags(item).filter(t => t.startsWith('##') && !t.startsWith('###')).length > 0 && (
+                                                <div className="flex flex-wrap gap-1.5">
+                                                    {getTags(item).filter(t => t.startsWith('##') && !t.startsWith('###')).slice(0, 5).map((tag, i) => (
+                                                        <span
+                                                            key={`l2-${i}`}
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                setTagFilters(prev => ({ ...prev, [tag]: 'include' }));
+                                                            }}
+                                                            className="px-2 py-0.5 text-[10px] rounded-full bg-purple-500/10 text-purple-300 hover:bg-purple-500/20 cursor-pointer transition border border-purple-500/10"
+                                                        >
+                                                            #{tag.replace(/^##/, '')}
+                                                        </span>
+                                                    ))}
+                                                </div>
+                                            )}
+
+                                            {/* Level 3 (###) */}
+                                            {getTags(item).filter(t => t.startsWith('###')).length > 0 && (
+                                                <div className="flex flex-wrap gap-1.5">
+                                                    {getTags(item).filter(t => t.startsWith('###')).slice(0, 5).map((tag, i) => (
+                                                        <span
+                                                            key={`l3-${i}`}
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                setTagFilters(prev => ({ ...prev, [tag]: 'include' }));
+                                                            }}
+                                                            className="px-2 py-0.5 text-[10px] rounded-full bg-pink-500/10 text-pink-300 hover:bg-pink-500/20 cursor-pointer transition border border-pink-500/10"
+                                                        >
+                                                            #{tag.replace(/^###/, '')}
+                                                        </span>
+                                                    ))}
+                                                </div>
                                             )}
                                         </div>
                                     )}
