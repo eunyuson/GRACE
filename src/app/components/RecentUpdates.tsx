@@ -24,6 +24,7 @@ interface UpdateItem {
     sheetRowId?: string;
     externalLinks?: { title: string; url: string }[];
     additionalImages?: string[];
+    relatedIds?: string[];
 }
 
 interface RecentUpdatesProps {
@@ -371,7 +372,8 @@ export const RecentUpdates: React.FC<RecentUpdatesProps> = ({ isAdmin = false })
                 content: editingItem.content,
                 image: editingItem.image || '',
                 externalLinks: editingItem.externalLinks || [],
-                additionalImages: editingItem.additionalImages || []
+                additionalImages: editingItem.additionalImages || [],
+                relatedIds: editingItem.relatedIds || []
             });
             setEditingItem(null);
         } catch (error) {
@@ -760,6 +762,69 @@ export const RecentUpdates: React.FC<RecentUpdatesProps> = ({ isAdmin = false })
                             </div>
 
                             {/* 버튼 */}
+                            <div>
+                                <label className="text-white/50 text-xs uppercase tracking-wider mb-2 block">
+                                    관련 글 연결 (함께 읽으면 좋은 글)
+                                </label>
+                                <div className="space-y-3">
+                                    {/* Linked Articles List */}
+                                    <div className="flex flex-wrap gap-2">
+                                        {((editingItem as any).relatedIds || []).map((relId: string) => {
+                                            const relItem = items.find(it => it.id === relId);
+                                            if (!relItem) return null;
+                                            return (
+                                                <div key={relId} className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 text-xs">
+                                                    <span className="truncate max-w-[150px]">{relItem.title}</span>
+                                                    <button
+                                                        onClick={() => {
+                                                            const newIds = ((editingItem as any).relatedIds || []).filter((id: string) => id !== relId);
+                                                            handleEditChange('relatedIds', newIds);
+                                                        }}
+                                                        className="hover:text-white"
+                                                    >
+                                                        ×
+                                                    </button>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+
+                                    {/* Article Selector */}
+                                    <div className="relative group">
+                                        <select
+                                            onChange={(e) => {
+                                                if (!e.target.value) return;
+                                                const newId = e.target.value;
+                                                const currentIds = (editingItem as any).relatedIds || [];
+                                                if (!currentIds.includes(newId)) {
+                                                    handleEditChange('relatedIds', [...currentIds, newId]);
+                                                }
+                                                e.target.value = ''; // Reset select
+                                            }}
+                                            className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder-white/30 focus:outline-none focus:border-indigo-500/50 text-sm appearance-none cursor-pointer hover:bg-white/10 transition-colors"
+                                        >
+                                            <option value="" className="bg-[#1a1a2e] text-white/50">🔗 연결할 글 선택하기...</option>
+                                            {items
+                                                .filter(it => it.id !== editingItem.id && !((editingItem as any).relatedIds || []).includes(it.id))
+                                                .sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0))
+                                                .map(it => (
+                                                    <option key={it.id} value={it.id} className="bg-[#1a1a2e] text-white">
+                                                        {it.title} ({it.createdAt?.seconds ? new Date(it.createdAt.seconds * 1000).toLocaleDateString() : 'No date'})
+                                                    </option>
+                                                ))
+                                            }
+                                        </select>
+                                        <div className="absolute right-4 top-1/2 -translate-y-1/2 text-white/30 pointer-events-none">
+                                            ▼
+                                        </div>
+                                    </div>
+                                    <p className="text-white/30 text-[10px]">
+                                        * 목록에서 글을 선택하면 자동으로 추가됩니다.
+                                    </p>
+                                </div>
+                            </div>
+
+                            {/* 버튼 */}
                             <div className="flex gap-3 pt-4">
                                 <button
                                     onClick={() => setShowDeleteConfirm(editingItem.id)}
@@ -954,6 +1019,47 @@ export const RecentUpdates: React.FC<RecentUpdatesProps> = ({ isAdmin = false })
                                                 >
                                                     🔗 {link.title || link.url}
                                                 </a>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Related Articles (Linked internal posts) */}
+                            {((selectedItem as any).relatedIds?.length > 0) && (
+                                <div className="mt-6 pt-4 border-t border-white/10">
+                                    <h5 className="text-white/50 text-xs uppercase tracking-wider mb-3 flex items-center gap-2">
+                                        <span>👀</span> 함께 읽으면 좋은 글
+                                    </h5>
+                                    <div className="grid grid-cols-1 gap-3">
+                                        {(selectedItem as any).relatedIds.map((relId: string) => {
+                                            const relItem = items.find(it => it.id === relId);
+                                            if (!relItem) return null;
+                                            // Extract simple tag/preview
+                                            const firstTag = getTags(relItem)[0]?.replace(/^#+/, '') || 'Article';
+                                            return (
+                                                <div
+                                                    key={relId}
+                                                    onClick={() => setSelectedItem(relItem)}
+                                                    className="group flex items-center p-3 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 hover:border-indigo-500/30 cursor-pointer transition-all"
+                                                >
+                                                    <div className="w-10 h-10 rounded-lg bg-indigo-500/20 flex items-center justify-center mr-3 group-hover:bg-indigo-500/30 transition-colors text-xl">
+                                                        📄
+                                                    </div>
+                                                    <div className="flex-1 min-w-0">
+                                                        <h4 className="text-white text-sm font-medium truncate group-hover:text-indigo-300 transition-colors">
+                                                            {relItem.title}
+                                                        </h4>
+                                                        <div className="flex items-center gap-2 text-[10px] text-white/40 mt-0.5">
+                                                            <span className="text-indigo-400/80 uppercase tracking-wider">{firstTag}</span>
+                                                            <span>•</span>
+                                                            <span>{relItem.createdAt?.seconds ? new Date(relItem.createdAt.seconds * 1000).toLocaleDateString() : ''}</span>
+                                                        </div>
+                                                    </div>
+                                                    <div className="text-white/20 group-hover:text-white/60 transition-colors px-2">
+                                                        →
+                                                    </div>
+                                                </div>
                                             );
                                         })}
                                     </div>
