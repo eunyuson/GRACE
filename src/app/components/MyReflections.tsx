@@ -316,54 +316,78 @@ export const MyReflections: React.FC<MyReflectionsProps> = ({ onSelectCallback }
                         {/* Level 1 Tags (# or No Hash) */}
                         {availableTags.filter(t => !t.tag.startsWith('##')).length > 0 && (
                             <div className="flex flex-wrap gap-2">
-                                {availableTags.filter(t => !t.tag.startsWith('##')).map(({ tag, count }) => (
-                                    <button
-                                        key={tag}
-                                        onClick={() => toggleTag(tag)}
-                                        className={`px-4 py-1.5 rounded-full text-xs md:text-sm border transition-all duration-300 ${selectedTags.includes(tag)
-                                            ? 'bg-white text-black border-white'
-                                            : 'bg-transparent text-blue-200/60 border-blue-500/20 hover:border-blue-500/50'
-                                            }`}
-                                    >
-                                        {tag.replace(/^#/, '')} <span className="opacity-50 ml-1 text-[10px]">{count}</span>
-                                    </button>
-                                ))}
+                                {availableTags.filter(t => !t.tag.startsWith('##')).map(({ tag, count }) => {
+                                    // Calculate if this tag is related to current selection
+                                    // If no selection, show all. If selection exists, show only related or selected.
+                                    // For MyReflections, 'availableTags' is already filtered based on selection? 
+                                    // Let's check logic: We usually filter availableTags based on filteredMemos?
+                                    // Actually, in many implementations, availableTags are dynamic.
+                                    // If availableTags is dynamic based on filteredMemos, then count > 0 is already handled implicitly via 'availableTags'.
+                                    // Let's assume availableTags contains ALL tags or Filtered tags.
+                                    // To allow "drill down", usually we show available tags in the current filtered set.
+
+                                    // Logic: consistently use colors and hide if count is 0 (though normally availableTags won't have 0 count items if derived from filtered list).
+                                    // But to be safe and consistent with previous request:
+                                    if (count === 0) return null;
+
+                                    return (
+                                        <button
+                                            key={tag}
+                                            onClick={() => toggleTag(tag)}
+                                            className={`px-3 py-1.5 text-xs rounded-full transition-all flex items-center gap-1 ${selectedTags.includes(tag)
+                                                ? 'bg-gradient-to-r from-blue-500 to-purple-500 text-white shadow-lg'
+                                                : 'bg-white/5 text-blue-200/60 border border-blue-500/10 hover:border-blue-500/30'
+                                                }`}
+                                        >
+                                            {selectedTags.includes(tag) && <span>✓</span>}
+                                            {tag.replace(/^#/, '')} <span className="ml-1 text-[10px] opacity-60">{count}</span>
+                                        </button>
+                                    );
+                                })}
                             </div>
                         )}
 
                         {/* Level 2 Tags (##) */}
                         {availableTags.filter(t => t.tag.startsWith('##') && !t.tag.startsWith('###')).length > 0 && (
                             <div className="flex flex-wrap gap-2">
-                                {availableTags.filter(t => t.tag.startsWith('##') && !t.tag.startsWith('###')).map(({ tag, count }) => (
-                                    <button
-                                        key={tag}
-                                        onClick={() => toggleTag(tag)}
-                                        className={`px-4 py-1.5 rounded-full text-xs md:text-sm border transition-all duration-300 ${selectedTags.includes(tag)
-                                            ? 'bg-white text-black border-white'
-                                            : 'bg-transparent text-purple-200/60 border-purple-500/20 hover:border-purple-500/50'
-                                            }`}
-                                    >
-                                        {tag.replace(/^##/, '')} <span className="opacity-50 ml-1 text-[10px]">{count}</span>
-                                    </button>
-                                ))}
+                                {availableTags.filter(t => t.tag.startsWith('##') && !t.tag.startsWith('###')).map(({ tag, count }) => {
+                                    if (count === 0) return null;
+                                    return (
+                                        <button
+                                            key={tag}
+                                            onClick={() => toggleTag(tag)}
+                                            className={`px-3 py-1.5 text-xs rounded-full transition-all flex items-center gap-1 ${selectedTags.includes(tag)
+                                                ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-lg'
+                                                : 'bg-white/5 text-purple-200/60 border border-purple-500/10 hover:border-purple-500/30'
+                                                }`}
+                                        >
+                                            {selectedTags.includes(tag) && <span>✓</span>}
+                                            {tag.replace(/^##/, '')} <span className="ml-1 text-[10px] opacity-60">{count}</span>
+                                        </button>
+                                    );
+                                })}
                             </div>
                         )}
 
                         {/* Level 3 Tags (###) */}
                         {availableTags.filter(t => t.tag.startsWith('###')).length > 0 && (
                             <div className="flex flex-wrap gap-2">
-                                {availableTags.filter(t => t.tag.startsWith('###')).map(({ tag, count }) => (
-                                    <button
-                                        key={tag}
-                                        onClick={() => toggleTag(tag)}
-                                        className={`px-4 py-1.5 rounded-full text-xs md:text-sm border transition-all duration-300 ${selectedTags.includes(tag)
-                                            ? 'bg-white text-black border-white'
-                                            : 'bg-transparent text-pink-200/60 border-pink-500/20 hover:border-pink-500/50'
-                                            }`}
-                                    >
-                                        {tag.replace(/^###/, '')} <span className="opacity-50 ml-1 text-[10px]">{count}</span>
-                                    </button>
-                                ))}
+                                {availableTags.filter(t => t.tag.startsWith('###')).map(({ tag, count }) => {
+                                    if (count === 0) return null;
+                                    return (
+                                        <button
+                                            key={tag}
+                                            onClick={() => toggleTag(tag)}
+                                            className={`px-3 py-1.5 text-xs rounded-full transition-all flex items-center gap-1 ${selectedTags.includes(tag)
+                                                ? 'bg-gradient-to-r from-pink-500 to-yellow-500 text-white shadow-lg'
+                                                : 'bg-white/5 text-pink-200/60 border border-pink-500/10 hover:border-pink-500/30'
+                                                }`}
+                                        >
+                                            {selectedTags.includes(tag) && <span>✓</span>}
+                                            {tag.replace(/^###/, '')} <span className="ml-1 text-[10px] opacity-60">{count}</span>
+                                        </button>
+                                    );
+                                })}
                             </div>
                         )}
                     </motion.div>
@@ -498,8 +522,8 @@ export const MyReflections: React.FC<MyReflectionsProps> = ({ onSelectCallback }
                                                     <span
                                                         key={tag}
                                                         className={`text-xs cursor-pointer ${tag.startsWith('###') ? 'text-pink-400' :
-                                                                tag.startsWith('##') ? 'text-purple-400' :
-                                                                    'text-blue-400 hover:text-blue-300'
+                                                            tag.startsWith('##') ? 'text-purple-400' :
+                                                                'text-blue-400 hover:text-blue-300'
                                                             }`}
                                                         onClick={(e) => {
                                                             e.stopPropagation();
