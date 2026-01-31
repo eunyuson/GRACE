@@ -42,10 +42,12 @@ export const Navigation: React.FC<NavigationProps> = ({ currentIndex, total, onN
 
   const handleLogin = async () => {
     try {
+      // Feedback for mobile users
+      alert('로그인을 시작합니다...');
       const provider = new GoogleAuthProvider();
       // Use redirect instead of popup for mobile compatibility
       await signInWithRedirect(auth, provider);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Login error:', error);
     }
   };

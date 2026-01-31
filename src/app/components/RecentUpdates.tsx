@@ -1044,7 +1044,7 @@ export const RecentUpdates: React.FC<RecentUpdatesProps> = ({ isAdmin = false })
                         onClick={e => e.stopPropagation()}
                     >
                         {/* Header */}
-                        <div className="sticky top-0 bg-[#1a1a2e] z-10 p-6 pb-4 border-b border-white/5">
+                        <div className="sticky top-0 bg-[#1a1a2e] z-10 p-4 border-b border-white/5">
                             <div className="flex justify-between items-start">
                                 <div className="flex-1 pr-4">
                                     <h2 className="text-2xl md:text-3xl font-bold text-white mb-2 leading-tight">
@@ -1093,9 +1093,13 @@ export const RecentUpdates: React.FC<RecentUpdatesProps> = ({ isAdmin = false })
                                 </div>
                             </div>
 
-                            {/* Tags - Combined List */}
+                        </div>
+
+                        {/* Content */}
+                        <div className="px-6 pb-6">
+                            {/* Tags - Moved out of sticky header */}
                             {getTags(selectedItem).length > 0 && (
-                                <div className="mt-4 flex flex-wrap gap-2">
+                                <div className="mt-4 flex flex-wrap gap-2 mb-4">
                                     {getTags(selectedItem)
                                         .sort((a, b) => {
                                             // Sort by hierarchy: # -> ## -> ###
@@ -1122,10 +1126,6 @@ export const RecentUpdates: React.FC<RecentUpdatesProps> = ({ isAdmin = false })
                                 </div>
                             )}
 
-                        </div>
-
-                        {/* Content */}
-                        <div className="px-6 pb-6">
                             {/* Question Bridge Section - Moved out of sticky header */}
                             {selectedItem.question && (
                                 <div className="mt-4 mb-6 p-4 bg-gradient-to-r from-indigo-500/10 to-purple-500/10 border border-indigo-500/20 rounded-2xl">
