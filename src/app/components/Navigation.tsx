@@ -79,12 +79,12 @@ export const Navigation: React.FC<NavigationProps> = ({ currentIndex, total, onN
         <div className="flex items-center gap-4 min-w-[80px] justify-end">
           {user ? (
             <>
-              <span className="font-['Inter'] text-[0.65rem] tracking-[1px] text-white/60 truncate max-w-[100px]">
+              <span className="font-['Inter'] text-[0.65rem] tracking-[1px] text-white/60 truncate max-w-[100px] hidden md:block">
                 {user.displayName?.split(' ')[0] || 'User'}
               </span>
               <button
                 onClick={handleLogout}
-                className="font-['Inter'] text-[0.75rem] tracking-[2px] font-normal hover:text-white/70 transition-colors uppercase"
+                className="font-['Inter'] text-[0.75rem] tracking-[2px] font-normal hover:text-white/70 transition-colors uppercase py-2 px-1"
               >
                 LOGOUT
               </button>
@@ -92,7 +92,7 @@ export const Navigation: React.FC<NavigationProps> = ({ currentIndex, total, onN
           ) : (
             <button
               onClick={handleLogin}
-              className="font-['Inter'] text-[0.75rem] tracking-[2px] font-normal hover:text-white/70 transition-colors uppercase"
+              className="font-['Inter'] text-[0.75rem] tracking-[2px] font-normal hover:text-white/70 transition-colors uppercase py-2 px-2"
             >
               LOGIN
             </button>

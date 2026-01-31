@@ -1122,9 +1122,13 @@ export const RecentUpdates: React.FC<RecentUpdatesProps> = ({ isAdmin = false })
                                 </div>
                             )}
 
-                            {/* Question Bridge Section */}
+                        </div>
+
+                        {/* Content */}
+                        <div className="px-6 pb-6">
+                            {/* Question Bridge Section - Moved out of sticky header */}
                             {selectedItem.question && (
-                                <div className="mt-4 p-4 bg-gradient-to-r from-indigo-500/10 to-purple-500/10 border border-indigo-500/20 rounded-2xl">
+                                <div className="mt-4 mb-6 p-4 bg-gradient-to-r from-indigo-500/10 to-purple-500/10 border border-indigo-500/20 rounded-2xl">
                                     <div className="flex items-start gap-3">
                                         <span className="text-lg">❓</span>
                                         <div className="flex-1">
@@ -1149,10 +1153,7 @@ export const RecentUpdates: React.FC<RecentUpdatesProps> = ({ isAdmin = false })
                                     </button>
                                 </div>
                             )}
-                        </div>
 
-                        {/* Content */}
-                        <div className="px-6 pb-6">
                             {/* Layout with floating image on left */}
                             <div className={`${selectedItem.image && !selectedItem.image.includes('unsplash.com') ? 'md:flex md:gap-6' : ''}`}>
                                 {/* Floating Image - Left side on desktop */}
