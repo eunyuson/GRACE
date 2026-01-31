@@ -1,7 +1,9 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { collection, query, onSnapshot, deleteDoc, doc, updateDoc, addDoc, orderBy, serverTimestamp, getDoc, getDocs } from 'firebase/firestore';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { onAuthStateChanged, User } from 'firebase/auth';
-import { db, auth } from '../firebase';
+import { db, auth, storage } from '../firebase';
+import { LinkToConceptModal } from './ui/LinkToConceptModal';
 
 interface Memo {
     id: string;
@@ -11,6 +13,7 @@ interface Memo {
     userPhoto?: string;
     createdAt?: any;
     updatedAt?: any;
+    imageUrl?: string;
 }
 
 interface UpdateItem {
@@ -20,6 +23,7 @@ interface UpdateItem {
     desc: string;
     image?: string;
     content: { id?: string; text: string; date?: string; keyword?: string }[];
+    question?: string; // Question Bridge: 이 뉴스가 던지는 질문 (최대 120자)
     createdAt?: any;
     sheetRowId?: string;
     externalLinks?: { title: string; url: string }[];
@@ -43,6 +47,8 @@ export const RecentUpdates: React.FC<RecentUpdatesProps> = ({ isAdmin = false })
     const [allTags, setAllTags] = useState<{ tag: string; count: number }[]>([]);
     const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
     const [saving, setSaving] = useState(false);
+    const [uploading, setUploading] = useState(false);
+    const [showLinkModal, setShowLinkModal] = useState(false);
 
     // 갤러리 승격 상태
     const [promotingToGallery, setPromotingToGallery] = useState(false);
@@ -118,9 +124,11 @@ export const RecentUpdates: React.FC<RecentUpdatesProps> = ({ isAdmin = false })
     const [currentUser, setCurrentUser] = useState<User | null>(null);
     const [memos, setMemos] = useState<{ [itemId: string]: Memo[] }>({});
     const [newMemoText, setNewMemoText] = useState('');
-    const [editingMemo, setEditingMemo] = useState<{ itemId: string; memoId: string; text: string } | null>(null);
+    const [editingMemo, setEditingMemo] = useState<{ itemId: string; memoId: string; text: string; imageUrl?: string } | null>(null);
     const [showMemoInput, setShowMemoInput] = useState<string | null>(null);
     const [savingMemo, setSavingMemo] = useState(false);
+    const [newMemoImage, setNewMemoImage] = useState('');
+    const [uploadingMemoImage, setUploadingMemoImage] = useState(false);
 
     // Auth state listener
     useEffect(() => {
@@ -193,21 +201,50 @@ export const RecentUpdates: React.FC<RecentUpdatesProps> = ({ isAdmin = false })
         return () => unsubscribe();
     }, []);
 
+    // Memo Image Upload
+    const handleMemoImageUpload = async (e: React.ChangeEvent<HTMLInputElement>, isEdit: boolean = false) => {
+        const file = e.target.files?.[0];
+        if (!file || !currentUser) return;
+
+        setUploadingMemoImage(true);
+        try {
+            const storageRef = ref(storage, `memos/${currentUser.uid}/${Date.now()}_${file.name}`);
+            await uploadBytes(storageRef, file);
+            const downloadURL = await getDownloadURL(storageRef);
+
+            if (isEdit && editingMemo) {
+                setEditingMemo(prev => prev ? { ...prev, imageUrl: downloadURL } : null);
+            } else {
+                setNewMemoImage(downloadURL);
+            }
+        } catch (error) {
+            console.error('Memo image upload failed:', error);
+            alert('이미지 업로드 실패');
+        } finally {
+            setUploadingMemoImage(false);
+        }
+    };
+
     // 메모 추가
-    const handleAddMemo = async (itemId: string) => {
-        if (!currentUser || !newMemoText.trim()) return;
+    const handleAddMemo = async () => {
+        if (!currentUser || !selectedItem) return;
+        if (!newMemoText.trim() && !newMemoImage) return;
         setSavingMemo(true);
 
         try {
-            await addDoc(collection(db, 'updates', itemId, 'memos'), {
+            await addDoc(collection(db, 'updates', selectedItem.id, 'memos'), {
                 text: newMemoText.trim(),
+                imageUrl: newMemoImage,
                 userId: currentUser.uid,
                 userName: currentUser.displayName || '익명',
                 userPhoto: currentUser.photoURL || '',
                 createdAt: serverTimestamp(),
-                updatedAt: serverTimestamp()
+                updatedAt: serverTimestamp(),
+                parentTitle: selectedItem.title,
+                parentImage: selectedItem.image || ''
             });
             setNewMemoText('');
+            setNewMemoImage('');
             setShowMemoInput(null);
         } catch (error) {
             console.error('Add memo error:', error);
@@ -219,12 +256,13 @@ export const RecentUpdates: React.FC<RecentUpdatesProps> = ({ isAdmin = false })
 
     // 메모 수정
     const handleUpdateMemo = async () => {
-        if (!editingMemo || !editingMemo.text.trim()) return;
+        if (!editingMemo || (!editingMemo.text.trim() && !editingMemo.imageUrl)) return;
         setSavingMemo(true);
 
         try {
             await updateDoc(doc(db, 'updates', editingMemo.itemId, 'memos', editingMemo.memoId), {
                 text: editingMemo.text.trim(),
+                imageUrl: editingMemo.imageUrl || '',
                 updatedAt: serverTimestamp()
             });
             setEditingMemo(null);
@@ -371,6 +409,7 @@ export const RecentUpdates: React.FC<RecentUpdatesProps> = ({ isAdmin = false })
                 descTitle: editingItem.title,
                 content: editingItem.content,
                 image: editingItem.image || '',
+                question: editingItem.question || '', // Question Bridge
                 externalLinks: editingItem.externalLinks || [],
                 additionalImages: editingItem.additionalImages || [],
                 relatedIds: editingItem.relatedIds || []
@@ -478,6 +517,69 @@ export const RecentUpdates: React.FC<RecentUpdatesProps> = ({ isAdmin = false })
         });
         return counts;
     }, [filteredItems, tagFilters, searchQuery, allTags]);
+
+    // Google Drive Link Converter
+    const convertGoogleDriveUrl = (url: string) => {
+        if (!url) return '';
+        try {
+            if (url.includes('drive.google.com') && url.includes('/file/d/')) {
+                const matches = url.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
+                if (matches && matches[1]) {
+                    return `https://drive.google.com/uc?export=view&id=${matches[1]}`;
+                }
+            }
+        } catch (e) {
+            console.warn('URL conversion failed', e);
+        }
+        return url;
+    };
+
+    // Image Upload Handler
+    const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file || !editingItem) return;
+
+        setUploading(true);
+        try {
+            // Create a unique path: updates/{itemId}/{timestamp}_{filename}
+            const storageRef = ref(storage, `updates/${editingItem.id}/${Date.now()}_${file.name}`);
+
+            // Upload
+            await uploadBytes(storageRef, file);
+
+            // Get URL
+            const downloadURL = await getDownloadURL(storageRef);
+
+            // Update state
+            handleEditChange('image', downloadURL);
+        } catch (error) {
+            console.error('Upload failed:', error);
+            alert('이미지 업로드에 실패했습니다.');
+        } finally {
+            setUploading(false);
+        }
+    };
+
+    // Additional Image Upload Handler
+    const handleAdditionalImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file || !editingItem) return;
+
+        setUploading(true);
+        try {
+            const storageRef = ref(storage, `updates/${editingItem.id}/additional_${Date.now()}_${file.name}`);
+            await uploadBytes(storageRef, file);
+            const downloadURL = await getDownloadURL(storageRef);
+
+            const currentImages = (editingItem as any).additionalImages || [];
+            handleEditChange('additionalImages', [...currentImages, downloadURL]);
+        } catch (error) {
+            console.error('Upload failed:', error);
+            alert('추가 이미지 업로드에 실패했습니다.');
+        } finally {
+            setUploading(false);
+        }
+    };
 
     // 날짜 포맷 (시간 포함)
     const formatDate = (dateStr: string | undefined) => {
@@ -654,18 +756,41 @@ export const RecentUpdates: React.FC<RecentUpdatesProps> = ({ isAdmin = false })
                                 )}
                             </div>
 
+                            {/* Question Bridge: 이 뉴스가 던지는 질문 */}
+                            <div className="bg-gradient-to-r from-indigo-500/10 to-purple-500/10 border border-indigo-500/20 rounded-2xl p-4">
+                                <label className="text-indigo-300 text-xs uppercase tracking-wider mb-2 block flex items-center gap-2">
+                                    <span>❓</span> 이 뉴스가 던지는 질문
+                                </label>
+                                <p className="text-xs text-white/40 mb-3">
+                                    이 뉴스는 어떤 질문을 우리에게 던지고 있나요?<br />
+                                    <span className="text-white/30">(의견이나 답을 쓰지 말고, 질문만 적어주세요)</span>
+                                </p>
+                                <div className="relative">
+                                    <input
+                                        type="text"
+                                        value={editingItem.question || ''}
+                                        onChange={(e) => handleEditChange('question', e.target.value.slice(0, 120))}
+                                        placeholder="예: 주도권은 지금 누구의 손에 있는가?"
+                                        className="w-full px-4 py-3 rounded-xl bg-black/30 border border-indigo-500/30 text-white placeholder-white/30 focus:outline-none focus:border-indigo-500/50"
+                                        maxLength={120}
+                                    />
+                                    <span className={`absolute right-3 top-1/2 -translate-y-1/2 text-xs ${(editingItem.question?.length || 0) >= 120 ? 'text-red-400' : 'text-white/30'}`}>
+                                        {editingItem.question?.length || 0}/120
+                                    </span>
+                                </div>
+                                {editingItem.question && (
+                                    <p className="mt-2 text-indigo-200/60 text-sm">
+                                        Q. {editingItem.question}
+                                    </p>
+                                )}
+                            </div>
+
                             {/* 이미지 URL */}
                             <div>
-                                <label className="text-white/50 text-xs uppercase tracking-wider mb-1 block">대표 이미지 URL</label>
-                                <input
-                                    type="text"
-                                    value={editingItem.image || ''}
-                                    onChange={(e) => handleEditChange('image', e.target.value)}
-                                    placeholder="https://drive.google.com/..."
-                                    className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder-white/30 focus:outline-none focus:border-blue-500/50"
-                                />
+                                <label className="text-white/50 text-xs uppercase tracking-wider mb-2 block">대표 이미지</label>
+
                                 {editingItem.image && (
-                                    <div className="mt-3 rounded-xl overflow-hidden border border-white/10">
+                                    <div className="mb-3 rounded-xl overflow-hidden border border-white/10 relative group">
                                         <img
                                             src={editingItem.image}
                                             alt="Preview"
@@ -674,35 +799,95 @@ export const RecentUpdates: React.FC<RecentUpdatesProps> = ({ isAdmin = false })
                                                 (e.target as HTMLImageElement).style.display = 'none';
                                             }}
                                         />
+                                        <button
+                                            onClick={() => handleEditChange('image', '')}
+                                            className="absolute top-2 right-2 bg-red-500 text-white w-6 h-6 rounded-full flex items-center justify-center shadow-lg opacity-0 group-hover:opacity-100 transition-opacity"
+                                        >
+                                            ×
+                                        </button>
                                     </div>
                                 )}
+
+                                <div className="flex gap-2 mb-3">
+                                    <label className={`flex-1 cursor-pointer py-3 rounded-xl border border-blue-500/30 bg-blue-500/10 hover:bg-blue-500/20 transition text-sm text-blue-300 font-medium flex items-center justify-center gap-2 ${uploading ? 'opacity-50 pointer-events-none' : ''}`}>
+                                        <span>{uploading ? '⏳' : '📤'}</span>
+                                        {uploading ? '업로드 중...' : '내 컴퓨터에서 이미지 선택 (권장)'}
+                                        <input
+                                            type="file"
+                                            accept="image/*"
+                                            onChange={handleImageUpload}
+                                            className="hidden"
+                                            disabled={uploading}
+                                        />
+                                    </label>
+                                </div>
+
+                                <div className="relative">
+                                    <input
+                                        type="text"
+                                        value={editingItem.image || ''}
+                                        onChange={(e) => handleEditChange('image', convertGoogleDriveUrl(e.target.value))}
+                                        placeholder="또는 이미지 주소(URL) 직접 입력..."
+                                        className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder-white/30 focus:outline-none focus:border-blue-500/50 text-sm"
+                                    />
+                                    <p className="text-white/30 text-[10px] mt-1 pl-1">
+                                        * Google Drive 링크도 사용 가능합니다.
+                                    </p>
+                                </div>
                             </div>
 
                             {/* 추가 이미지 URLs */}
                             <div>
-                                <label className="text-white/50 text-xs uppercase tracking-wider mb-1 block">
-                                    추가 이미지 URL (한 줄에 하나씩)
+                                <label className="text-white/50 text-xs uppercase tracking-wider mb-2 block">
+                                    추가 이미지
                                 </label>
-                                <textarea
-                                    value={(editingItem as any).additionalImages?.join('\n') || ''}
-                                    onChange={(e) => handleEditChange('additionalImages', e.target.value.split('\n').filter(url => url.trim()))}
-                                    placeholder="https://drive.google.com/image1&#10;https://drive.google.com/image2"
-                                    rows={3}
-                                    className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder-white/30 focus:outline-none focus:border-blue-500/50 resize-none text-sm"
-                                />
+
+                                {/* Existing Additional Images */}
                                 {(editingItem as any).additionalImages?.length > 0 && (
-                                    <div className="flex gap-2 mt-2 overflow-x-auto pb-2">
+                                    <div className="flex gap-2 mb-3 overflow-x-auto pb-2">
                                         {(editingItem as any).additionalImages.map((url: string, i: number) => (
-                                            <img
-                                                key={i}
-                                                src={url}
-                                                alt={`추가 ${i + 1}`}
-                                                className="w-16 h-16 object-cover rounded-lg border border-white/10"
-                                                onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-                                            />
+                                            <div key={i} className="relative group/add shrink-0">
+                                                <img
+                                                    src={url}
+                                                    alt={`추가 ${i + 1}`}
+                                                    className="w-16 h-16 object-cover rounded-lg border border-white/10"
+                                                    onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                                                />
+                                                <button
+                                                    onClick={() => {
+                                                        const newImgs = (editingItem as any).additionalImages.filter((_: any, idx: number) => idx !== i);
+                                                        handleEditChange('additionalImages', newImgs);
+                                                    }}
+                                                    className="absolute -top-1 -right-1 bg-red-500 text-white w-5 h-5 rounded-full flex items-center justify-center text-xs opacity-0 group-hover/add:opacity-100 transition-opacity shadow-lg"
+                                                >
+                                                    ×
+                                                </button>
+                                            </div>
                                         ))}
                                     </div>
                                 )}
+
+                                <div className="flex gap-2 mb-3">
+                                    <label className={`flex-1 cursor-pointer py-2.5 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 transition text-sm text-white/70 flex items-center justify-center gap-2 ${uploading ? 'opacity-50 pointer-events-none' : ''}`}>
+                                        <span>{uploading ? '⏳' : '📷'}</span>
+                                        {uploading ? '업로드 중...' : '추가 이미지 업로드'}
+                                        <input
+                                            type="file"
+                                            accept="image/*"
+                                            onChange={handleAdditionalImageUpload}
+                                            className="hidden"
+                                            disabled={uploading}
+                                        />
+                                    </label>
+                                </div>
+
+                                <textarea
+                                    value={(editingItem as any).additionalImages?.join('\n') || ''}
+                                    onChange={(e) => handleEditChange('additionalImages', e.target.value.split('\n').filter(url => url.trim()))}
+                                    placeholder="또는 URL 직접 입력 (한 줄에 하나씩)"
+                                    rows={2}
+                                    className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder-white/30 focus:outline-none focus:border-blue-500/50 resize-none text-sm"
+                                />
                             </div>
 
                             {/* 외부 링크 */}
@@ -936,6 +1121,34 @@ export const RecentUpdates: React.FC<RecentUpdatesProps> = ({ isAdmin = false })
                                         ))}
                                 </div>
                             )}
+
+                            {/* Question Bridge Section */}
+                            {selectedItem.question && (
+                                <div className="mt-4 p-4 bg-gradient-to-r from-indigo-500/10 to-purple-500/10 border border-indigo-500/20 rounded-2xl">
+                                    <div className="flex items-start gap-3">
+                                        <span className="text-lg">❓</span>
+                                        <div className="flex-1">
+                                            <p className="text-[10px] uppercase tracking-widest text-indigo-300/60 mb-1">
+                                                이 뉴스가 던지는 질문
+                                            </p>
+                                            <p className="text-white/90 font-medium">
+                                                {selectedItem.question}
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <button
+                                        onClick={() => {
+                                            // TODO: QuestionBridgeView 모달 열기
+                                            alert('같은 질문을 품은 기록들 보기 기능은 곧 추가됩니다!');
+                                        }}
+                                        className="mt-3 flex items-center gap-2 text-xs text-indigo-400/70 hover:text-indigo-300 transition-colors"
+                                    >
+                                        <span>🔗</span>
+                                        <span>같은 질문을 품은 기록 보기</span>
+                                        <span>→</span>
+                                    </button>
+                                </div>
+                            )}
                         </div>
 
                         {/* Content */}
@@ -1066,6 +1279,16 @@ export const RecentUpdates: React.FC<RecentUpdatesProps> = ({ isAdmin = false })
                                 </div>
                             )}
 
+                            {/* 개념 카드에 연결 */}
+                            <div className="mt-6 pt-4 border-t border-white/10">
+                                <button
+                                    onClick={() => setShowLinkModal(true)}
+                                    className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-gradient-to-r from-indigo-500/20 to-purple-500/20 border border-indigo-500/30 text-indigo-300 hover:from-indigo-500/30 hover:to-purple-500/30 transition-all"
+                                >
+                                    🔗 개념 카드에 연결하기
+                                </button>
+                            </div>
+
                             {/* Memos Section */}
                             <div className="mt-8 pt-6 border-t border-white/10">
                                 <div className="flex items-center justify-between mb-4">
@@ -1085,33 +1308,50 @@ export const RecentUpdates: React.FC<RecentUpdatesProps> = ({ isAdmin = false })
                                         <textarea
                                             value={newMemoText}
                                             onChange={(e) => setNewMemoText(e.target.value)}
-                                            onBlur={async () => {
-                                                if (newMemoText.trim() && selectedItem) {
-                                                    setSavingMemo(true);
-                                                    try {
-                                                        await addDoc(collection(db, 'updates', selectedItem.id, 'memos'), {
-                                                            text: newMemoText.trim(),
-                                                            userId: currentUser.uid,
-                                                            userName: currentUser.displayName || '익명',
-                                                            userPhoto: currentUser.photoURL || '',
-                                                            createdAt: serverTimestamp(),
-                                                            updatedAt: serverTimestamp()
-                                                        });
-                                                        setNewMemoText('');
-                                                    } catch (error) {
-                                                        console.error('Auto-save memo error:', error);
-                                                    } finally {
-                                                        setSavingMemo(false);
-                                                    }
-                                                }
-                                            }}
-                                            placeholder="메모를 입력하고 바깥을 클릭하면 자동 저장됩니다..."
+                                            placeholder="메모를 입력하세요..."
                                             rows={2}
                                             className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder-white/30 focus:outline-none focus:border-blue-500/50 resize-none text-sm"
                                         />
-                                        <p className="text-white/30 text-xs mt-1 flex items-center gap-1">
-                                            {savingMemo ? '⚙️ 저장 중...' : '💡 입력 후 바깥 클릭 시 자동 저장'}
-                                        </p>
+
+                                        {/* Image Preview */}
+                                        {newMemoImage && (
+                                            <div className="mt-2 relative inline-block">
+                                                <img src={newMemoImage} alt="Memo attachment" className="h-20 rounded-lg border border-white/10" />
+                                                <button
+                                                    onClick={() => setNewMemoImage('')}
+                                                    className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs shadow-lg"
+                                                >
+                                                    ×
+                                                </button>
+                                            </div>
+                                        )}
+
+                                        <div className="flex justify-between items-center mt-3">
+                                            <div className="flex items-center gap-2">
+                                                <label className={`cursor-pointer px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-xs text-white/70 flex items-center gap-2 transition ${uploadingMemoImage ? 'opacity-50 pointer-events-none' : ''}`}>
+                                                    <input
+                                                        type="file"
+                                                        accept="image/*"
+                                                        className="hidden"
+                                                        onChange={(e) => handleMemoImageUpload(e, false)}
+                                                        disabled={uploadingMemoImage}
+                                                    />
+                                                    <span>{uploadingMemoImage ? '⏳' : '📷'}</span>
+                                                    {uploadingMemoImage ? '업로드 중...' : '사진 첨부'}
+                                                </label>
+                                                <span className="text-white/20 text-[10px] hidden sm:inline">
+                                                    (최대 5MB)
+                                                </span>
+                                            </div>
+
+                                            <button
+                                                onClick={handleAddMemo}
+                                                disabled={savingMemo || uploadingMemoImage || (!newMemoText.trim() && !newMemoImage)}
+                                                className="px-4 py-1.5 bg-blue-500 text-white text-sm rounded-lg hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition font-medium"
+                                            >
+                                                {savingMemo ? '저장 중...' : '등록'}
+                                            </button>
+                                        </div>
                                     </div>
                                 )}
 
@@ -1138,6 +1378,31 @@ export const RecentUpdates: React.FC<RecentUpdatesProps> = ({ isAdmin = false })
                                                         rows={3}
                                                         className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white placeholder-white/30 focus:outline-none focus:border-blue-500/50 resize-none text-sm"
                                                     />
+
+                                                    <div className="flex items-center gap-2 mt-2">
+                                                        <label className="cursor-pointer px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-xs text-white/70 flex items-center gap-2 transition">
+                                                            <input
+                                                                type="file"
+                                                                accept="image/*"
+                                                                className="hidden"
+                                                                onChange={(e) => handleMemoImageUpload(e, true)}
+                                                                disabled={uploadingMemoImage}
+                                                            />
+                                                            <span>{uploadingMemoImage ? '⏳' : '📷'}</span>
+                                                            {editingMemo.imageUrl ? '이미지 변경' : '이미지 추가'}
+                                                        </label>
+                                                        {editingMemo.imageUrl && (
+                                                            <div className="relative group/preview mt-1">
+                                                                <img src={editingMemo.imageUrl} alt="Preview" className="h-8 w-8 rounded object-cover border border-white/10" />
+                                                                <button
+                                                                    onClick={() => setEditingMemo({ ...editingMemo, imageUrl: '' })}
+                                                                    className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-3 h-3 flex items-center justify-center text-[8px] opacity-0 group-hover/preview:opacity-100"
+                                                                >
+                                                                    ×
+                                                                </button>
+                                                            </div>
+                                                        )}
+                                                    </div>
                                                     <div className="flex justify-end gap-2 mt-2">
                                                         <button
                                                             onClick={() => setEditingMemo(null)}
@@ -1181,7 +1446,8 @@ export const RecentUpdates: React.FC<RecentUpdatesProps> = ({ isAdmin = false })
                                                                     onClick={() => setEditingMemo({
                                                                         itemId: selectedItem.id,
                                                                         memoId: memo.id,
-                                                                        text: memo.text
+                                                                        text: memo.text,
+                                                                        imageUrl: memo.imageUrl
                                                                     })}
                                                                     className="p-1.5 rounded-lg bg-white/10 hover:bg-blue-500/30 text-white/50 hover:text-blue-300 transition text-xs"
                                                                     title="편집"
@@ -1199,6 +1465,16 @@ export const RecentUpdates: React.FC<RecentUpdatesProps> = ({ isAdmin = false })
                                                         )}
                                                     </div>
                                                     <p className="text-white/80 text-sm whitespace-pre-wrap">{memo.text}</p>
+                                                    {memo.imageUrl && (
+                                                        <div className="mt-2 text-left">
+                                                            <img
+                                                                src={memo.imageUrl}
+                                                                alt="Attachment"
+                                                                className="max-h-48 rounded-lg border border-white/10 cursor-pointer hover:opacity-90 transition"
+                                                                onClick={() => window.open(memo.imageUrl, '_blank')}
+                                                            />
+                                                        </div>
+                                                    )}
                                                 </>
                                             )}
                                         </div>
@@ -1613,62 +1889,37 @@ export const RecentUpdates: React.FC<RecentUpdatesProps> = ({ isAdmin = false })
                                         {getContent(item).slice(0, 100)}...
                                     </p>
 
-                                    {/* Tags Preview - Grouped by Level */}
+                                    {/* Tags Preview - Flattened */}
                                     {getTags(item).length > 0 && (
-                                        <div className="flex flex-col gap-2 mb-4">
-                                            {/* Level 1 (#) */}
-                                            {getTags(item).filter(t => !t.startsWith('##')).length > 0 && (
-                                                <div className="flex flex-wrap gap-1.5">
-                                                    {getTags(item).filter(t => !t.startsWith('##')).slice(0, 5).map((tag, i) => (
-                                                        <span
-                                                            key={`l1-${i}`}
-                                                            onClick={(e) => {
-                                                                e.stopPropagation();
-                                                                setTagFilters(prev => ({ ...prev, [tag]: 'include' }));
-                                                            }}
-                                                            className="px-2 py-0.5 text-[10px] rounded-full bg-blue-500/10 text-blue-300 hover:bg-blue-500/20 cursor-pointer transition border border-blue-500/10"
-                                                        >
-                                                            #{tag.replace(/^#/, '')}
-                                                        </span>
-                                                    ))}
-                                                </div>
-                                            )}
+                                        <div className="flex flex-wrap gap-1.5 mb-4">
+                                            {getTags(item)
+                                                .sort((a, b) => {
+                                                    const getLevel = (t: string) => t.startsWith('###') ? 3 : t.startsWith('##') ? 2 : 1;
+                                                    return getLevel(a) - getLevel(b);
+                                                })
+                                                .map((tag, i) => {
+                                                    const isL3 = tag.startsWith('###');
+                                                    const isL2 = tag.startsWith('##') && !isL3;
+                                                    const colorClass = isL3
+                                                        ? 'bg-pink-500/10 text-pink-300 border-pink-500/10 hover:bg-pink-500/20'
+                                                        : isL2
+                                                            ? 'bg-purple-500/10 text-purple-300 border-purple-500/10 hover:bg-purple-500/20'
+                                                            : 'bg-blue-500/10 text-blue-300 border-blue-500/10 hover:bg-blue-500/20';
 
-                                            {/* Level 2 (##) */}
-                                            {getTags(item).filter(t => t.startsWith('##') && !t.startsWith('###')).length > 0 && (
-                                                <div className="flex flex-wrap gap-1.5">
-                                                    {getTags(item).filter(t => t.startsWith('##') && !t.startsWith('###')).slice(0, 5).map((tag, i) => (
+                                                    return (
                                                         <span
-                                                            key={`l2-${i}`}
+                                                            key={i}
                                                             onClick={(e) => {
                                                                 e.stopPropagation();
                                                                 setTagFilters(prev => ({ ...prev, [tag]: 'include' }));
                                                             }}
-                                                            className="px-2 py-0.5 text-[10px] rounded-full bg-purple-500/10 text-purple-300 hover:bg-purple-500/20 cursor-pointer transition border border-purple-500/10"
+                                                            className={`px-2 py-0.5 text-[10px] rounded-full cursor-pointer transition border ${colorClass}`}
                                                         >
-                                                            #{tag.replace(/^##/, '')}
+                                                            #{tag.replace(/^#{1,3}/, '')}
                                                         </span>
-                                                    ))}
-                                                </div>
-                                            )}
-
-                                            {/* Level 3 (###) */}
-                                            {getTags(item).filter(t => t.startsWith('###')).length > 0 && (
-                                                <div className="flex flex-wrap gap-1.5">
-                                                    {getTags(item).filter(t => t.startsWith('###')).slice(0, 5).map((tag, i) => (
-                                                        <span
-                                                            key={`l3-${i}`}
-                                                            onClick={(e) => {
-                                                                e.stopPropagation();
-                                                                setTagFilters(prev => ({ ...prev, [tag]: 'include' }));
-                                                            }}
-                                                            className="px-2 py-0.5 text-[10px] rounded-full bg-pink-500/10 text-pink-300 hover:bg-pink-500/20 cursor-pointer transition border border-pink-500/10"
-                                                        >
-                                                            #{tag.replace(/^###/, '')}
-                                                        </span>
-                                                    ))}
-                                                </div>
-                                            )}
+                                                    );
+                                                })
+                                            }
                                         </div>
                                     )}
 
@@ -1697,6 +1948,18 @@ export const RecentUpdates: React.FC<RecentUpdatesProps> = ({ isAdmin = false })
                     </div>
                 </div>
             </div>
+
+            {/* Link to Concept Modal */}
+            {showLinkModal && selectedItem && (
+                <LinkToConceptModal
+                    sourceId={selectedItem.id}
+                    sourceType="news"
+                    sourceTitle={selectedItem.title}
+                    sourceExcerpt={selectedItem.content?.[0]?.text?.slice(0, 150)}
+                    onClose={() => setShowLinkModal(false)}
+                    onSuccess={() => setShowLinkModal(false)}
+                />
+            )}
         </div>
     );
 };
