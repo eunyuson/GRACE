@@ -9,9 +9,10 @@ import { Gallery } from './components/Gallery';
 import { RecentUpdates } from './components/RecentUpdates';
 import { AdminPage } from './admin/AdminPage';
 import { MyReflections } from './components/MyReflections';
+import { ConceptCards } from './components/ConceptCards';
 
 const Home = () => {
-  const [activeTab, setActiveTab] = useState<'gallery' | 'updates' | 'reflections'>('gallery');
+  const [activeTab, setActiveTab] = useState<'gallery' | 'updates' | 'concepts' | 'reflections'>('gallery');
   const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
@@ -30,10 +31,10 @@ const Home = () => {
         </Link>
 
         {/* Tab Navigation */}
-        <div className="flex gap-1 mt-6 p-1 bg-white/5 rounded-full backdrop-blur-sm">
+        <div className="flex flex-wrap gap-1 mt-6 p-1 bg-white/5 rounded-2xl backdrop-blur-sm max-w-[320px] md:max-w-none">
           <button
             onClick={() => setActiveTab('gallery')}
-            className={`px-4 py-1.5 text-[9px] md:text-[10px] tracking-[0.15em] uppercase transition-all duration-300 rounded-full ${activeTab === 'gallery'
+            className={`px-3 md:px-4 py-1.5 text-[8px] md:text-[10px] tracking-[0.1em] md:tracking-[0.15em] uppercase transition-all duration-300 rounded-full ${activeTab === 'gallery'
               ? 'bg-white/20 text-white'
               : 'text-white/50 hover:text-white/80'
               }`}
@@ -42,7 +43,7 @@ const Home = () => {
           </button>
           <button
             onClick={() => setActiveTab('updates')}
-            className={`px-4 py-1.5 text-[9px] md:text-[10px] tracking-[0.15em] uppercase transition-all duration-300 rounded-full ${activeTab === 'updates'
+            className={`px-3 md:px-4 py-1.5 text-[8px] md:text-[10px] tracking-[0.1em] md:tracking-[0.15em] uppercase transition-all duration-300 rounded-full ${activeTab === 'updates'
               ? 'bg-gradient-to-r from-blue-500/30 to-purple-500/30 text-white'
               : 'text-white/50 hover:text-white/80'
               }`}
@@ -50,8 +51,17 @@ const Home = () => {
             ✨ 최근 소식
           </button>
           <button
+            onClick={() => setActiveTab('concepts')}
+            className={`px-3 md:px-4 py-1.5 text-[8px] md:text-[10px] tracking-[0.1em] md:tracking-[0.15em] uppercase transition-all duration-300 rounded-full ${activeTab === 'concepts'
+              ? 'bg-gradient-to-r from-indigo-500/30 to-purple-500/30 text-white'
+              : 'text-white/50 hover:text-white/80'
+              }`}
+          >
+            💡 개념 카드
+          </button>
+          <button
             onClick={() => setActiveTab('reflections')}
-            className={`px-4 py-1.5 text-[9px] md:text-[10px] tracking-[0.15em] uppercase transition-all duration-300 rounded-full ${activeTab === 'reflections'
+            className={`px-3 md:px-4 py-1.5 text-[8px] md:text-[10px] tracking-[0.1em] md:tracking-[0.15em] uppercase transition-all duration-300 rounded-full ${activeTab === 'reflections'
               ? 'bg-gradient-to-r from-yellow-500/30 to-orange-500/30 text-white'
               : 'text-white/50 hover:text-white/80'
               }`}
@@ -66,6 +76,8 @@ const Home = () => {
         <Gallery />
       ) : activeTab === 'updates' ? (
         <RecentUpdates isAdmin={isAdmin} />
+      ) : activeTab === 'concepts' ? (
+        <ConceptCards />
       ) : (
         <MyReflections
           onSelectCallback={(parentId) => {
@@ -107,4 +119,5 @@ export default function App() {
     </div>
   );
 }
+
 
