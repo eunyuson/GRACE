@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, Plus, Lightbulb, Link2, Edit2, Trash2 } from 'lucide-react';
+import { X, Plus, Lightbulb, Link2, Edit2, Trash2, ChevronRight } from 'lucide-react';
 import { collection, query, onSnapshot, deleteDoc, doc, updateDoc, addDoc, orderBy, serverTimestamp } from 'firebase/firestore';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { db, auth } from '../firebase';
@@ -13,6 +13,7 @@ import {
     findSimilarQuestions
 } from '../types/questionBridge';
 import { QuestionBridgeView } from './QuestionBridgeView';
+import { InsightDrawer } from './ui/InsightDrawer';
 
 interface ConceptCardsProps {
     onViewRelated?: (question: string, sourceId: string, sourceType: 'concept') => void;
@@ -37,6 +38,9 @@ export const ConceptCards: React.FC<ConceptCardsProps> = ({ onViewRelated }) => 
     // Question Bridge View
     const [viewingQuestion, setViewingQuestion] = useState<string | null>(null);
     const [relatedItems, setRelatedItems] = useState<RelatedItem[]>([]);
+
+    // InsightDrawer (Sequence Card) 상태
+    const [selectedConceptForDrawer, setSelectedConceptForDrawer] = useState<ConceptCard | null>(null);
 
     // Auth listener
     useEffect(() => {
@@ -157,6 +161,13 @@ export const ConceptCards: React.FC<ConceptCardsProps> = ({ onViewRelated }) => 
         }
     };
 
+    // Concept 업데이트 (InsightDrawer에서 저장 시)
+    const handleConceptUpdate = (updatedConcept: ConceptCard) => {
+        setConcepts(prev =>
+            prev.map(c => c.id === updatedConcept.id ? updatedConcept : c)
+        );
+    };
+
     if (!currentUser) {
         return (
             <div className="flex flex-col items-center justify-center min-h-[50vh] text-white/50">
@@ -211,7 +222,8 @@ export const ConceptCards: React.FC<ConceptCardsProps> = ({ onViewRelated }) => 
                                     animate={{ opacity: 1, scale: 1 }}
                                     exit={{ opacity: 0, scale: 0.95 }}
                                     transition={{ duration: 0.3, delay: index * 0.05 }}
-                                    className="group relative bg-gradient-to-br from-[#1a1a2e] to-[#16213e] border border-white/10 rounded-3xl p-6 hover:border-indigo-500/30 transition-all duration-300"
+                                    onClick={() => setSelectedConceptForDrawer(concept)}
+                                    className="group relative bg-gradient-to-br from-[#1a1a2e] to-[#16213e] border border-white/10 rounded-3xl p-6 hover:border-indigo-500/30 transition-all duration-300 cursor-pointer"
                                 >
                                     {/* Type Badge */}
                                     <div className="absolute top-4 right-4">
@@ -248,7 +260,7 @@ export const ConceptCards: React.FC<ConceptCardsProps> = ({ onViewRelated }) => 
 
                                             {/* View Related Button */}
                                             <button
-                                                onClick={() => handleViewRelated(concept)}
+                                                onClick={(e) => { e.stopPropagation(); handleViewRelated(concept); }}
                                                 className="mt-4 flex items-center gap-2 text-xs text-indigo-400/70 hover:text-indigo-300 transition-colors group/btn"
                                             >
                                                 <Link2 size={12} />
@@ -343,13 +355,13 @@ export const ConceptCards: React.FC<ConceptCardsProps> = ({ onViewRelated }) => 
                                     {currentUser?.uid === concept.userId && (
                                         <div className="absolute bottom-4 right-4 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                                             <button
-                                                onClick={() => openEdit(concept)}
+                                                onClick={(e) => { e.stopPropagation(); openEdit(concept); }}
                                                 className="p-2 bg-white/5 hover:bg-white/10 rounded-lg transition-colors"
                                             >
                                                 <Edit2 size={14} className="text-white/50" />
                                             </button>
                                             <button
-                                                onClick={() => handleDelete(concept.id)}
+                                                onClick={(e) => { e.stopPropagation(); handleDelete(concept.id); }}
                                                 className="p-2 bg-red-500/10 hover:bg-red-500/20 rounded-lg transition-colors"
                                             >
                                                 <Trash2 size={14} className="text-red-400/50" />
@@ -495,6 +507,19 @@ export const ConceptCards: React.FC<ConceptCardsProps> = ({ onViewRelated }) => 
                 <QuestionBridgeView
                     question={viewingQuestion}
                     onClose={() => setViewingQuestion(null)}
+                />
+            )}
+
+            {/* InsightDrawer (Sequence Card) */}
+            {selectedConceptForDrawer && (
+                <InsightDrawer
+                    concept={selectedConceptForDrawer}
+                    isOpen={!!selectedConceptForDrawer}
+                    onClose={() => setSelectedConceptForDrawer(null)}
+                    onUpdate={(updated) => {
+                        handleConceptUpdate(updated);
+                        setSelectedConceptForDrawer(updated);
+                    }}
                 />
             )}
         </div>

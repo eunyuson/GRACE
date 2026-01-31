@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
+import React, { useState, useEffect } from 'react';
+import { signInWithRedirect, GoogleAuthProvider, getRedirectResult } from 'firebase/auth';
 import { auth } from '../firebase';
 
 interface AdminLoginProps {
@@ -13,33 +13,50 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({ onLogin }) => {
   const [errorCode, setErrorCode] = useState('');
   const [loading, setLoading] = useState(false);
 
+  // Handle redirect result on page load (for mobile browsers)
+  useEffect(() => {
+    setLoading(true);
+    getRedirectResult(auth)
+      .then((result) => {
+        if (result?.user) {
+          console.log('Redirect login successful:', result.user.email);
+          onLogin();
+        }
+      })
+      .catch((err: any) => {
+        console.error('Redirect login error:', err);
+        setErrorCode(err.code || 'unknown');
+
+        if (err.code === 'auth/unauthorized-domain') {
+          setError('도메인이 승인되지 않았습니다. Firebase Console → Authentication → Settings → Authorized domains에 도메인을 추가하세요.');
+        } else if (err.code === 'auth/configuration-not-found') {
+          setError('Firebase 설정을 찾을 수 없습니다. .env 파일을 확인하세요.');
+        } else if (err.code === 'auth/operation-not-allowed') {
+          setError('Google 로그인이 비활성화되어 있습니다. Firebase Console에서 활성화하세요.');
+        } else if (err.code === 'auth/internal-error') {
+          setError('내부 오류입니다. Firebase Console에서 Google 로그인이 활성화되었는지 확인하세요.');
+        } else if (err.code) {
+          setError(err.message || '알 수 없는 오류가 발생했습니다.');
+        }
+      })
+      .finally(() => {
+        setLoading(false);
+      });
+  }, [onLogin]);
+
   const handleGoogleLogin = async () => {
     setError('');
     setErrorCode('');
     setLoading(true);
 
     try {
-      const result = await signInWithPopup(auth, googleProvider);
-      console.log('Login successful:', result.user.email);
-      onLogin();
+      // Use redirect instead of popup for mobile compatibility
+      await signInWithRedirect(auth, googleProvider);
+      // Note: onLogin will be called in the useEffect after redirect returns
     } catch (err: any) {
       console.error('Google login error:', err);
       setErrorCode(err.code || 'unknown');
-
-      if (err.code === 'auth/popup-closed-by-user') {
-        setError('로그인 팝업이 닫혔습니다.');
-      } else if (err.code === 'auth/unauthorized-domain') {
-        setError('도메인이 승인되지 않았습니다. Firebase Console → Authentication → Settings → Authorized domains에 localhost를 추가하세요.');
-      } else if (err.code === 'auth/configuration-not-found') {
-        setError('Firebase 설정을 찾을 수 없습니다. .env 파일을 확인하세요.');
-      } else if (err.code === 'auth/operation-not-allowed') {
-        setError('Google 로그인이 비활성화되어 있습니다. Firebase Console에서 활성화하세요.');
-      } else if (err.code === 'auth/internal-error') {
-        setError('내부 오류입니다. Firebase Console에서 Google 로그인이 활성화되었는지 확인하세요.');
-      } else {
-        setError(err.message || '알 수 없는 오류가 발생했습니다.');
-      }
-    } finally {
+      setError(err.message || '로그인 시작 중 오류가 발생했습니다.');
       setLoading(false);
     }
   };

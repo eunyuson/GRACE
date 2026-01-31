@@ -26,12 +26,46 @@ export interface EvidenceItem {
     addedAt: any;                        // 추가된 시간
 }
 
-// A-B Bridge 데이터
+// A-B Bridge 데이터 (Legacy - 기존 호환용)
 export interface BridgeData {
     aStatement?: string;                 // "우리는 보통 ___를 ___라고 생각합니다"
     bStatement?: string;                 // "그러나 성경에서 ___는 ___라기보다 ___입니다"
     aEvidence: EvidenceItem[];           // -A 증거들 (세상/오해)
     bEvidence: EvidenceItem[];           // ~B 증거들 (성경/재해석)
+}
+
+// ============================================
+// Sequence Card (Insight Drawer) 시스템
+// ============================================
+
+// 시퀀스 아이템 (뉴스/묵상 연결)
+export interface SequenceItem {
+    sourceType: 'news' | 'reflection';   // 소스 타입
+    sourceId: string;                    // 원본 문서 ID
+    pinned: boolean;                     // 사용자가 확정한 연결
+    confidence?: number;                 // AI 추천 신뢰도 (0-1)
+    addedAt: any;                        // 추가된 시간
+}
+
+// 반응 스니펫 (감정/오해/긴장)
+export interface ResponseSnippet {
+    id: string;                          // 고유 ID
+    text: string;                        // 반응 텍스트 (짧게)
+    pinned: boolean;                     // 사용자가 확정
+    createdAt: any;                      // 생성 시간
+}
+
+// 시퀀스 데이터 (4섹션 구조)
+export interface SequenceData {
+    // 섹션1: RECENT (현실) - 뉴스
+    recent: SequenceItem[];
+
+    // 섹션2: RESPONSE (반응/오해)
+    responses: ResponseSnippet[];
+    aStatement?: string;                 // A문장: "우리는 보통 ___를 ___라고 생각합니다"
+
+    // 섹션4: SCRIPTURE SUPPORT (말씀 근거) - 묵상
+    scriptureSupport: SequenceItem[];
 }
 
 // 개념 카드 인터페이스
@@ -46,10 +80,14 @@ export interface ConceptCard extends QuestionBridgeBase {
         life: string[];
     };
 
-    // A-B 증거 패널
-    bridge?: BridgeData;
+    // 섹션3: CONCLUSION (결론) - B문장
+    conclusion?: string;       // "그러나 성경에서 ___는 ___라기보다 ___입니다"
 
-    // Legacy fields (deprecated, use bridge instead)
+    // Sequence Card 데이터 (4섹션)
+    sequence?: SequenceData;
+
+    // Legacy fields (deprecated)
+    bridge?: BridgeData;
     worldEvidence?: EvidenceItem[];
     bibleEvidence?: EvidenceItem[];
 

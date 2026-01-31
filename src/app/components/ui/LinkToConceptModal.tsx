@@ -73,22 +73,52 @@ export const LinkToConceptModal: React.FC<LinkToConceptModalProps> = ({
                 addedAt: serverTimestamp()
             };
 
-            // Get current bridge data or create new
+            // Get current bridge data or create new (Legacy support)
             const currentBridge: BridgeData = selectedConcept.bridge || {
                 aEvidence: [],
                 bEvidence: []
             };
 
-            // Add to appropriate array
+            // Add to appropriate array (Legacy)
             if (slot === 'A') {
                 currentBridge.aEvidence = [...currentBridge.aEvidence, evidenceItem];
             } else {
                 currentBridge.bEvidence = [...currentBridge.bEvidence, evidenceItem];
             }
 
-            // Update Firestore
+            // NEW: Sequence system 업데이트
+            const currentSequence = selectedConcept.sequence || {
+                recent: [],
+                responses: [],
+                scriptureSupport: []
+            };
+
+            // SequenceItem 생성
+            const sequenceItem = {
+                sourceType,
+                sourceId,
+                pinned,
+                confidence: 1.0, // 수동 연결 = 100% 신뢰도
+                addedAt: serverTimestamp()
+            };
+
+            // sourceType에 따라 적절한 배열에 추가
+            if (sourceType === 'news') {
+                // 중복 방지
+                if (!currentSequence.recent.find(r => r.sourceId === sourceId)) {
+                    currentSequence.recent = [...currentSequence.recent, sequenceItem];
+                }
+            } else if (sourceType === 'reflection') {
+                // 중복 방지
+                if (!currentSequence.scriptureSupport.find(s => s.sourceId === sourceId)) {
+                    currentSequence.scriptureSupport = [...currentSequence.scriptureSupport, sequenceItem];
+                }
+            }
+
+            // Update Firestore (both legacy bridge and new sequence)
             await updateDoc(doc(db, 'concepts', selectedConcept.id), {
                 bridge: currentBridge,
+                sequence: currentSequence,
                 updatedAt: serverTimestamp()
             });
 
@@ -136,8 +166,8 @@ export const LinkToConceptModal: React.FC<LinkToConceptModalProps> = ({
                     <div className="mb-6 p-4 bg-white/5 rounded-xl border border-white/10">
                         <div className="flex items-center gap-2 mb-2">
                             <span className={`px-2 py-0.5 text-[10px] rounded-full uppercase tracking-wider ${sourceType === 'news'
-                                    ? 'bg-orange-500/20 text-orange-300'
-                                    : 'bg-purple-500/20 text-purple-300'
+                                ? 'bg-orange-500/20 text-orange-300'
+                                : 'bg-purple-500/20 text-purple-300'
                                 }`}>
                                 {sourceType === 'news' ? '뉴스' : '묵상'}
                             </span>
@@ -183,8 +213,8 @@ export const LinkToConceptModal: React.FC<LinkToConceptModalProps> = ({
                                     key={concept.id}
                                     onClick={() => setSelectedConcept(concept)}
                                     className={`w-full text-left p-3 rounded-xl border transition-all ${selectedConcept?.id === concept.id
-                                            ? 'bg-indigo-500/20 border-indigo-500/50'
-                                            : 'bg-white/5 border-white/10 hover:border-white/20'
+                                        ? 'bg-indigo-500/20 border-indigo-500/50'
+                                        : 'bg-white/5 border-white/10 hover:border-white/20'
                                         }`}
                                 >
                                     <p className="text-white font-medium text-sm">{concept.conceptName}</p>
@@ -201,8 +231,8 @@ export const LinkToConceptModal: React.FC<LinkToConceptModalProps> = ({
                             <button
                                 onClick={() => setSlot('A')}
                                 className={`p-4 rounded-xl border-2 transition-all text-left ${slot === 'A'
-                                        ? 'border-orange-500 bg-orange-500/10'
-                                        : 'border-white/10 bg-white/5 hover:border-white/20'
+                                    ? 'border-orange-500 bg-orange-500/10'
+                                    : 'border-white/10 bg-white/5 hover:border-white/20'
                                     }`}
                             >
                                 <div className="flex items-center gap-2 mb-1">
@@ -216,8 +246,8 @@ export const LinkToConceptModal: React.FC<LinkToConceptModalProps> = ({
                             <button
                                 onClick={() => setSlot('B')}
                                 className={`p-4 rounded-xl border-2 transition-all text-left ${slot === 'B'
-                                        ? 'border-blue-500 bg-blue-500/10'
-                                        : 'border-white/10 bg-white/5 hover:border-white/20'
+                                    ? 'border-blue-500 bg-blue-500/10'
+                                    : 'border-white/10 bg-white/5 hover:border-white/20'
                                     }`}
                             >
                                 <div className="flex items-center gap-2 mb-1">
@@ -248,8 +278,8 @@ export const LinkToConceptModal: React.FC<LinkToConceptModalProps> = ({
                         <button
                             onClick={() => setPinned(!pinned)}
                             className={`flex items-center gap-2 px-4 py-2 rounded-xl transition-all ${pinned
-                                    ? 'bg-yellow-500/20 text-yellow-300 border border-yellow-500/30'
-                                    : 'bg-white/5 text-white/50 border border-white/10'
+                                ? 'bg-yellow-500/20 text-yellow-300 border border-yellow-500/30'
+                                : 'bg-white/5 text-white/50 border border-white/10'
                                 }`}
                         >
                             <Pin size={14} className={pinned ? 'fill-current' : ''} />
