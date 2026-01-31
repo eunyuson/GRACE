@@ -1047,12 +1047,10 @@ export const RecentUpdates: React.FC<RecentUpdatesProps> = ({ isAdmin = false })
                         <div className="sticky top-0 bg-[#1a1a2e] z-10 p-4 border-b border-white/5">
                             <div className="flex justify-between items-start">
                                 <div className="flex-1 pr-4">
-                                    <h2 className="text-2xl md:text-3xl font-bold text-white mb-2 leading-tight">
+                                    <h2 className="text-2xl md:text-3xl font-bold text-white mb-0 leading-tight">
                                         {selectedItem.title}
                                     </h2>
-                                    {selectedItem.subtitle && (
-                                        <p className="text-blue-300/70 text-sm">{selectedItem.subtitle}</p>
-                                    )}
+                                    {/* Subtitle moved to content area */}
                                 </div>
                                 <div className="flex gap-2">
                                     {isAdmin && (
@@ -1092,14 +1090,18 @@ export const RecentUpdates: React.FC<RecentUpdatesProps> = ({ isAdmin = false })
                                     </button>
                                 </div>
                             </div>
-
                         </div>
 
                         {/* Content */}
-                        <div className="px-6 pb-6">
+                        <div className="px-6 pb-6 pt-2">
+                            {/* Subtitle - Moved from header */}
+                            {selectedItem.subtitle && (
+                                <p className="text-blue-300/70 text-sm mb-4 font-medium">{selectedItem.subtitle}</p>
+                            )}
+
                             {/* Tags - Moved out of sticky header */}
                             {getTags(selectedItem).length > 0 && (
-                                <div className="mt-4 flex flex-wrap gap-2 mb-4">
+                                <div className="flex flex-wrap gap-2 mb-4">
                                     {getTags(selectedItem)
                                         .sort((a, b) => {
                                             // Sort by hierarchy: # -> ## -> ###
