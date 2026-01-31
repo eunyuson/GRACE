@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
-import { onAuthStateChanged, signInWithRedirect, signOut, GoogleAuthProvider, User, getRedirectResult } from 'firebase/auth';
+import { onAuthStateChanged, signInWithPopup, signOut, GoogleAuthProvider, User } from 'firebase/auth';
 import { auth } from '../firebase';
 
 function cn(...inputs: ClassValue[]) {
@@ -27,26 +27,15 @@ export const Navigation: React.FC<NavigationProps> = ({ currentIndex, total, onN
     return () => unsubscribe();
   }, []);
 
-  // Handle redirect result on page load (for mobile browsers)
-  useEffect(() => {
-    getRedirectResult(auth)
-      .then((result) => {
-        if (result?.user) {
-          console.log('Redirect login successful:', result.user.email);
-        }
-      })
-      .catch((error) => {
-        console.error('Redirect login error:', error);
-      });
-  }, []);
+
 
   const handleLogin = async () => {
     try {
       // Feedback for mobile users
       alert('로그인을 시작합니다...');
       const provider = new GoogleAuthProvider();
-      // Use redirect instead of popup for mobile compatibility
-      await signInWithRedirect(auth, provider);
+      // Use popup for better compatibility with Safari ITP
+      await signInWithPopup(auth, provider);
     } catch (error: any) {
       console.error('Login error:', error);
       alert('로그인 오류: ' + error.message);
