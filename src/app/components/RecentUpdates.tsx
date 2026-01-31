@@ -1044,10 +1044,10 @@ export const RecentUpdates: React.FC<RecentUpdatesProps> = ({ isAdmin = false })
                         onClick={e => e.stopPropagation()}
                     >
                         {/* Header */}
-                        <div className="sticky top-0 bg-[#1a1a2e] z-10 p-4 border-b border-white/5">
+                        <div className="sticky top-0 bg-[#1a1a2e] z-10 px-6 py-4 border-b border-white/5">
                             <div className="flex justify-between items-start">
                                 <div className="flex-1 pr-4">
-                                    <h2 className="text-2xl md:text-3xl font-bold text-white mb-0 leading-tight">
+                                    <h2 className="text-2xl md:text-3xl font-bold text-white mb-0 leading-snug">
                                         {selectedItem.title}
                                     </h2>
                                     {/* Subtitle moved to content area */}
