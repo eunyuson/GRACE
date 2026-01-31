@@ -2,10 +2,11 @@
 
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, Pin, PinOff, Plus, Edit3, ChevronRight, Book, MessageCircle, Lightbulb, Eye, EyeOff } from 'lucide-react';
+import { X, Pin, PinOff, Plus, Edit3, ChevronRight, Book, MessageCircle, Lightbulb, Eye, EyeOff, Sparkles, Check, XCircle, Loader2 } from 'lucide-react';
 import { collection, doc, getDoc, getDocs, updateDoc, query, where, orderBy, limit, Timestamp } from 'firebase/firestore';
 import { db } from '../../firebase';
-import { ConceptCard, SequenceItem, ResponseSnippet, SequenceData } from '../../types/questionBridge';
+import { ConceptCard, SequenceItem, ResponseSnippet, SequenceData, AIConclusionSuggestion, AIScriptureSuggestion } from '../../types/questionBridge';
+import { generateReactionSnippets, generateConclusionCandidates, recommendScriptures, isAIEnabled } from '../../services/aiService';
 
 // 뉴스 아이템 타입 (RecentUpdates에서 가져옴)
 interface NewsItem {
@@ -44,11 +45,18 @@ export const InsightDrawer: React.FC<InsightDrawerProps> = ({
     const [localConcept, setLocalConcept] = useState<ConceptCard>(concept);
     const [newsItems, setNewsItems] = useState<Map<string, NewsItem>>(new Map());
     const [reflectionItems, setReflectionItems] = useState<Map<string, ReflectionItem>>(new Map());
+    const [allReflections, setAllReflections] = useState<ReflectionItem[]>([]);
     const [isEditingConclusion, setIsEditingConclusion] = useState(false);
     const [isEditingAStatement, setIsEditingAStatement] = useState(false);
     const [newResponse, setNewResponse] = useState('');
     const [isAddingResponse, setIsAddingResponse] = useState(false);
     const [loading, setLoading] = useState(true);
+
+    // AI 상태
+    const [aiReactionsLoading, setAiReactionsLoading] = useState(false);
+    const [aiConclusionsLoading, setAiConclusionsLoading] = useState(false);
+    const [aiScripturesLoading, setAiScripturesLoading] = useState(false);
+    const [aiError, setAiError] = useState<string | null>(null);
 
     // 시퀀스 초기화
     const getSequence = (): SequenceData => {
@@ -56,7 +64,10 @@ export const InsightDrawer: React.FC<InsightDrawerProps> = ({
             recent: [],
             responses: [],
             aStatement: '',
-            scriptureSupport: []
+            scriptureSupport: [],
+            aiReactionSuggestions: [],
+            aiConclusionSuggestions: [],
+            aiScriptureSuggestions: []
         };
     };
 
@@ -152,6 +163,7 @@ export const InsightDrawer: React.FC<InsightDrawerProps> = ({
             id: `resp_${Date.now()}`,
             text: newResponse.trim(),
             pinned: false,
+            source: 'manual',
             createdAt: Timestamp.now()
         };
 
@@ -210,6 +222,243 @@ export const InsightDrawer: React.FC<InsightDrawerProps> = ({
                 [key]: sequence[key].map(item =>
                     item.sourceId === sourceId ? { ...item, pinned: !item.pinned } : item
                 )
+            }
+        };
+        setLocalConcept(updated);
+        saveToFirestore(updated);
+    };
+
+    // ============================================
+    // AI 터치포인트 1: 뉴스 → 반응 스니펫 생성
+    // ============================================
+    const handleGenerateReactions = async () => {
+        if (!isAIEnabled()) {
+            setAiError('AI 기능이 비활성화되어 있습니다. API 키를 설정하세요.');
+            return;
+        }
+
+        const seq = getSequence();
+        if (seq.recent.length === 0) {
+            setAiError('연결된 뉴스가 없습니다. 먼저 뉴스를 연결하세요.');
+            return;
+        }
+
+        setAiReactionsLoading(true);
+        setAiError(null);
+
+        try {
+            // 첫 번째 뉴스의 내용 사용
+            const firstNews = newsItems.get(seq.recent[0].sourceId);
+            if (!firstNews) throw new Error('뉴스 데이터를 찾을 수 없습니다.');
+
+            const result = await generateReactionSnippets(
+                firstNews.title,
+                firstNews.content || firstNews.subtitle || '',
+                localConcept.conceptName
+            );
+
+            if (result.success && result.snippets.length > 0) {
+                const suggestions: ResponseSnippet[] = result.snippets.map((text, i) => ({
+                    id: `ai_react_${Date.now()}_${i}`,
+                    text,
+                    pinned: false,
+                    source: 'ai' as const,
+                    status: 'suggested' as const,
+                    createdAt: Timestamp.now()
+                }));
+
+                const updated = {
+                    ...localConcept,
+                    sequence: { ...seq, aiReactionSuggestions: suggestions }
+                };
+                setLocalConcept(updated);
+                saveToFirestore(updated);
+            } else {
+                setAiError(result.error || 'AI 반응 생성 실패');
+            }
+        } catch (e: any) {
+            setAiError(e.message);
+        } finally {
+            setAiReactionsLoading(false);
+        }
+    };
+
+    // AI 반응 선택 (제안 → 확정)
+    const handleSelectAIReaction = (snippetId: string) => {
+        const seq = getSequence();
+        const suggestion = seq.aiReactionSuggestions?.find(s => s.id === snippetId);
+        if (!suggestion) return;
+
+        // 확정된 반응으로 이동
+        const confirmedSnippet: ResponseSnippet = {
+            ...suggestion,
+            status: 'selected',
+            pinned: true
+        };
+
+        const updated = {
+            ...localConcept,
+            sequence: {
+                ...seq,
+                responses: [...seq.responses, confirmedSnippet],
+                aiReactionSuggestions: seq.aiReactionSuggestions?.filter(s => s.id !== snippetId)
+            }
+        };
+        setLocalConcept(updated);
+        saveToFirestore(updated);
+    };
+
+    // AI 반응 제외
+    const handleRejectAIReaction = (snippetId: string) => {
+        const seq = getSequence();
+        const updated = {
+            ...localConcept,
+            sequence: {
+                ...seq,
+                aiReactionSuggestions: seq.aiReactionSuggestions?.filter(s => s.id !== snippetId)
+            }
+        };
+        setLocalConcept(updated);
+        saveToFirestore(updated);
+    };
+
+    // ============================================
+    // AI 터치포인트 2: 반응 → 결론 후보 생성
+    // ============================================
+    const handleGenerateConclusions = async () => {
+        if (!isAIEnabled()) {
+            setAiError('AI 기능이 비활성화되어 있습니다.');
+            return;
+        }
+
+        const seq = getSequence();
+        const selectedReactions = seq.responses.filter(r => r.pinned).map(r => r.text);
+
+        if (selectedReactions.length === 0) {
+            setAiError('먼저 반응을 선택(핀)하세요.');
+            return;
+        }
+
+        setAiConclusionsLoading(true);
+        setAiError(null);
+
+        try {
+            const result = await generateConclusionCandidates(
+                selectedReactions,
+                localConcept.conceptName,
+                localConcept.question || ''
+            );
+
+            if (result.success && result.candidates.length > 0) {
+                const suggestions: AIConclusionSuggestion[] = result.candidates.map((text, i) => ({
+                    id: `ai_concl_${Date.now()}_${i}`,
+                    text,
+                    status: 'suggested' as const,
+                    createdAt: Timestamp.now()
+                }));
+
+                const updated = {
+                    ...localConcept,
+                    sequence: { ...seq, aiConclusionSuggestions: suggestions }
+                };
+                setLocalConcept(updated);
+                saveToFirestore(updated);
+            } else {
+                setAiError(result.error || 'AI 결론 생성 실패');
+            }
+        } catch (e: any) {
+            setAiError(e.message);
+        } finally {
+            setAiConclusionsLoading(false);
+        }
+    };
+
+    // AI 결론 선택 (확정)
+    const handleSelectAIConclusion = (conclusionId: string) => {
+        const seq = getSequence();
+        const suggestion = seq.aiConclusionSuggestions?.find(c => c.id === conclusionId);
+        if (!suggestion) return;
+
+        const updated = {
+            ...localConcept,
+            conclusion: suggestion.text,
+            sequence: {
+                ...seq,
+                aiConclusionSuggestions: seq.aiConclusionSuggestions?.map(c =>
+                    c.id === conclusionId ? { ...c, status: 'selected' as const } : { ...c, status: 'rejected' as const }
+                )
+            }
+        };
+        setLocalConcept(updated);
+        saveToFirestore(updated);
+
+        // 결론 확정 후 자동으로 묵상 추천 시작
+        setTimeout(() => handleGenerateScriptures(), 500);
+    };
+
+    // ============================================
+    // AI 터치포인트 3: 결론 → 묵상 추천
+    // ============================================
+    const handleGenerateScriptures = async () => {
+        if (!isAIEnabled()) return;
+        if (!localConcept.conclusion) return;
+
+        setAiScripturesLoading(true);
+        setAiError(null);
+
+        try {
+            const result = await recommendScriptures(
+                localConcept.conclusion,
+                allReflections.map(r => ({
+                    id: r.id,
+                    content: r.content,
+                    bibleRef: r.bibleRef,
+                    parentTitle: r.parentTitle
+                }))
+            );
+
+            if (result.success && result.candidates.length > 0) {
+                const suggestions: AIScriptureSuggestion[] = result.candidates.map(c => ({
+                    reflectionId: c.reflectionId,
+                    reason: c.reason,
+                    status: 'suggested' as const,
+                    similarity: c.similarity
+                }));
+
+                const seq = getSequence();
+                const updated = {
+                    ...localConcept,
+                    sequence: { ...seq, aiScriptureSuggestions: suggestions }
+                };
+                setLocalConcept(updated);
+                saveToFirestore(updated);
+            }
+        } catch (e: any) {
+            console.error('Scripture recommendation error:', e);
+        } finally {
+            setAiScripturesLoading(false);
+        }
+    };
+
+    // AI 묵상 핀 확정
+    const handlePinAIScripture = (reflectionId: string) => {
+        const seq = getSequence();
+
+        // scripture에 추가
+        const newItem: SequenceItem = {
+            sourceType: 'reflection',
+            sourceId: reflectionId,
+            pinned: true,
+            confidence: 1.0,
+            addedAt: Timestamp.now()
+        };
+
+        const updated = {
+            ...localConcept,
+            sequence: {
+                ...seq,
+                scriptureSupport: [...seq.scriptureSupport, newItem],
+                aiScriptureSuggestions: seq.aiScriptureSuggestions?.filter(s => s.reflectionId !== reflectionId)
             }
         };
         setLocalConcept(updated);
@@ -358,8 +607,8 @@ export const InsightDrawer: React.FC<InsightDrawerProps> = ({
                                                 <div
                                                     key={resp.id}
                                                     className={`group relative px-3 py-1.5 rounded-full text-sm transition-all ${resp.pinned
-                                                            ? 'bg-purple-500/30 text-purple-200 border border-purple-500/50'
-                                                            : 'bg-white/10 text-white/70 border border-white/10'
+                                                        ? 'bg-purple-500/30 text-purple-200 border border-purple-500/50'
+                                                        : 'bg-white/10 text-white/70 border border-white/10'
                                                         }`}
                                                 >
                                                     <span>{resp.text}</span>

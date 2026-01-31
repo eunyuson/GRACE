@@ -52,10 +52,28 @@ export interface ResponseSnippet {
     id: string;                          // 고유 ID
     text: string;                        // 반응 텍스트 (짧게)
     pinned: boolean;                     // 사용자가 확정
+    source: 'ai' | 'manual';             // 생성 방식
+    status?: 'suggested' | 'selected' | 'rejected';  // AI 제안 상태
     createdAt: any;                      // 생성 시간
 }
 
-// 시퀀스 데이터 (4섹션 구조)
+// AI 결론 제안
+export interface AIConclusionSuggestion {
+    id: string;
+    text: string;                        // 결론 문장
+    status: 'suggested' | 'selected' | 'rejected';
+    createdAt: any;
+}
+
+// AI 묵상 추천
+export interface AIScriptureSuggestion {
+    reflectionId: string;                // 묵상 ID
+    reason: string;                      // 추천 이유 (1줄)
+    status: 'suggested' | 'pinned';      // 제안됨 / 핀됨
+    similarity?: number;                 // 유사도 (0-1)
+}
+
+// 시퀀스 데이터 (4섹션 구조 + AI 제안)
 export interface SequenceData {
     // 섹션1: RECENT (현실) - 뉴스
     recent: SequenceItem[];
@@ -64,8 +82,17 @@ export interface SequenceData {
     responses: ResponseSnippet[];
     aStatement?: string;                 // A문장: "우리는 보통 ___를 ___라고 생각합니다"
 
+    // AI 반응 제안 (섹션2용)
+    aiReactionSuggestions?: ResponseSnippet[];
+
+    // AI 결론 제안 (섹션3용)
+    aiConclusionSuggestions?: AIConclusionSuggestion[];
+
     // 섹션4: SCRIPTURE SUPPORT (말씀 근거) - 묵상
     scriptureSupport: SequenceItem[];
+
+    // AI 묵상 추천 (섹션4용)
+    aiScriptureSuggestions?: AIScriptureSuggestion[];
 }
 
 // 개념 카드 인터페이스
