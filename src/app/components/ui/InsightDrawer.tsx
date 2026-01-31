@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, Pin, PinOff, Plus, Edit3, ChevronRight, Book, MessageCircle, Lightbulb, Eye, EyeOff, Sparkles, Check, XCircle, Loader2 } from 'lucide-react';
+import { X, Pin, PinOff, Plus, Edit3, ChevronRight, Book, MessageCircle, Lightbulb, Eye, EyeOff, Sparkles, Check, XCircle, Loader2, Search, Trash2 } from 'lucide-react';
 import { collection, doc, getDoc, getDocs, updateDoc, query, where, orderBy, limit, Timestamp } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { ConceptCard, SequenceItem, ResponseSnippet, SequenceData, AIConclusionSuggestion, AIScriptureSuggestion } from '../../types/questionBridge';
@@ -46,11 +46,18 @@ export const InsightDrawer: React.FC<InsightDrawerProps> = ({
     const [newsItems, setNewsItems] = useState<Map<string, NewsItem>>(new Map());
     const [reflectionItems, setReflectionItems] = useState<Map<string, ReflectionItem>>(new Map());
     const [allReflections, setAllReflections] = useState<ReflectionItem[]>([]);
+    const [allNews, setAllNews] = useState<NewsItem[]>([]);
     const [isEditingConclusion, setIsEditingConclusion] = useState(false);
     const [isEditingAStatement, setIsEditingAStatement] = useState(false);
     const [newResponse, setNewResponse] = useState('');
     const [isAddingResponse, setIsAddingResponse] = useState(false);
     const [loading, setLoading] = useState(true);
+
+    // 뉴스/묵상 선택 모달 상태
+    const [showNewsPicker, setShowNewsPicker] = useState(false);
+    const [showReflectionPicker, setShowReflectionPicker] = useState(false);
+    const [newsSearchQuery, setNewsSearchQuery] = useState('');
+    const [reflectionSearchQuery, setReflectionSearchQuery] = useState('');
 
     // AI 상태
     const [aiReactionsLoading, setAiReactionsLoading] = useState(false);
@@ -71,13 +78,13 @@ export const InsightDrawer: React.FC<InsightDrawerProps> = ({
         };
     };
 
-    // 연결된 뉴스/묵상 데이터 로드
+    // 연결된 뉴스/묵상 데이터 로드 + 전체 목록 로드
     useEffect(() => {
         const loadLinkedItems = async () => {
             setLoading(true);
             const sequence = getSequence();
 
-            // 뉴스 로드
+            // 연결된 뉴스 로드
             const newsMap = new Map<string, NewsItem>();
             for (const item of sequence.recent) {
                 if (item.sourceType === 'news') {
@@ -94,7 +101,7 @@ export const InsightDrawer: React.FC<InsightDrawerProps> = ({
             }
             setNewsItems(newsMap);
 
-            // 묵상 로드
+            // 연결된 묵상 로드
             const reflectionMap = new Map<string, ReflectionItem>();
             for (const item of sequence.scriptureSupport) {
                 if (item.sourceType === 'reflection') {
@@ -114,10 +121,144 @@ export const InsightDrawer: React.FC<InsightDrawerProps> = ({
             setLoading(false);
         };
 
+        // 전체 뉴스 목록 로드
+        const loadAllNews = async () => {
+            try {
+                const q = query(collection(db, 'updates'), orderBy('createdAt', 'desc'), limit(50));
+                const snapshot = await getDocs(q);
+                const items = snapshot.docs.map(doc => ({
+                    id: doc.id,
+                    ...doc.data()
+                } as NewsItem));
+                setAllNews(items);
+            } catch (e) {
+                console.error('Error loading all news:', e);
+            }
+        };
+
+        // 전체 묵상 목록 로드
+        const loadAllReflections = async () => {
+            try {
+                const q = query(collection(db, 'memos'), orderBy('createdAt', 'desc'), limit(50));
+                const snapshot = await getDocs(q);
+                const items = snapshot.docs.map(doc => ({
+                    id: doc.id,
+                    ...doc.data()
+                } as ReflectionItem));
+                setAllReflections(items);
+            } catch (e) {
+                console.error('Error loading all reflections:', e);
+            }
+        };
+
         if (isOpen) {
             loadLinkedItems();
+            loadAllNews();
+            loadAllReflections();
         }
     }, [isOpen, localConcept.id]);
+
+    // 뉴스 연결 추가
+    const handleAddNewsLink = (newsId: string) => {
+        const sequence = getSequence();
+
+        // 이미 연결되어 있는지 확인
+        if (sequence.recent.some(item => item.sourceId === newsId)) {
+            return;
+        }
+
+        const newItem: SequenceItem = {
+            sourceType: 'news',
+            sourceId: newsId,
+            pinned: false,
+            confidence: 1.0,
+            addedAt: Timestamp.now()
+        };
+
+        const updated = {
+            ...localConcept,
+            sequence: {
+                ...sequence,
+                recent: [...sequence.recent, newItem]
+            }
+        };
+
+        // newsItems에도 추가
+        const newsItem = allNews.find(n => n.id === newsId);
+        if (newsItem) {
+            setNewsItems(prev => new Map(prev).set(newsId, newsItem));
+        }
+
+        setLocalConcept(updated);
+        saveToFirestore(updated);
+        setShowNewsPicker(false);
+        setNewsSearchQuery('');
+    };
+
+    // 뉴스 연결 해제
+    const handleRemoveNewsLink = (newsId: string) => {
+        const sequence = getSequence();
+        const updated = {
+            ...localConcept,
+            sequence: {
+                ...sequence,
+                recent: sequence.recent.filter(item => item.sourceId !== newsId)
+            }
+        };
+        setLocalConcept(updated);
+        saveToFirestore(updated);
+    };
+
+    // 묵상 연결 추가
+    const handleAddReflectionLink = (reflectionId: string) => {
+        const sequence = getSequence();
+
+        // 이미 연결되어 있는지 확인
+        if (sequence.scriptureSupport.some(item => item.sourceId === reflectionId)) {
+            return;
+        }
+
+        const newItem: SequenceItem = {
+            sourceType: 'reflection',
+            sourceId: reflectionId,
+            pinned: false,
+            confidence: 1.0,
+            addedAt: Timestamp.now()
+        };
+
+        const updated = {
+            ...localConcept,
+            sequence: {
+                ...sequence,
+                scriptureSupport: [...sequence.scriptureSupport, newItem]
+            }
+        };
+
+        // reflectionItems에도 추가
+        const reflectionItem = allReflections.find(r => r.id === reflectionId);
+        if (reflectionItem) {
+            setReflectionItems(prev => new Map(prev).set(reflectionId, reflectionItem));
+        }
+
+        setLocalConcept(updated);
+        saveToFirestore(updated);
+        setShowReflectionPicker(false);
+        setReflectionSearchQuery('');
+    };
+
+    // 묵상 연결 해제
+    const handleRemoveReflectionLink = (reflectionId: string) => {
+        const sequence = getSequence();
+        const updated = {
+            ...localConcept,
+            sequence: {
+                ...sequence,
+                scriptureSupport: sequence.scriptureSupport.filter(item => item.sourceId !== reflectionId)
+            }
+        };
+        setLocalConcept(updated);
+        saveToFirestore(updated);
+    };
 
     // Firestore에 변경 저장
     const saveToFirestore = async (updatedConcept: ConceptCard) => {
@@ -525,17 +666,29 @@ export const InsightDrawer: React.FC<InsightDrawerProps> = ({
 
                                     {/* ========== Section 1: RECENT (현실) ========== */}
                                     <section className="space-y-3">
-                                        <div className="flex items-center gap-2 text-blue-400">
-                                            <Eye className="w-4 h-4" />
-                                            <h3 className="text-sm font-semibold uppercase tracking-wider">
-                                                RECENT — 내 눈에 들어온 장면
-                                            </h3>
+                                        <div className="flex items-center justify-between">
+                                            <div className="flex items-center gap-2 text-blue-400">
+                                                <Eye className="w-4 h-4" />
+                                                <h3 className="text-sm font-semibold uppercase tracking-wider">
+                                                    RECENT — 내 눈에 들어온 장면
+                                                </h3>
+                                            </div>
+                                            <button
+                                                onClick={() => setShowNewsPicker(true)}
+                                                className="flex items-center gap-1 px-3 py-1.5 text-xs bg-blue-500/20 text-blue-300 rounded-full hover:bg-blue-500/30 transition-colors"
+                                            >
+                                                <Plus className="w-3 h-3" />
+                                                뉴스 연결
+                                            </button>
                                         </div>
 
                                         {sequence.recent.length === 0 ? (
-                                            <div className="text-center py-8 text-white/40 text-sm border border-dashed border-white/20 rounded-xl">
-                                                아직 연결된 뉴스가 없습니다.<br />
-                                                <span className="text-xs">뉴스에서 "개념 연결"을 눌러 추가하세요</span>
+                                            <div
+                                                className="text-center py-8 text-white/40 text-sm border border-dashed border-blue-500/30 rounded-xl cursor-pointer hover:bg-blue-500/5 transition-colors"
+                                                onClick={() => setShowNewsPicker(true)}
+                                            >
+                                                <Plus className="w-6 h-6 mx-auto mb-2 text-blue-400/50" />
+                                                클릭해서 뉴스를 연결하세요
                                             </div>
                                         ) : (
                                             <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-thin">
@@ -548,17 +701,25 @@ export const InsightDrawer: React.FC<InsightDrawerProps> = ({
                                                             key={item.sourceId}
                                                             className="flex-shrink-0 w-64 bg-white/5 rounded-xl p-4 border border-white/10 relative group"
                                                         >
-                                                            {/* Pin Toggle */}
-                                                            <button
-                                                                onClick={() => handleToggleItemPin('recent', item.sourceId)}
-                                                                className="absolute top-2 right-2 p-1.5 rounded-full bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity"
-                                                            >
-                                                                {item.pinned ? (
-                                                                    <Pin className="w-3 h-3 text-yellow-400" />
-                                                                ) : (
-                                                                    <PinOff className="w-3 h-3 text-white/50" />
-                                                                )}
-                                                            </button>
+                                                            {/* Action Buttons */}
+                                                            <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                                <button
+                                                                    onClick={() => handleToggleItemPin('recent', item.sourceId)}
+                                                                    className="p-1.5 rounded-full bg-black/50 hover:bg-black/70"
+                                                                >
+                                                                    {item.pinned ? (
+                                                                        <Pin className="w-3 h-3 text-yellow-400" />
+                                                                    ) : (
+                                                                        <PinOff className="w-3 h-3 text-white/50" />
+                                                                    )}
+                                                                </button>
+                                                                <button
+                                                                    onClick={() => handleRemoveNewsLink(item.sourceId)}
+                                                                    className="p-1.5 rounded-full bg-red-500/30 hover:bg-red-500/50"
+                                                                >
+                                                                    <Trash2 className="w-3 h-3 text-red-300" />
+                                                                </button>
+                                                            </div>
 
                                                             {/* Image Preview */}
                                                             {news.images?.[0] && (
@@ -785,17 +946,29 @@ export const InsightDrawer: React.FC<InsightDrawerProps> = ({
 
                                     {/* ========== Section 4: SCRIPTURE SUPPORT (말씀 근거) ========== */}
                                     <section className="space-y-3 pb-8">
-                                        <div className="flex items-center gap-2 text-amber-400">
-                                            <Book className="w-4 h-4" />
-                                            <h3 className="text-sm font-semibold uppercase tracking-wider">
-                                                SCRIPTURE SUPPORT — 결론을 떠받치는 말씀
-                                            </h3>
+                                        <div className="flex items-center justify-between">
+                                            <div className="flex items-center gap-2 text-amber-400">
+                                                <Book className="w-4 h-4" />
+                                                <h3 className="text-sm font-semibold uppercase tracking-wider">
+                                                    SCRIPTURE SUPPORT — 결론을 떠받치는 말씀
+                                                </h3>
+                                            </div>
+                                            <button
+                                                onClick={() => setShowReflectionPicker(true)}
+                                                className="flex items-center gap-1 px-3 py-1.5 text-xs bg-amber-500/20 text-amber-300 rounded-full hover:bg-amber-500/30 transition-colors"
+                                            >
+                                                <Plus className="w-3 h-3" />
+                                                묵상 연결
+                                            </button>
                                         </div>
 
                                         {sequence.scriptureSupport.length === 0 ? (
-                                            <div className="text-center py-8 text-white/40 text-sm border border-dashed border-white/20 rounded-xl">
-                                                아직 연결된 묵상이 없습니다.<br />
-                                                <span className="text-xs">묵상에서 "개념 연결"을 눌러 추가하세요</span>
+                                            <div
+                                                className="text-center py-8 text-white/40 text-sm border border-dashed border-amber-500/30 rounded-xl cursor-pointer hover:bg-amber-500/5 transition-colors"
+                                                onClick={() => setShowReflectionPicker(true)}
+                                            >
+                                                <Plus className="w-6 h-6 mx-auto mb-2 text-amber-400/50" />
+                                                클릭해서 묵상을 연결하세요
                                             </div>
                                         ) : (
                                             <div className="space-y-3">
@@ -808,17 +981,25 @@ export const InsightDrawer: React.FC<InsightDrawerProps> = ({
                                                             key={item.sourceId}
                                                             className="bg-white/5 rounded-xl p-4 border border-white/10 relative group"
                                                         >
-                                                            {/* Pin Toggle */}
-                                                            <button
-                                                                onClick={() => handleToggleItemPin('scripture', item.sourceId)}
-                                                                className="absolute top-2 right-2 p-1.5 rounded-full bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity"
-                                                            >
-                                                                {item.pinned ? (
-                                                                    <Pin className="w-3 h-3 text-yellow-400" />
-                                                                ) : (
-                                                                    <PinOff className="w-3 h-3 text-white/50" />
-                                                                )}
-                                                            </button>
+                                                            {/* Action Buttons */}
+                                                            <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                                <button
+                                                                    onClick={() => handleToggleItemPin('scripture', item.sourceId)}
+                                                                    className="p-1.5 rounded-full bg-black/50 hover:bg-black/70"
+                                                                >
+                                                                    {item.pinned ? (
+                                                                        <Pin className="w-3 h-3 text-yellow-400" />
+                                                                    ) : (
+                                                                        <PinOff className="w-3 h-3 text-white/50" />
+                                                                    )}
+                                                                </button>
+                                                                <button
+                                                                    onClick={() => handleRemoveReflectionLink(item.sourceId)}
+                                                                    className="p-1.5 rounded-full bg-red-500/30 hover:bg-red-500/50"
+                                                                >
+                                                                    <Trash2 className="w-3 h-3 text-red-300" />
+                                                                </button>
+                                                            </div>
 
                                                             {/* Bible Reference */}
                                                             {reflection.bibleRef && (
@@ -864,6 +1045,175 @@ export const InsightDrawer: React.FC<InsightDrawerProps> = ({
                         </div>
                     </motion.div>
                 </>
+            )}
+
+            {/* ========== News Picker Modal ========== */}
+            {showNewsPicker && (
+                <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    className="fixed inset-0 z-[5000] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4"
+                    onClick={() => setShowNewsPicker(false)}
+                >
+                    <motion.div
+                        initial={{ scale: 0.9, opacity: 0 }}
+                        animate={{ scale: 1, opacity: 1 }}
+                        exit={{ scale: 0.9, opacity: 0 }}
+                        onClick={(e) => e.stopPropagation()}
+                        className="bg-gradient-to-br from-[#1a1a2e] to-[#16213e] rounded-2xl w-full max-w-lg max-h-[80vh] overflow-hidden border border-white/10 shadow-2xl"
+                    >
+                        {/* Header */}
+                        <div className="p-4 border-b border-white/10">
+                            <div className="flex items-center justify-between mb-3">
+                                <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                                    <Eye className="w-5 h-5 text-blue-400" />
+                                    뉴스 연결하기
+                                </h3>
+                                <button
+                                    onClick={() => setShowNewsPicker(false)}
+                                    className="p-1.5 rounded-full bg-white/10 hover:bg-white/20"
+                                >
+                                    <X className="w-4 h-4 text-white" />
+                                </button>
+                            </div>
+                            {/* Search */}
+                            <div className="relative">
+                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/40" />
+                                <input
+                                    type="text"
+                                    value={newsSearchQuery}
+                                    onChange={(e) => setNewsSearchQuery(e.target.value)}
+                                    placeholder="뉴스 검색..."
+                                    className="w-full pl-10 pr-4 py-2.5 bg-white/5 border border-white/10 rounded-xl text-white placeholder-white/40 focus:outline-none focus:border-blue-500/50"
+                                />
+                            </div>
+                        </div>
+
+                        {/* News List */}
+                        <div className="p-4 overflow-y-auto max-h-[60vh] space-y-2">
+                            {allNews
+                                .filter(news =>
+                                    !sequence.recent.some(r => r.sourceId === news.id) &&
+                                    (newsSearchQuery === '' ||
+                                        news.title.toLowerCase().includes(newsSearchQuery.toLowerCase()) ||
+                                        (news.subtitle?.toLowerCase().includes(newsSearchQuery.toLowerCase())))
+                                )
+                                .map(news => (
+                                    <div
+                                        key={news.id}
+                                        onClick={() => handleAddNewsLink(news.id)}
+                                        className="p-3 bg-white/5 rounded-xl border border-white/10 hover:border-blue-500/30 hover:bg-blue-500/5 cursor-pointer transition-all flex gap-3"
+                                    >
+                                        {news.images?.[0] && (
+                                            <div className="w-16 h-16 rounded-lg overflow-hidden flex-shrink-0">
+                                                <img src={news.images[0]} alt="" className="w-full h-full object-cover" />
+                                            </div>
+                                        )}
+                                        <div className="flex-1 min-w-0">
+                                            <h4 className="text-sm font-medium text-white line-clamp-2">{news.title}</h4>
+                                            {news.subtitle && (
+                                                <p className="text-xs text-white/50 line-clamp-1 mt-1">{news.subtitle}</p>
+                                            )}
+                                        </div>
+                                        <Plus className="w-5 h-5 text-blue-400 flex-shrink-0" />
+                                    </div>
+                                ))
+                            }
+                            {allNews.filter(news => !sequence.recent.some(r => r.sourceId === news.id)).length === 0 && (
+                                <div className="text-center py-8 text-white/40">
+                                    연결할 수 있는 뉴스가 없습니다
+                                </div>
+                            )}
+                        </div>
+                    </motion.div>
+                </motion.div>
+            )}
+
+            {/* ========== Reflection Picker Modal ========== */}
+            {showReflectionPicker && (
+                <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    className="fixed inset-0 z-[5000] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4"
+                    onClick={() => setShowReflectionPicker(false)}
+                >
+                    <motion.div
+                        initial={{ scale: 0.9, opacity: 0 }}
+                        animate={{ scale: 1, opacity: 1 }}
+                        exit={{ scale: 0.9, opacity: 0 }}
+                        onClick={(e) => e.stopPropagation()}
+                        className="bg-gradient-to-br from-[#1a1a2e] to-[#16213e] rounded-2xl w-full max-w-lg max-h-[80vh] overflow-hidden border border-white/10 shadow-2xl"
+                    >
+                        {/* Header */}
+                        <div className="p-4 border-b border-white/10">
+                            <div className="flex items-center justify-between mb-3">
+                                <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                                    <Book className="w-5 h-5 text-amber-400" />
+                                    묵상 연결하기
+                                </h3>
+                                <button
+                                    onClick={() => setShowReflectionPicker(false)}
+                                    className="p-1.5 rounded-full bg-white/10 hover:bg-white/20"
+                                >
+                                    <X className="w-4 h-4 text-white" />
+                                </button>
+                            </div>
+                            {/* Search */}
+                            <div className="relative">
+                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/40" />
+                                <input
+                                    type="text"
+                                    value={reflectionSearchQuery}
+                                    onChange={(e) => setReflectionSearchQuery(e.target.value)}
+                                    placeholder="묵상 검색..."
+                                    className="w-full pl-10 pr-4 py-2.5 bg-white/5 border border-white/10 rounded-xl text-white placeholder-white/40 focus:outline-none focus:border-amber-500/50"
+                                />
+                            </div>
+                        </div>
+
+                        {/* Reflection List */}
+                        <div className="p-4 overflow-y-auto max-h-[60vh] space-y-2">
+                            {allReflections
+                                .filter(reflection =>
+                                    !sequence.scriptureSupport.some(s => s.sourceId === reflection.id) &&
+                                    (reflectionSearchQuery === '' ||
+                                        reflection.content.toLowerCase().includes(reflectionSearchQuery.toLowerCase()) ||
+                                        (reflection.bibleRef?.toLowerCase().includes(reflectionSearchQuery.toLowerCase())) ||
+                                        (reflection.parentTitle?.toLowerCase().includes(reflectionSearchQuery.toLowerCase())))
+                                )
+                                .map(reflection => (
+                                    <div
+                                        key={reflection.id}
+                                        onClick={() => handleAddReflectionLink(reflection.id)}
+                                        className="p-3 bg-white/5 rounded-xl border border-white/10 hover:border-amber-500/30 hover:bg-amber-500/5 cursor-pointer transition-all"
+                                    >
+                                        <div className="flex items-start justify-between gap-2">
+                                            <div className="flex-1 min-w-0">
+                                                {reflection.bibleRef && (
+                                                    <span className="inline-block px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 text-xs font-medium mb-1">
+                                                        {reflection.bibleRef}
+                                                    </span>
+                                                )}
+                                                <p className="text-sm text-white/80 line-clamp-2">{reflection.content}</p>
+                                                {reflection.parentTitle && (
+                                                    <p className="text-xs text-white/40 mt-1">출처: {reflection.parentTitle}</p>
+                                                )}
+                                            </div>
+                                            <Plus className="w-5 h-5 text-amber-400 flex-shrink-0" />
+                                        </div>
+                                    </div>
+                                ))
+                            }
+                            {allReflections.filter(r => !sequence.scriptureSupport.some(s => s.sourceId === r.id)).length === 0 && (
+                                <div className="text-center py-8 text-white/40">
+                                    연결할 수 있는 묵상이 없습니다
+                                </div>
+                            )}
+                        </div>
+                    </motion.div>
+                </motion.div>
             )}
         </AnimatePresence>
     );
