@@ -681,7 +681,10 @@ export const MyReflections: React.FC<MyReflectionsProps> = ({ onSelectCallback }
                                         {/* 개념 카드에 연결 */}
                                         <div className="mt-6 pt-4 border-t border-white/10">
                                             <button
-                                                onClick={() => setShowLinkModal(true)}
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    setShowLinkModal(true);
+                                                }}
                                                 className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-gradient-to-r from-purple-500/20 to-indigo-500/20 border border-purple-500/30 text-purple-300 hover:from-purple-500/30 hover:to-indigo-500/30 transition-all"
                                             >
                                                 🔗 개념 카드에 연결하기
