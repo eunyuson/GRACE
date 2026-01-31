@@ -49,6 +49,7 @@ export const Navigation: React.FC<NavigationProps> = ({ currentIndex, total, onN
       await signInWithRedirect(auth, provider);
     } catch (error: any) {
       console.error('Login error:', error);
+      alert('로그인 오류: ' + error.message);
     }
   };
 
