@@ -56,7 +56,14 @@ export const InsightDrawer: React.FC<InsightDrawerProps> = ({
 
     // Concept prop이 변경되면 localConcept 동기화 (저장 후 확실한 상태 반영)
     useEffect(() => {
-        setLocalConcept(concept);
+        // 편집 중이 아닐 때만 동기화하여 덮어쓰기 방지
+        // 또는 변경된 concept의 ID가 다르면(다른 카드 열림) 무조건 동기화
+        if (localConcept.id !== concept.id) {
+            setLocalConcept(concept);
+        } else if (!isEditMode && isViewMode) {
+            setLocalConcept(concept);
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [concept]);
     const [newsItems, setNewsItems] = useState<Map<string, NewsItem>>(new Map());
     const [reflectionItems, setReflectionItems] = useState<Map<string, ReflectionItem>>(new Map());
@@ -318,6 +325,7 @@ export const InsightDrawer: React.FC<InsightDrawerProps> = ({
             sourceId: newsId,
             pinned: false,
             confidence: 1.0,
+            sourcePath: null, // Avoid undefined
             addedAt: Timestamp.now()
         };
 
@@ -421,13 +429,16 @@ export const InsightDrawer: React.FC<InsightDrawerProps> = ({
         try {
             const docRef = doc(db, 'concepts', updatedConcept.id);
             await updateDoc(docRef, {
+                conceptName: updatedConcept.conceptName,
+                question: updatedConcept.question,
                 conclusion: updatedConcept.conclusion,
                 sequence: updatedConcept.sequence,
                 updatedAt: Timestamp.now()
             });
             onUpdate(updatedConcept);
-        } catch (e) {
+        } catch (e: any) {
             console.error('Error saving concept:', e);
+            alert(`저장 중 오류가 발생했습니다: ${e.message}`);
         }
     };
 
@@ -1370,6 +1381,85 @@ export const InsightDrawer: React.FC<InsightDrawerProps> = ({
                                                 )}
                                             </div>
 
+                                            {/* AI Reaction Helper */}
+                                            <div className="pt-2 pb-2">
+                                                {/* 1. AI 미설정 알림 */}
+                                                {!isAIEnabled() && (
+                                                    <div className="w-full py-2.5 flex items-center justify-center gap-2 text-xs text-red-400/70 bg-red-500/5 border border-red-500/10 rounded-xl mb-2">
+                                                        <Sparkles className="w-3 h-3" />
+                                                        <span>AI 기능을 사용하려면 설정이 필요합니다 (.env 확인)</span>
+                                                    </div>
+                                                )}
+
+                                                {/* 2. 뉴스 미연결 알림 (AI 켜져있을 때만) */}
+                                                {isAIEnabled() && sequence.recent.length === 0 && (
+                                                    <div className="w-full py-2.5 flex items-center justify-center gap-2 text-xs text-white/30 bg-white/5 border border-white/5 rounded-xl cursor-not-allowed">
+                                                        <Sparkles className="w-3 h-3" />
+                                                        <span>뉴스를 먼저 연결하면 AI 도움을 받을 수 있습니다</span>
+                                                    </div>
+                                                )}
+
+                                                {/* 3. AI 제안 표시 */}
+                                                {isAIEnabled() && sequence.recent.length > 0 && sequence.aiReactionSuggestions && sequence.aiReactionSuggestions.length > 0 && (
+                                                    <div className="p-3 bg-purple-500/5 border border-purple-500/20 rounded-xl space-y-2">
+                                                        <div className="flex items-center justify-between">
+                                                            <span className="text-xs text-purple-300 flex items-center gap-1">
+                                                                <Sparkles className="w-3 h-3" />
+                                                                AI가 발견한 내면의 반응
+                                                            </span>
+                                                            <button
+                                                                onClick={() => {
+                                                                    const seq = getSequence();
+                                                                    setLocalConcept({
+                                                                        ...localConcept,
+                                                                        sequence: { ...seq, aiReactionSuggestions: [] }
+                                                                    });
+                                                                }}
+                                                                className="text-xs text-white/30 hover:text-white/50"
+                                                            >
+                                                                닫기
+                                                            </button>
+                                                        </div>
+                                                        <div className="flex flex-wrap gap-2">
+                                                            {sequence.aiReactionSuggestions.map((suggestion) => (
+                                                                <div key={suggestion.id} className="flex items-center gap-1 animate-fadeIn">
+                                                                    <button
+                                                                        onClick={() => handleSelectAIReaction(suggestion.id)}
+                                                                        className="px-3 py-1.5 rounded-full text-xs bg-purple-500/10 text-purple-200 border border-purple-500/30 hover:bg-purple-500/20 hover:border-purple-500/50 transition-all text-left"
+                                                                    >
+                                                                        {suggestion.text}
+                                                                    </button>
+                                                                    <button
+                                                                        onClick={() => handleRejectAIReaction(suggestion.id)}
+                                                                        className="p-1 rounded-full text-white/20 hover:text-white/40 hover:bg-white/5"
+                                                                    >
+                                                                        <X className="w-3 h-3" />
+                                                                    </button>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    </div>
+                                                )}
+
+                                                {/* 4. AI 생성 버튼 (제안 없고 뉴스 있을 때) */}
+                                                {isAIEnabled() && sequence.recent.length > 0 && (!sequence.aiReactionSuggestions || sequence.aiReactionSuggestions.length === 0) && (
+                                                    <button
+                                                        onClick={handleGenerateReactions}
+                                                        disabled={aiReactionsLoading}
+                                                        className="w-full py-2.5 flex items-center justify-center gap-2 text-xs text-purple-300/70 bg-purple-500/5 border border-purple-500/10 rounded-xl hover:bg-purple-500/10 transition-all"
+                                                    >
+                                                        {aiReactionsLoading ? (
+                                                            <Loader2 className="w-3 h-3 animate-spin" />
+                                                        ) : (
+                                                            <Sparkles className="w-3 h-3" />
+                                                        )}
+                                                        {aiReactionsLoading ? 'AI가 반응을 분석중입니다...' : '이 뉴스에서 어떤 마음이 들었나요? (AI 도움받기)'}
+                                                    </button>
+                                                )}
+
+                                                {aiError && <p className="text-xs text-red-400 mt-2 text-center">{aiError}</p>}
+                                            </div>
+
                                             {/* A Statement - 바로 입력 가능, 전체 저장 시 저장됨 */}
                                             <div className="mt-4 p-4 bg-gradient-to-r from-purple-500/10 to-pink-500/10 rounded-xl border border-purple-500/20">
                                                 <span className="text-xs text-purple-300/70 font-medium block mb-2">A 문장 (세상의 관점)</span>
@@ -1429,6 +1519,81 @@ export const InsightDrawer: React.FC<InsightDrawerProps> = ({
                                                     />
                                                     <span className="text-white/60">."</span>
                                                 </div>
+                                            </div>
+
+                                            {/* AI Conclusion Helper */}
+                                            <div className="pt-2">
+                                                {/* All logic simplified to flat conditions */}
+                                                {!isAIEnabled() && (
+                                                    <div className="w-full py-2.5 flex items-center justify-center gap-2 text-xs text-red-400/70 bg-red-500/5 border border-red-500/10 rounded-xl mb-2">
+                                                        <Sparkles className="w-3 h-3" />
+                                                        <span>AI 기능을 사용하려면 설정이 필요합니다</span>
+                                                    </div>
+                                                )}
+
+                                                {isAIEnabled() && !sequence.responses.some(r => r.pinned) && sequence.responses.length > 0 && (
+                                                    <div className="w-full py-2.5 flex items-center justify-center gap-2 text-xs text-white/30 bg-white/5 border border-white/5 rounded-xl cursor-not-allowed">
+                                                        <Sparkles className="w-3 h-3" />
+                                                        <span>중요한 반응을 핀(고정)하면 AI가 결론을 제안합니다</span>
+                                                    </div>
+                                                )}
+
+                                                {isAIEnabled() && sequence.responses.some(r => r.pinned) && sequence.aiConclusionSuggestions && sequence.aiConclusionSuggestions.length > 0 && (
+                                                    <div className="space-y-2">
+                                                        <div className="flex items-center justify-between px-1">
+                                                            <span className="text-xs text-green-300 flex items-center gap-1">
+                                                                <Sparkles className="w-3 h-3" />
+                                                                AI가 제안하는 성경적 관점
+                                                            </span>
+                                                            <button
+                                                                onClick={() => {
+                                                                    const seq = getSequence();
+                                                                    setLocalConcept({
+                                                                        ...localConcept,
+                                                                        sequence: { ...seq, aiConclusionSuggestions: [] }
+                                                                    });
+                                                                }}
+                                                                className="text-xs text-white/30 hover:text-white/50"
+                                                            >
+                                                                닫기
+                                                            </button>
+                                                        </div>
+                                                        <div className="grid gap-2">
+                                                            {sequence.aiConclusionSuggestions.map((suggestion) => (
+                                                                <div
+                                                                    key={suggestion.id}
+                                                                    className="p-3 bg-green-500/5 border border-green-500/20 rounded-xl hover:bg-green-500/10 transition-all cursor-pointer group"
+                                                                    onClick={() => handleSelectAIConclusion(suggestion.id)}
+                                                                >
+                                                                    <div className="flex gap-2">
+                                                                        <Sparkles className="w-4 h-4 text-green-400 flex-shrink-0 mt-0.5" />
+                                                                        <p className="text-sm text-green-100/80 leading-relaxed">
+                                                                            {suggestion.text.replace('그러나 성경에서 ', '').replace(/는\(은\)|은\(는\)/, '').replace('라기보다', '...라기보다').trim()}
+                                                                        </p>
+                                                                    </div>
+                                                                    <p className="text-[10px] text-green-500/50 mt-2 pl-6 group-hover:text-green-500/70">
+                                                                        클릭하여 이 결론 선택하기
+                                                                    </p>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    </div>
+                                                )}
+
+                                                {isAIEnabled() && sequence.responses.some(r => r.pinned) && (!sequence.aiConclusionSuggestions || sequence.aiConclusionSuggestions.length === 0) && (
+                                                    <button
+                                                        onClick={handleGenerateConclusions}
+                                                        disabled={aiConclusionsLoading}
+                                                        className="w-full py-2.5 flex items-center justify-center gap-2 text-xs text-green-300/70 bg-green-500/5 border border-green-500/10 rounded-xl hover:bg-green-500/10 transition-all"
+                                                    >
+                                                        {aiConclusionsLoading ? (
+                                                            <Loader2 className="w-3 h-3 animate-spin" />
+                                                        ) : (
+                                                            <Sparkles className="w-3 h-3" />
+                                                        )}
+                                                        {aiConclusionsLoading ? '성경적 관점을 찾고 있습니다...' : '이 반응들을 성경에서는 어떻게 볼까요? (AI 도움받기)'}
+                                                    </button>
+                                                )}
                                             </div>
                                         </section>
 
@@ -1558,6 +1723,58 @@ export const InsightDrawer: React.FC<InsightDrawerProps> = ({
                                                     })}
                                                 </div>
                                             )}
+                                            {/* AI Scripture Suggestions */}
+                                            {isAIEnabled() && localConcept.conclusion && (sequence.aiScriptureSuggestions?.length ?? 0) > 0 && (
+                                                <div className="mt-4 pt-4 border-t border-white/5">
+                                                    <div className="flex items-center justify-between mb-3">
+                                                        <span className="text-xs text-amber-300 flex items-center gap-1">
+                                                            <Sparkles className="w-3 h-3" />
+                                                            AI가 연결한 말씀 추천
+                                                        </span>
+                                                        <button
+                                                            onClick={() => {
+                                                                const seq = getSequence();
+                                                                setLocalConcept({
+                                                                    ...localConcept,
+                                                                    sequence: { ...seq, aiScriptureSuggestions: [] }
+                                                                });
+                                                            }}
+                                                            className="text-xs text-white/30 hover:text-white/50"
+                                                        >
+                                                            닫기
+                                                        </button>
+                                                    </div>
+                                                    <div className="space-y-2">
+                                                        {sequence.aiScriptureSuggestions!.map((suggestion) => {
+                                                            const reflection = allReflections.find(r => r.id === suggestion.reflectionId);
+                                                            if (!reflection) return null;
+                                                            return (
+                                                                <div
+                                                                    key={suggestion.reflectionId}
+                                                                    className="p-3 bg-amber-500/5 border border-amber-500/20 rounded-xl hover:bg-amber-500/10 transition-all cursor-pointer group"
+                                                                    onClick={() => handlePinAIScripture(suggestion.reflectionId)}
+                                                                >
+                                                                    <div className="flex justify-between items-start gap-2 mb-1">
+                                                                        <span className="px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 text-[10px] font-medium">
+                                                                            {reflection.bibleRef || '말씀'}
+                                                                        </span>
+                                                                        <span className="text-[10px] text-amber-500/50">
+                                                                            {Math.round((suggestion.similarity ?? 0) * 100)}% 일치
+                                                                        </span>
+                                                                    </div>
+                                                                    <p className="text-xs text-white/60 line-clamp-2 mb-2">
+                                                                        {cleanContent(reflection.content).text}
+                                                                    </p>
+                                                                    <div className="flex items-center gap-1 text-[10px] text-amber-300/70 bg-amber-500/10 px-2 py-1 rounded-lg">
+                                                                        <Sparkles className="w-2.5 h-2.5" />
+                                                                        {suggestion.reason}
+                                                                    </div>
+                                                                </div>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                </div>
+                                            )}
                                         </section>
 
                                         {/* ========== 저장 & 읽기 모드 전환 버튼 (편집 모드 전용) ========== */}
@@ -1577,15 +1794,16 @@ export const InsightDrawer: React.FC<InsightDrawerProps> = ({
 
                                                         // 새 카드 생성 모드
                                                         if (isNewMode && onCreateNew && localConcept.id.startsWith('temp_')) {
-                                                            const savedConcept = await onCreateNew(localConcept);
                                                             if (savedConcept) {
                                                                 setLocalConcept(savedConcept);
-                                                                setIsViewMode(true);
+                                                                // 상태 업데이트가 충분히 반영된 후 모드 전환
+                                                                setTimeout(() => setIsViewMode(true), 100);
                                                             }
                                                         } else {
                                                             // 기존 카드 저장
-                                                            saveToFirestore(localConcept);
-                                                            setIsViewMode(true);
+                                                            await saveToFirestore(localConcept);
+                                                            // 안전하게 모드 전환
+                                                            setTimeout(() => setIsViewMode(true), 100);
                                                         }
                                                     }}
                                                     className="w-full py-3 bg-gradient-to-r from-indigo-500 to-purple-500 text-white font-bold rounded-xl hover:opacity-90 transition-opacity flex items-center justify-center gap-2"

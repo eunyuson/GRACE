@@ -258,6 +258,7 @@ export const ConceptCards: React.FC<ConceptCardsProps> = ({ onViewRelated }) => 
                                         )}
 
                                         {/* Question Section */}
+                                        {/* Question Section */}
                                         <div className="mt-6 pt-4 border-t border-white/10">
                                             <div className="flex items-start gap-3">
                                                 <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-purple-500/20 to-pink-500/20 flex items-center justify-center flex-shrink-0">
@@ -272,98 +273,36 @@ export const ConceptCards: React.FC<ConceptCardsProps> = ({ onViewRelated }) => 
                                                     </p>
                                                 </div>
                                             </div>
-
-                                            {/* View Related Button */}
-                                            <button
-                                                onClick={(e) => { e.stopPropagation(); handleViewRelated(concept); }}
-                                                className="mt-4 w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-white/5 text-xs text-indigo-400/80 hover:text-indigo-300 hover:bg-indigo-500/10 transition-all border border-white/5 hover:border-indigo-500/20 group/btn"
-                                            >
-                                                <Link2 size={12} />
-                                                <span>같은 질문을 품은 기록 보기</span>
-                                                <ChevronRight size={14} className="group-hover/btn:translate-x-1 transition-transform" />
-                                            </button>
                                         </div>
 
-                                        {/* A-B Evidence Panel */}
-                                        {((concept.bridge?.aEvidence?.length ?? 0) > 0 || (concept.bridge?.bEvidence?.length ?? 0) > 0 || concept.bridge?.aStatement || concept.bridge?.bStatement) && (
-                                            <div className="mt-6 pt-4 border-t border-white/10 space-y-4">
-                                                {/* -A Panel: 세상에서 이렇게 말함 */}
-                                                {(concept.bridge?.aStatement || (concept.bridge?.aEvidence?.length ?? 0) > 0) && (
-                                                    <div className="p-3 bg-orange-500/5 border border-orange-500/20 rounded-xl">
-                                                        <div className="flex items-center gap-2 mb-2">
-                                                            <span className="text-orange-400 font-bold text-xs">-A</span>
-                                                            <span className="text-[10px] text-orange-300/70 uppercase tracking-wider">세상에서 이렇게 말함</span>
-                                                        </div>
-                                                        {concept.bridge?.aStatement && (
-                                                            <p className="text-white/60 text-xs italic mb-2 line-clamp-2">
-                                                                "{concept.bridge.aStatement}"
-                                                            </p>
-                                                        )}
-                                                        {concept.bridge?.aEvidence && concept.bridge.aEvidence.length > 0 && (
-                                                            <div className="flex gap-2 overflow-x-auto pb-1">
-                                                                {concept.bridge.aEvidence.slice(0, 3).map(ev => (
-                                                                    <div
-                                                                        key={ev.id}
-                                                                        className="flex-shrink-0 px-2 py-1 bg-orange-500/10 rounded-lg border border-orange-500/20 max-w-[120px]"
-                                                                    >
-                                                                        <div className="flex items-center gap-1 mb-0.5">
-                                                                            {ev.pinned && <span className="text-[8px]">📌</span>}
-                                                                            <span className="text-[8px] text-orange-300/60 uppercase">
-                                                                                {ev.sourceType === 'news' ? '뉴스' : '묵상'}
-                                                                            </span>
-                                                                        </div>
-                                                                        <p className="text-[10px] text-white/50 line-clamp-2">{ev.excerpt}</p>
-                                                                    </div>
-                                                                ))}
-                                                                {concept.bridge.aEvidence.length > 3 && (
-                                                                    <div className="flex-shrink-0 px-2 py-1 flex items-center text-[10px] text-orange-300/50">
-                                                                        +{concept.bridge.aEvidence.length - 3}
-                                                                    </div>
-                                                                )}
-                                                            </div>
-                                                        )}
-                                                    </div>
+                                        {/* A-B Content (Merged & Simply displayed) */}
+                                        {((concept as any).sequence?.aStatement || (concept as any).conclusion || concept.bridge?.aStatement || concept.bridge?.bStatement) && (
+                                            <div className="mt-6 p-4 bg-white/5 rounded-2xl border border-white/5 space-y-3">
+                                                {/* A 문장 */}
+                                                {((concept as any).sequence?.aStatement || concept.bridge?.aStatement) && (
+                                                    <p className="text-white/60 text-sm leading-relaxed">
+                                                        "우리는 보통 <span className="text-white/80 font-medium">{concept.conceptName}</span>를(을) <span className="text-white/90 underline decoration-white/30 decoration-1 underline-offset-4">{(concept as any).sequence?.aStatement || concept.bridge?.aStatement}</span>라고 생각합니다.
+                                                    </p>
                                                 )}
 
-                                                {/* ~B Panel: 성경에서 이렇게 부름 */}
-                                                {(concept.bridge?.bStatement || (concept.bridge?.bEvidence?.length ?? 0) > 0) && (
-                                                    <div className="p-3 bg-blue-500/5 border border-blue-500/20 rounded-xl">
-                                                        <div className="flex items-center gap-2 mb-2">
-                                                            <span className="text-blue-400 font-bold text-xs">~B</span>
-                                                            <span className="text-[10px] text-blue-300/70 uppercase tracking-wider">성경에서 이렇게 부름</span>
-                                                        </div>
-                                                        {concept.bridge?.bStatement && (
-                                                            <p className="text-white/60 text-xs italic mb-2 line-clamp-2">
-                                                                "{concept.bridge.bStatement}"
-                                                            </p>
-                                                        )}
-                                                        {concept.bridge?.bEvidence && concept.bridge.bEvidence.length > 0 && (
-                                                            <div className="flex gap-2 overflow-x-auto pb-1">
-                                                                {concept.bridge.bEvidence.slice(0, 3).map(ev => (
-                                                                    <div
-                                                                        key={ev.id}
-                                                                        className="flex-shrink-0 px-2 py-1 bg-blue-500/10 rounded-lg border border-blue-500/20 max-w-[120px]"
-                                                                    >
-                                                                        <div className="flex items-center gap-1 mb-0.5">
-                                                                            {ev.pinned && <span className="text-[8px]">📌</span>}
-                                                                            <span className="text-[8px] text-blue-300/60 uppercase">
-                                                                                {ev.sourceType === 'news' ? '뉴스' : '묵상'}
-                                                                            </span>
-                                                                        </div>
-                                                                        <p className="text-[10px] text-white/50 line-clamp-2">{ev.excerpt}</p>
-                                                                    </div>
-                                                                ))}
-                                                                {concept.bridge.bEvidence.length > 3 && (
-                                                                    <div className="flex-shrink-0 px-2 py-1 flex items-center text-[10px] text-blue-300/50">
-                                                                        +{concept.bridge.bEvidence.length - 3}
-                                                                    </div>
-                                                                )}
-                                                            </div>
-                                                        )}
-                                                    </div>
+                                                {/* B 문장 */}
+                                                {((concept as any).conclusion || concept.bridge?.bStatement) && (
+                                                    <p className="text-white/60 text-sm leading-relaxed">
+                                                        그러나 성경에서 <span className="text-white/80 font-medium">{concept.conceptName}</span>는(은) <span className="text-emerald-400 font-bold underline decoration-emerald-500/30 decoration-1 underline-offset-4">{(concept as any).conclusion || concept.bridge?.bStatement}</span>."
+                                                    </p>
                                                 )}
                                             </div>
                                         )}
+
+                                        {/* View Related Button (Moved to bottom) */}
+                                        <button
+                                            onClick={(e) => { e.stopPropagation(); handleViewRelated(concept); }}
+                                            className="mt-6 w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-white/5 text-xs text-indigo-400/80 hover:text-indigo-300 hover:bg-indigo-500/10 transition-all border border-white/5 hover:border-indigo-500/20 group/btn"
+                                        >
+                                            <Link2 size={12} />
+                                            <span>같은 질문을 품은 기록 보기</span>
+                                            <ChevronRight size={14} className="group-hover/btn:translate-x-1 transition-transform" />
+                                        </button>
                                     </div>
 
                                     {/* Actions */}
