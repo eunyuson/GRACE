@@ -42,6 +42,7 @@ export interface BridgeData {
 export interface SequenceItem {
     sourceType: 'news' | 'reflection';   // 소스 타입
     sourceId: string;                    // 원본 문서 ID
+    sourcePath?: string;                 // 전체 Firestore 경로 (서브컬렉션용, 예: users/uid/memos/id)
     pinned: boolean;                     // 사용자가 확정한 연결
     confidence?: number;                 // AI 추천 신뢰도 (0-1)
     addedAt: any;                        // 추가된 시간

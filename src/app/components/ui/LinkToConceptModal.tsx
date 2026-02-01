@@ -6,8 +6,9 @@ import { db } from '../../firebase';
 import { ConceptCard, EvidenceItem, BridgeData } from '../../types/questionBridge';
 
 interface LinkToConceptModalProps {
-    sourceId: string;
     sourceType: 'news' | 'reflection';
+    sourceId: string;
+    sourcePath?: string; // Add sourcePath
     sourceTitle?: string;
     sourceExcerpt?: string;
     onClose: () => void;
@@ -17,6 +18,7 @@ interface LinkToConceptModalProps {
 export const LinkToConceptModal: React.FC<LinkToConceptModalProps> = ({
     sourceId,
     sourceType,
+    sourcePath,
     sourceTitle,
     sourceExcerpt,
     onClose,
@@ -97,6 +99,7 @@ export const LinkToConceptModal: React.FC<LinkToConceptModalProps> = ({
             const sequenceItem = {
                 sourceType,
                 sourceId,
+                sourcePath, // Save sourcePath
                 pinned,
                 confidence: 1.0, // 수동 연결 = 100% 신뢰도
                 addedAt: serverTimestamp()

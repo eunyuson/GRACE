@@ -24,7 +24,7 @@ export const ConceptCards: React.FC<ConceptCardsProps> = ({ onViewRelated }) => 
     const [loading, setLoading] = useState(true);
     const [currentUser, setCurrentUser] = useState<User | null>(null);
 
-    // Create/Edit Modal
+    // Create/Edit Modal (이전 방식 - 점진적 제거 예정)
     const [isCreateMode, setIsCreateMode] = useState(false);
     const [editingConcept, setEditingConcept] = useState<ConceptCard | null>(null);
 
@@ -41,6 +41,9 @@ export const ConceptCards: React.FC<ConceptCardsProps> = ({ onViewRelated }) => 
 
     // InsightDrawer (Sequence Card) 상태
     const [selectedConceptForDrawer, setSelectedConceptForDrawer] = useState<ConceptCard | null>(null);
+
+    // 새 카드 생성 모드: InsightDrawer에서 새 카드 생성 시 사용
+    const [isNewCardMode, setIsNewCardMode] = useState(false);
 
     // Auth listener
     useEffect(() => {
@@ -223,36 +226,45 @@ export const ConceptCards: React.FC<ConceptCardsProps> = ({ onViewRelated }) => 
                                     exit={{ opacity: 0, scale: 0.95 }}
                                     transition={{ duration: 0.3, delay: index * 0.05 }}
                                     onClick={() => setSelectedConceptForDrawer(concept)}
-                                    className="group relative bg-gradient-to-br from-[#1a1a2e] to-[#16213e] border border-white/10 rounded-3xl p-6 hover:border-indigo-500/30 transition-all duration-300 cursor-pointer"
+                                    className="group relative overflow-hidden bg-gradient-to-br from-[#1a1a2e] via-[#1e1e3a] to-[#16213e] border border-white/10 rounded-3xl p-6 hover:border-indigo-500/40 hover:shadow-xl hover:shadow-indigo-500/10 transition-all duration-500 cursor-pointer"
                                 >
+                                    {/* Animated gradient background */}
+                                    <div className="absolute inset-0 bg-gradient-to-br from-indigo-600/0 via-purple-600/0 to-pink-600/0 group-hover:from-indigo-600/5 group-hover:via-purple-600/5 group-hover:to-pink-600/5 transition-all duration-500" />
+
+                                    {/* Glow effect */}
+                                    <div className="absolute -top-24 -right-24 w-48 h-48 bg-indigo-500/20 rounded-full blur-3xl opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+
                                     {/* Type Badge */}
-                                    <div className="absolute top-4 right-4">
-                                        <span className="px-2 py-1 bg-indigo-500/20 text-indigo-300 text-[10px] uppercase tracking-widest rounded-full">
+                                    <div className="absolute top-4 right-4 z-10">
+                                        <span className="px-3 py-1.5 bg-gradient-to-r from-indigo-500/20 to-purple-500/20 text-indigo-300 text-[10px] uppercase tracking-widest rounded-full border border-indigo-500/20 backdrop-blur-sm flex items-center gap-1.5">
+                                            <Lightbulb size={10} className="text-yellow-400" />
                                             CONCEPT
                                         </span>
                                     </div>
 
                                     {/* Content */}
-                                    <div className="pr-16">
-                                        <h3 className="text-2xl font-bold text-white mb-3">
+                                    <div className="relative z-10 pr-16">
+                                        <h3 className="text-2xl font-bold text-white mb-3 group-hover:text-indigo-100 transition-colors">
                                             {concept.conceptName}
                                         </h3>
 
                                         {concept.conceptPhrase && (
-                                            <p className="text-white/60 text-sm leading-relaxed mb-4 italic">
+                                            <p className="text-white/60 text-sm leading-relaxed mb-4 italic border-l-2 border-indigo-500/30 pl-3">
                                                 "{concept.conceptPhrase}"
                                             </p>
                                         )}
 
                                         {/* Question Section */}
                                         <div className="mt-6 pt-4 border-t border-white/10">
-                                            <div className="flex items-start gap-2">
-                                                <span className="text-lg">❓</span>
-                                                <div>
+                                            <div className="flex items-start gap-3">
+                                                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-purple-500/20 to-pink-500/20 flex items-center justify-center flex-shrink-0">
+                                                    <span className="text-base">❓</span>
+                                                </div>
+                                                <div className="flex-1">
                                                     <p className="text-[10px] uppercase tracking-widest text-white/40 mb-1">
                                                         이 개념이 붙잡고 있는 질문
                                                     </p>
-                                                    <p className="text-white/80 text-sm font-medium">
+                                                    <p className="text-white/80 text-sm font-medium leading-relaxed">
                                                         {concept.question}
                                                     </p>
                                                 </div>
@@ -261,11 +273,11 @@ export const ConceptCards: React.FC<ConceptCardsProps> = ({ onViewRelated }) => 
                                             {/* View Related Button */}
                                             <button
                                                 onClick={(e) => { e.stopPropagation(); handleViewRelated(concept); }}
-                                                className="mt-4 flex items-center gap-2 text-xs text-indigo-400/70 hover:text-indigo-300 transition-colors group/btn"
+                                                className="mt-4 w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-white/5 text-xs text-indigo-400/80 hover:text-indigo-300 hover:bg-indigo-500/10 transition-all border border-white/5 hover:border-indigo-500/20 group/btn"
                                             >
                                                 <Link2 size={12} />
                                                 <span>같은 질문을 품은 기록 보기</span>
-                                                <span className="group-hover/btn:translate-x-1 transition-transform">→</span>
+                                                <ChevronRight size={14} className="group-hover/btn:translate-x-1 transition-transform" />
                                             </button>
                                         </div>
 
@@ -378,7 +390,30 @@ export const ConceptCards: React.FC<ConceptCardsProps> = ({ onViewRelated }) => 
                 <motion.button
                     whileHover={{ scale: 1.1 }}
                     whileTap={{ scale: 0.9 }}
-                    onClick={() => setIsCreateMode(true)}
+                    onClick={() => {
+                        // 새 카드 생성: 빈 ConceptCard 생성 후 InsightDrawer 열기
+                        if (!currentUser) return;
+                        const newConcept: ConceptCard = {
+                            id: `temp_${Date.now()}`, // 임시 ID
+                            conceptName: '',
+                            conceptPhrase: '',
+                            question: '',
+                            type: 'concept',
+                            userId: currentUser.uid,
+                            userName: currentUser.displayName || '익명',
+                            sequence: {
+                                recent: [],
+                                responses: [],
+                                aStatement: '',
+                                scriptureSupport: [],
+                                aiReactionSuggestions: [],
+                                aiConclusionSuggestions: [],
+                                aiScriptureSuggestions: []
+                            }
+                        };
+                        setSelectedConceptForDrawer(newConcept);
+                        setIsNewCardMode(true);
+                    }}
                     className="fixed bottom-8 right-8 z-[2000] bg-gradient-to-r from-indigo-500 to-purple-500 text-white p-4 rounded-full shadow-2xl hover:shadow-indigo-500/30 transition-all flex items-center justify-center"
                     initial={{ scale: 0 }}
                     animate={{ scale: 1 }}
@@ -406,11 +441,18 @@ export const ConceptCards: React.FC<ConceptCardsProps> = ({ onViewRelated }) => 
                             className="bg-gradient-to-br from-[#1a1a2e] to-[#16213e] rounded-3xl w-full max-w-xl max-h-[90vh] overflow-y-auto border border-white/10 shadow-2xl"
                         >
                             <div className="p-6 md:p-8">
-                                <div className="flex items-center justify-between mb-6">
-                                    <h2 className="text-2xl font-bold text-white flex items-center gap-3">
-                                        <Lightbulb className="text-yellow-400" />
-                                        {editingConcept ? '개념 카드 수정' : '새 개념 카드'}
-                                    </h2>
+                                {/* Header - 개념 이름 입력 */}
+                                <div className="flex items-center justify-between mb-2">
+                                    <div className="flex items-center gap-3">
+                                        <Lightbulb className="text-yellow-400 w-8 h-8" />
+                                        <input
+                                            type="text"
+                                            value={conceptName}
+                                            onChange={e => setConceptName(e.target.value)}
+                                            placeholder="개념 이름"
+                                            className="text-2xl font-bold text-white bg-transparent border-none outline-none placeholder-white/30 w-full"
+                                        />
+                                    </div>
                                     <button
                                         onClick={resetForm}
                                         className="p-2 hover:bg-white/10 rounded-full transition-colors"
@@ -419,66 +461,130 @@ export const ConceptCards: React.FC<ConceptCardsProps> = ({ onViewRelated }) => 
                                     </button>
                                 </div>
 
+                                {/* Question - 질문 입력 */}
+                                <div className="mb-6 relative">
+                                    <input
+                                        type="text"
+                                        value={question}
+                                        onChange={e => setQuestion(e.target.value.slice(0, QUESTION_MAX_LENGTH))}
+                                        placeholder="이 개념이 붙잡고 있는 질문은?"
+                                        className="text-sm text-white/50 bg-transparent border-none outline-none placeholder-white/30 w-full"
+                                    />
+                                    {question && (
+                                        <span className="text-[10px] text-white/30">{question.length}/{QUESTION_MAX_LENGTH}</span>
+                                    )}
+                                </div>
+
                                 {error && (
                                     <div className="mb-4 p-3 bg-red-500/20 border border-red-500/30 rounded-xl text-red-300 text-sm">
                                         {error}
                                     </div>
                                 )}
 
-                                <div className="space-y-5">
-                                    {/* Concept Name - 필수 */}
-                                    <div>
-                                        <label className="block text-white/70 text-sm mb-2">
-                                            개념 이름 <span className="text-red-400">*</span>
-                                        </label>
-                                        <input
-                                            type="text"
-                                            value={conceptName}
-                                            onChange={e => setConceptName(e.target.value)}
-                                            placeholder="예: 주도권"
-                                            className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-white/30 focus:outline-none focus:border-indigo-500/50"
-                                        />
-                                    </div>
-
-                                    {/* Question - 필수 */}
-                                    <div>
-                                        <label className="block text-white/70 text-sm mb-2">
-                                            {QUESTION_PROMPTS.concept.title} <span className="text-red-400">*</span>
-                                        </label>
-                                        <p className="text-white/30 text-xs mb-2">
-                                            {QUESTION_PROMPTS.concept.hint}
-                                        </p>
-                                        <div className="relative">
-                                            <textarea
-                                                value={question}
-                                                onChange={e => setQuestion(e.target.value.slice(0, QUESTION_MAX_LENGTH))}
-                                                placeholder={QUESTION_PROMPTS.concept.placeholder}
-                                                rows={2}
-                                                className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-white/30 focus:outline-none focus:border-indigo-500/50 resize-none"
-                                            />
-                                            <span className={`absolute bottom-2 right-3 text-xs ${question.length >= QUESTION_MAX_LENGTH ? 'text-red-400' : 'text-white/30'}`}>
-                                                {question.length}/{QUESTION_MAX_LENGTH}
-                                            </span>
+                                <div className="space-y-6">
+                                    {/* ========== Section 1: A 문장 (세상의 관점) ========== */}
+                                    <section className="relative">
+                                        <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-orange-500 to-orange-600 rounded-full" />
+                                        <div className="pl-5">
+                                            <div className="flex items-center gap-2 mb-3">
+                                                <span className="px-2 py-1 bg-orange-500/20 text-orange-300 text-xs font-bold rounded-full">A</span>
+                                                <span className="text-[10px] uppercase tracking-wider text-orange-300/70">세상의 관점</span>
+                                            </div>
+                                            <div className="bg-gradient-to-br from-orange-500/10 to-orange-600/5 border border-orange-500/20 rounded-2xl p-4">
+                                                <p className="text-white/60 text-sm mb-2">"우리는 보통</p>
+                                                <div className="flex items-center gap-2 mb-2">
+                                                    <input
+                                                        type="text"
+                                                        value={conceptName}
+                                                        readOnly
+                                                        className="text-orange-300 font-semibold bg-orange-500/10 px-2 py-1 rounded border border-orange-500/20 text-sm"
+                                                        placeholder="___"
+                                                    />
+                                                    <span className="text-white/60 text-sm">를(을)</span>
+                                                </div>
+                                                <textarea
+                                                    value={conceptPhrase}
+                                                    onChange={e => setConceptPhrase(e.target.value)}
+                                                    placeholder="___라고 생각합니다. (세상이 말하는 정의)"
+                                                    rows={2}
+                                                    className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-white text-sm placeholder-white/30 focus:outline-none focus:border-orange-500/40 resize-none"
+                                                />
+                                                <p className="text-white/40 text-sm mt-1">...라고 생각합니다."</p>
+                                            </div>
                                         </div>
-                                    </div>
+                                    </section>
 
-                                    {/* Concept Phrase - 선택 */}
-                                    <div>
-                                        <label className="block text-white/50 text-sm mb-2">
-                                            한 문장 정의 (선택)
-                                        </label>
-                                        <textarea
-                                            value={conceptPhrase}
-                                            onChange={e => setConceptPhrase(e.target.value)}
-                                            placeholder="예: 주도권은 붙잡는 힘이 아니라, 누구를 따르고 있는지를 드러낸다"
-                                            rows={2}
-                                            className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-white/30 focus:outline-none focus:border-white/20 resize-none"
-                                        />
-                                    </div>
+                                    {/* ========== Section 2: 뉴스 연결 영역 ========== */}
+                                    <section className="relative">
+                                        <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-blue-500 to-cyan-500 rounded-full" />
+                                        <div className="pl-5">
+                                            <div className="flex items-center gap-2 mb-3">
+                                                <span className="text-blue-400 text-xs">📰</span>
+                                                <span className="text-[10px] uppercase tracking-wider text-blue-300/70">이 관점이 보이는 뉴스</span>
+                                            </div>
+                                            <div
+                                                className="relative overflow-hidden rounded-2xl cursor-pointer transition-all group/news hover:scale-[1.01] border border-dashed border-blue-400/30 hover:border-blue-400/50 bg-gradient-to-br from-blue-600/5 to-cyan-500/5"
+                                            >
+                                                <div className="py-8 px-6 text-center">
+                                                    <div className="w-12 h-12 mx-auto mb-3 rounded-xl bg-blue-500/20 flex items-center justify-center">
+                                                        <Plus className="w-6 h-6 text-blue-400" />
+                                                    </div>
+                                                    <p className="text-white/50 text-sm">저장 후 InsightDrawer에서 뉴스를 연결하세요</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </section>
+
+                                    {/* ========== Section 3: B 문장 (성경의 관점) ========== */}
+                                    <section className="relative">
+                                        <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-emerald-500 to-teal-500 rounded-full" />
+                                        <div className="pl-5">
+                                            <div className="flex items-center gap-2 mb-3">
+                                                <span className="px-2 py-1 bg-emerald-500/20 text-emerald-300 text-xs font-bold rounded-full">B</span>
+                                                <span className="text-[10px] uppercase tracking-wider text-emerald-300/70">성경의 관점</span>
+                                            </div>
+                                            <div className="bg-gradient-to-br from-emerald-500/10 to-teal-600/5 border border-emerald-500/20 rounded-2xl p-4">
+                                                <p className="text-white/60 text-sm mb-2">"그러나 성경에서</p>
+                                                <div className="flex items-center gap-2 mb-2">
+                                                    <input
+                                                        type="text"
+                                                        value={conceptName}
+                                                        readOnly
+                                                        className="text-emerald-300 font-semibold bg-emerald-500/10 px-2 py-1 rounded border border-emerald-500/20 text-sm"
+                                                        placeholder="___"
+                                                    />
+                                                    <span className="text-white/60 text-sm">는(은)</span>
+                                                </div>
+                                                <p className="text-white/40 text-sm italic mb-2">___라기보다 ___입니다."</p>
+                                                <p className="text-white/30 text-xs mt-2">※ 저장 후 InsightDrawer에서 결론을 작성하세요</p>
+                                            </div>
+                                        </div>
+                                    </section>
+
+                                    {/* ========== Section 4: 묵상 연결 영역 ========== */}
+                                    <section className="relative">
+                                        <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-amber-500 to-yellow-500 rounded-full" />
+                                        <div className="pl-5">
+                                            <div className="flex items-center gap-2 mb-3">
+                                                <span className="text-amber-400 text-xs">📖</span>
+                                                <span className="text-[10px] uppercase tracking-wider text-amber-300/70">이 결론을 뒷받침하는 묵상</span>
+                                            </div>
+                                            <div
+                                                className="relative overflow-hidden rounded-2xl cursor-pointer transition-all group/meditation hover:scale-[1.01] border border-dashed border-amber-400/30 hover:border-amber-400/50 bg-gradient-to-br from-amber-600/5 to-yellow-500/5"
+                                            >
+                                                <div className="py-8 px-6 text-center">
+                                                    <div className="w-12 h-12 mx-auto mb-3 rounded-xl bg-amber-500/20 flex items-center justify-center">
+                                                        <Plus className="w-6 h-6 text-amber-400" />
+                                                    </div>
+                                                    <p className="text-white/50 text-sm">저장 후 InsightDrawer에서 묵상을 연결하세요</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </section>
                                 </div>
 
                                 {/* Actions */}
-                                <div className="flex justify-end gap-3 mt-8">
+                                <div className="flex justify-end gap-3 mt-8 pt-6 border-t border-white/10">
                                     <button
                                         onClick={resetForm}
                                         className="px-5 py-2.5 rounded-xl text-white/70 hover:bg-white/10 transition-colors"
@@ -515,10 +621,34 @@ export const ConceptCards: React.FC<ConceptCardsProps> = ({ onViewRelated }) => 
                 <InsightDrawer
                     concept={selectedConceptForDrawer}
                     isOpen={!!selectedConceptForDrawer}
-                    onClose={() => setSelectedConceptForDrawer(null)}
+                    onClose={() => {
+                        setSelectedConceptForDrawer(null);
+                        setIsNewCardMode(false);
+                    }}
                     onUpdate={(updated) => {
                         handleConceptUpdate(updated);
                         setSelectedConceptForDrawer(updated);
+                    }}
+                    isNewMode={isNewCardMode}
+                    onCreateNew={async (newConcept) => {
+                        // 새 카드를 Firestore에 저장
+                        try {
+                            // 임시 ID 제외하고 저장
+                            const { id: tempId, ...conceptData } = newConcept;
+                            const docRef = await addDoc(collection(db, 'concepts'), {
+                                ...conceptData,
+                                createdAt: serverTimestamp(),
+                                updatedAt: serverTimestamp()
+                            });
+                            // 저장된 ID로 업데이트
+                            const savedConcept = { ...newConcept, id: docRef.id };
+                            setSelectedConceptForDrawer(savedConcept);
+                            setIsNewCardMode(false);
+                            return savedConcept;
+                        } catch (err) {
+                            console.error('Create concept error:', err);
+                            return null;
+                        }
                     }}
                 />
             )}

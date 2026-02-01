@@ -895,6 +895,7 @@ export const MyReflections: React.FC<MyReflectionsProps> = ({ onSelectCallback }
                 <LinkToConceptModal
                     sourceId={viewingMemo.id}
                     sourceType="reflection"
+                    sourcePath={viewingMemo._path}
                     sourceTitle={viewingMemo.parentTitle}
                     sourceExcerpt={viewingMemo.text?.slice(0, 150)}
                     onClose={() => setShowLinkModal(false)}
