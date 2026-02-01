@@ -276,23 +276,31 @@ export const ConceptCards: React.FC<ConceptCardsProps> = ({ onViewRelated }) => 
                                         </div>
 
                                         {/* A-B Content (Merged & Simply displayed) */}
-                                        {((concept as any).sequence?.aStatement || (concept as any).conclusion || concept.bridge?.aStatement || concept.bridge?.bStatement) && (
-                                            <div className="mt-6 p-4 bg-white/5 rounded-2xl border border-white/5 space-y-3">
-                                                {/* A 문장 */}
-                                                {((concept as any).sequence?.aStatement || concept.bridge?.aStatement) && (
-                                                    <p className="text-white/60 text-sm leading-relaxed">
-                                                        "우리는 보통 <span className="text-white/80 font-medium">{concept.conceptName}</span>를(을) <span className="text-white/90 underline decoration-white/30 decoration-1 underline-offset-4">{(concept as any).sequence?.aStatement || concept.bridge?.aStatement}</span>라고 생각합니다.
-                                                    </p>
-                                                )}
+                                        {/* aStatement는 루트 레벨 또는 sequence 내부에 있을 수 있음 */}
+                                        {(() => {
+                                            const aText = (concept as any).aStatement || (concept as any).sequence?.aStatement || concept.bridge?.aStatement;
+                                            const bText = (concept as any).conclusion || concept.bridge?.bStatement;
 
-                                                {/* B 문장 */}
-                                                {((concept as any).conclusion || concept.bridge?.bStatement) && (
-                                                    <p className="text-white/60 text-sm leading-relaxed">
-                                                        그러나 성경에서 <span className="text-white/80 font-medium">{concept.conceptName}</span>는(은) <span className="text-emerald-400 font-bold underline decoration-emerald-500/30 decoration-1 underline-offset-4">{(concept as any).conclusion || concept.bridge?.bStatement}</span>."
-                                                    </p>
-                                                )}
-                                            </div>
-                                        )}
+                                            if (!aText && !bText) return null;
+
+                                            return (
+                                                <div className="mt-6 p-4 bg-white/5 rounded-2xl border border-white/5 space-y-3">
+                                                    {/* A 문장 */}
+                                                    {aText && (
+                                                        <p className="text-white/60 text-sm leading-relaxed">
+                                                            "우리는 보통 <span className="text-white/80 font-medium">{concept.conceptName}</span>를(을) <span className="text-white/90 underline decoration-white/30 decoration-1 underline-offset-4">{aText}</span>라고 생각합니다.
+                                                        </p>
+                                                    )}
+
+                                                    {/* B 문장 */}
+                                                    {bText && (
+                                                        <p className="text-white/60 text-sm leading-relaxed">
+                                                            그러나 성경에서 <span className="text-white/80 font-medium">{concept.conceptName}</span>는(은) <span className="text-emerald-400 font-bold underline decoration-emerald-500/30 decoration-1 underline-offset-4">{bText}</span>."
+                                                        </p>
+                                                    )}
+                                                </div>
+                                            );
+                                        })()}
 
                                         {/* View Related Button (Moved to bottom) */}
                                         <button
