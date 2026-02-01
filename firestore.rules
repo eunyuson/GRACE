@@ -73,8 +73,8 @@ service cloud.firestore {
       // 로그인된 사용자는 생성 가능
       allow create: if request.auth != null;
       
-      // 본인 글만 수정/삭제 가능
-      allow update, delete: if request.auth != null && request.auth.uid == resource.data.userId;
+      // 로그인된 사용자는 수정/삭제 가능 (관리자 모드: 본인 확인 해제)
+      allow update, delete: if request.auth != null;
     }
 
     // 메모 컬렉션 그룹 규칙 (나의 묵상 기능용)

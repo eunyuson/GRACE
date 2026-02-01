@@ -45,6 +45,9 @@ export const ConceptCards: React.FC<ConceptCardsProps> = ({ onViewRelated }) => 
     // 새 카드 생성 모드: InsightDrawer에서 새 카드 생성 시 사용
     const [isNewCardMode, setIsNewCardMode] = useState(false);
 
+    // 편집 모드: 기존 카드를 편집 모드로 열기
+    const [isEditMode, setIsEditMode] = useState(false);
+
     // Auth listener
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, user => {
@@ -83,13 +86,11 @@ export const ConceptCards: React.FC<ConceptCardsProps> = ({ onViewRelated }) => 
         setEditingConcept(null);
     };
 
-    // Open edit mode
+    // Open edit mode - InsightDrawer를 편집 모드로 열기
     const openEdit = (concept: ConceptCard) => {
-        setConceptName(concept.conceptName);
-        setConceptPhrase(concept.conceptPhrase || '');
-        setQuestion(concept.question);
-        setEditingConcept(concept);
-        setIsCreateMode(true);
+        setSelectedConceptForDrawer(concept);
+        setIsNewCardMode(false);
+        setIsEditMode(true);  // 편집 모드로 열기
     };
 
     // Save concept
@@ -145,13 +146,15 @@ export const ConceptCards: React.FC<ConceptCardsProps> = ({ onViewRelated }) => 
 
     // Delete concept
     const handleDelete = async (id: string) => {
-        if (!confirm('이 개념 카드를 삭제하시겠습니까?')) return;
+        console.log('Attempting to delete concept:', id);
+        if (!confirm('정말로 이 개념 카드를 삭제하시겠습니까?\n이 작업은 되돌릴 수 없습니다.')) return;
 
         try {
             await deleteDoc(doc(db, 'concepts', id));
-        } catch (err) {
+            console.log('Successfully deleted concept:', id);
+        } catch (err: any) {
             console.error('Delete error:', err);
-            alert('삭제 실패');
+            alert(`삭제 실패: ${err.message}`);
         }
     };
 
@@ -365,15 +368,23 @@ export const ConceptCards: React.FC<ConceptCardsProps> = ({ onViewRelated }) => 
 
                                     {/* Actions */}
                                     {currentUser?.uid === concept.userId && (
-                                        <div className="absolute bottom-4 right-4 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <div className="absolute bottom-4 right-4 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity z-30">
                                             <button
-                                                onClick={(e) => { e.stopPropagation(); openEdit(concept); }}
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    console.log('Edit clicked for:', concept.id);
+                                                    openEdit(concept);
+                                                }}
                                                 className="p-2 bg-white/5 hover:bg-white/10 rounded-lg transition-colors"
                                             >
                                                 <Edit2 size={14} className="text-white/50" />
                                             </button>
                                             <button
-                                                onClick={(e) => { e.stopPropagation(); handleDelete(concept.id); }}
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    console.log('Delete clicked for:', concept.id);
+                                                    handleDelete(concept.id);
+                                                }}
                                                 className="p-2 bg-red-500/10 hover:bg-red-500/20 rounded-lg transition-colors"
                                             >
                                                 <Trash2 size={14} className="text-red-400/50" />
@@ -624,12 +635,14 @@ export const ConceptCards: React.FC<ConceptCardsProps> = ({ onViewRelated }) => 
                     onClose={() => {
                         setSelectedConceptForDrawer(null);
                         setIsNewCardMode(false);
+                        setIsEditMode(false);
                     }}
                     onUpdate={(updated) => {
                         handleConceptUpdate(updated);
                         setSelectedConceptForDrawer(updated);
                     }}
                     isNewMode={isNewCardMode}
+                    isEditMode={isEditMode}
                     onCreateNew={async (newConcept) => {
                         // 새 카드를 Firestore에 저장
                         try {
@@ -644,6 +657,7 @@ export const ConceptCards: React.FC<ConceptCardsProps> = ({ onViewRelated }) => 
                             const savedConcept = { ...newConcept, id: docRef.id };
                             setSelectedConceptForDrawer(savedConcept);
                             setIsNewCardMode(false);
+                            setIsEditMode(false);
                             return savedConcept;
                         } catch (err) {
                             console.error('Create concept error:', err);

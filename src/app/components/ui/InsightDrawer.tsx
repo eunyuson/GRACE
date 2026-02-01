@@ -2,8 +2,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, Pin, PinOff, Plus, Edit3, ChevronRight, Book, MessageCircle, Lightbulb, Eye, EyeOff, Sparkles, Check, XCircle, Loader2, Search, Trash2 } from 'lucide-react';
-import { collection, collectionGroup, doc, getDoc, getDocs, updateDoc, query, where, orderBy, limit, Timestamp } from 'firebase/firestore';
+import { X, Pin, PinOff, Plus, Edit3, ChevronRight, Book, MessageCircle, Lightbulb, Eye, EyeOff, Sparkles, Check, XCircle, Loader2, Search, Trash2, Save } from 'lucide-react';
+import { collection, collectionGroup, doc, getDoc, getDocs, updateDoc, deleteDoc, query, where, orderBy, limit, Timestamp } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { ConceptCard, SequenceItem, ResponseSnippet, SequenceData, AIConclusionSuggestion, AIScriptureSuggestion } from '../../types/questionBridge';
 import { generateReactionSnippets, generateConclusionCandidates, recommendScriptures, isAIEnabled } from '../../services/aiService';
@@ -38,6 +38,7 @@ interface InsightDrawerProps {
     onClose: () => void;
     onUpdate: (updatedConcept: ConceptCard) => void;
     isNewMode?: boolean; // 새 카드 생성 모드
+    isEditMode?: boolean; // 기존 카드 편집 모드
     onCreateNew?: (newConcept: ConceptCard) => Promise<ConceptCard | null>; // 새 카드 생성 콜백
 }
 
@@ -47,10 +48,16 @@ export const InsightDrawer: React.FC<InsightDrawerProps> = ({
     onClose,
     onUpdate,
     isNewMode = false,
+    isEditMode = false,
     onCreateNew
 }) => {
     // 로컬 상태
     const [localConcept, setLocalConcept] = useState<ConceptCard>(concept);
+
+    // Concept prop이 변경되면 localConcept 동기화 (저장 후 확실한 상태 반영)
+    useEffect(() => {
+        setLocalConcept(concept);
+    }, [concept]);
     const [newsItems, setNewsItems] = useState<Map<string, NewsItem>>(new Map());
     const [reflectionItems, setReflectionItems] = useState<Map<string, ReflectionItem>>(new Map());
     const [allReflections, setAllReflections] = useState<ReflectionItem[]>([]);
@@ -59,14 +66,25 @@ export const InsightDrawer: React.FC<InsightDrawerProps> = ({
     const [isAddingResponse, setIsAddingResponse] = useState(false);
     const [loading, setLoading] = useState(true);
 
-    // 읽기/편집 모드: 새 카드 모드면 편집 모드로 시작, 아니면 읽기 모드로 시작
-    const [isViewMode, setIsViewMode] = useState(!isNewMode);
+    // 읽기/편집 모드: 새 카드 모드 또는 편집 모드면 편집 모드로 시작, 아니면 읽기 모드로 시작
+    const [isViewMode, setIsViewMode] = useState(!isNewMode && !isEditMode);
 
-    // 뉴스/묵상 선택 모달 상태
+    // isNewMode, isEditMode, isOpen이 변경되면 isViewMode 업데이트
+    useEffect(() => {
+        if (isOpen) {
+            if (isNewMode || isEditMode) {
+                setIsViewMode(false);
+            } else {
+                setIsViewMode(true);
+            }
+        }
+    }, [isNewMode, isEditMode, isOpen]);
+
     const [showNewsPicker, setShowNewsPicker] = useState(false);
     const [showReflectionPicker, setShowReflectionPicker] = useState(false);
     const [newsSearchQuery, setNewsSearchQuery] = useState('');
     const [reflectionSearchQuery, setReflectionSearchQuery] = useState('');
+
 
     // AI 상태
     const [aiReactionsLoading, setAiReactionsLoading] = useState(false);
@@ -75,21 +93,25 @@ export const InsightDrawer: React.FC<InsightDrawerProps> = ({
     const [aiError, setAiError] = useState<string | null>(null);
 
     // 시퀀스 초기화
+    // 시퀀스 초기화 (데이터 무결성 보장)
+    // 시퀀스 초기화 (데이터 무결성 보장)
     const getSequence = (): SequenceData => {
-        return localConcept.sequence || {
-            recent: [],
-            responses: [],
-            aStatement: '',
-            scriptureSupport: [],
-            aiReactionSuggestions: [],
-            aiConclusionSuggestions: [],
-            aiScriptureSuggestions: []
-        };
+        const s = localConcept.sequence;
+        return {
+            ...(s || {}), // 기존 데이터 유지 (undefined 인 경우 빈 객체)
+            recent: s?.recent || [],
+            responses: s?.responses || [],
+            aStatement: s?.aStatement || '',
+            scriptureSupport: s?.scriptureSupport || [],
+            aiReactionSuggestions: s?.aiReactionSuggestions || [],
+            aiConclusionSuggestions: s?.aiConclusionSuggestions || [],
+            aiScriptureSuggestions: s?.aiScriptureSuggestions || []
+        } as SequenceData;
     };
 
     // 연결된 뉴스/묵상 데이터 로드 + 전체 목록 로드
     useEffect(() => {
-        const loadLinkedItems = async () => {
+        const loadLinkedItems = async (loadedReflections: ReflectionItem[] = []) => {
             setLoading(true);
             const sequence = getSequence();
 
@@ -101,7 +123,16 @@ export const InsightDrawer: React.FC<InsightDrawerProps> = ({
                         const docRef = doc(db, 'updates', item.sourceId);
                         const docSnap = await getDoc(docRef);
                         if (docSnap.exists()) {
-                            newsMap.set(item.sourceId, { id: item.sourceId, ...docSnap.data() } as NewsItem);
+                            const data = docSnap.data();
+                            // RecentUpdates의 데이터 구조(image, additionalImages)를 NewsItem의 images 배열로 매핑
+                            const images = [data.image, ...(data.additionalImages || [])].filter(Boolean);
+
+                            newsMap.set(item.sourceId, {
+                                id: item.sourceId,
+                                ...data,
+                                images: images.length > 0 ? images : undefined,
+                                content: typeof data.content === 'string' ? data.content : JSON.stringify(data.content || '')
+                            } as NewsItem);
                         }
                     } catch (e) {
                         console.error('Error loading news:', e);
@@ -116,19 +147,49 @@ export const InsightDrawer: React.FC<InsightDrawerProps> = ({
                 if (item.sourceType === 'reflection') {
                     try {
                         let docRef;
-                        // sourcePath가 있으면 해당 경로 사용 (서브컬렉션 지원), 없으면 하위 호환성(memos 컬렉션)
+                        let docSnap = null;
+                        let foundDoc = false;
+
+                        // 1. sourcePath가 있으면 해당 경로 사용 (서브컬렉션 지원)
                         if (item.sourcePath) {
                             docRef = doc(db, item.sourcePath);
-                        } else {
-                            docRef = doc(db, 'memos', item.sourceId);
+                            docSnap = await getDoc(docRef);
+                            foundDoc = docSnap.exists();
                         }
 
-                        const docSnap = await getDoc(docRef);
-                        if (docSnap.exists()) {
-                            reflectionMap.set(item.sourceId, { id: item.sourceId, ...docSnap.data() } as ReflectionItem);
+                        // 2. 경로로 못 찾으면 loadedReflections에서 찾기 (서브컬렉션 데이터 사용)
+                        if (!foundDoc) {
+                            const foundInLoaded = loadedReflections.find(r => r.id === item.sourceId);
+                            if (foundInLoaded) {
+                                reflectionMap.set(item.sourceId, foundInLoaded);
+                                console.log(`[InsightDrawer] Found reflection ${item.sourceId} in loaded list`);
+                                continue; // 다음 항목으로
+                            }
                         }
-                    } catch (e) {
+
+                        // 3. 문서를 찾았으면 데이터 추출
+                        if (foundDoc && docSnap) {
+                            const data = docSnap.data();
+                            if (data) {
+                                const content = typeof data.content === 'string' ? data.content :
+                                    typeof data.text === 'string' ? data.text :
+                                        JSON.stringify(data.content || data.text || '');
+
+                                reflectionMap.set(item.sourceId, {
+                                    id: item.sourceId,
+                                    ...data,
+                                    content,
+                                    _path: item.sourcePath
+                                } as ReflectionItem);
+                            }
+                        } else {
+                            console.warn(`Reflection not found: ${item.sourceId}, path: ${item.sourcePath}`);
+                        }
+                    } catch (e: any) {
                         console.error('Error loading reflection:', e);
+                        // 에러 발생 시 loadedReflections에서라도 찾기
+                        const foundInLoaded = loadedReflections.find(r => r.id === item.sourceId);
+                        if (foundInLoaded) reflectionMap.set(item.sourceId, foundInLoaded);
                     }
                 }
             }
@@ -142,18 +203,26 @@ export const InsightDrawer: React.FC<InsightDrawerProps> = ({
             try {
                 const q = query(collection(db, 'updates'), orderBy('createdAt', 'desc'), limit(50));
                 const snapshot = await getDocs(q);
-                const items = snapshot.docs.map(doc => ({
-                    id: doc.id,
-                    ...doc.data()
-                } as NewsItem));
+                const items = snapshot.docs.map(doc => {
+                    const data = doc.data();
+                    // RecentUpdates와 호환되도록 image 필드 매핑
+                    const images = [data.image, ...(data.additionalImages || [])].filter(Boolean);
+
+                    return {
+                        id: doc.id,
+                        ...data,
+                        images: images.length > 0 ? images : undefined,
+                        content: typeof data.content === 'string' ? data.content : JSON.stringify(data.content || '')
+                    } as NewsItem;
+                });
                 setAllNews(items);
             } catch (e) {
                 console.error('Error loading all news:', e);
             }
         };
 
-        // 전체 묵상 목록 로드 (collectionGroup으로 모든 서브컬렉션에서 가져오기)
-        const loadAllReflections = async () => {
+        // 전체 묵상 목록 로드 (collectionGroup으로 모든 서브컬렉션에서 가져오기) - 반환값 포함
+        const loadAllReflections = async (): Promise<ReflectionItem[]> => {
             try {
                 // collectionGroup을 사용하여 모든 memos 서브컬렉션에서 가져오기
                 // users/{uid}/memos, gallery/{id}/memos, updates/{id}/memos 등
@@ -165,8 +234,10 @@ export const InsightDrawer: React.FC<InsightDrawerProps> = ({
                     return {
                         id: doc.id,
                         ...data,
-                        // text 또는 content 필드 지원
-                        content: data.content || data.text || '',
+                        // text 또는 content 필드 지원 (문자열 보장)
+                        content: typeof data.content === 'string' ? data.content :
+                            typeof data.text === 'string' ? data.text :
+                                JSON.stringify(data.content || data.text || ''),
                         imageUrl: data.imageUrl,
                         parentImage: data.parentImage,
                         _path: doc.ref.path
@@ -182,6 +253,7 @@ export const InsightDrawer: React.FC<InsightDrawerProps> = ({
 
                 setAllReflections(items);
                 console.log('[InsightDrawer] Loaded reflections:', items.length);
+                return items;
             } catch (e: any) {
                 console.error('Error loading all reflections:', e);
                 // 인덱스 오류 시 대체 방법 시도
@@ -196,7 +268,9 @@ export const InsightDrawer: React.FC<InsightDrawerProps> = ({
                             return {
                                 id: doc.id,
                                 ...data,
-                                content: data.content || data.text || '',
+                                content: typeof data.content === 'string' ? data.content :
+                                    typeof data.text === 'string' ? data.text :
+                                        JSON.stringify(data.content || data.text || ''),
                                 imageUrl: data.imageUrl,
                                 parentImage: data.parentImage,
                                 _path: doc.ref.path
@@ -209,19 +283,26 @@ export const InsightDrawer: React.FC<InsightDrawerProps> = ({
                         });
                         setAllReflections(items.slice(0, 100));
                         console.log('[InsightDrawer] Fallback loaded reflections:', items.length);
+                        return items.slice(0, 100);
                     } catch (fallbackError) {
                         console.error('Fallback also failed:', fallbackError);
+                        return [];
                     }
                 }
+                return [];
             }
         };
 
         if (isOpen) {
-            loadLinkedItems();
-            loadAllNews();
-            loadAllReflections();
+            // 먼저 전체 목록을 로드한 후 연결된 항목 로드 (fallback 로직에서 allReflections 사용을 위해)
+            const loadData = async () => {
+                await loadAllNews();
+                const loadedReflections = await loadAllReflections();
+                await loadLinkedItems(loadedReflections);
+            };
+            loadData();
         }
-    }, [isOpen, localConcept.id]);
+    }, [isOpen, concept]); // concept 전체를 의존성으로 추가하여 Firestore에서 로드된 데이터 반영
 
     // 뉴스 연결 추가
     const handleAddNewsLink = (newsId: string) => {
@@ -289,7 +370,7 @@ export const InsightDrawer: React.FC<InsightDrawerProps> = ({
         const newItem: SequenceItem = {
             sourceType: 'reflection',
             sourceId: reflectionId,
-            sourcePath: reflectionItem?._path || undefined, // 전체 경로 저장 (undefined 방지)
+            sourcePath: reflectionItem?._path || null as any, // undefined 대신 null 사용 (Firestore 저장 위해)
             pinned: false,
             confidence: 1.0,
             addedAt: Timestamp.now()
@@ -661,7 +742,99 @@ export const InsightDrawer: React.FC<InsightDrawerProps> = ({
         saveToFirestore(updated);
     };
 
+    // 개념 카드 삭제 (Drawer 내부에서)
+    const handleDeleteConcept = async () => {
+        if (isNewMode) return;
+        if (!confirm('정말로 이 개념 카드를 삭제하시겠습니까?\n이 작업은 되돌릴 수 없습니다.')) return;
+
+        try {
+            await deleteDoc(doc(db, 'concepts', localConcept.id));
+            onClose(); // 닫기
+            // 상위 컴포넌트에서 리스트가 갱신되어야 함 (onSnapshot 사용 중이므로 자동)
+        } catch (e: any) {
+            console.error('Delete error:', e);
+            alert(`삭제 실패: ${e.message}`);
+        }
+    };
+
     const sequence = getSequence();
+
+    const [editingNewsId, setEditingNewsId] = useState<string | null>(null);
+    const [editedNewsContent, setEditedNewsContent] = useState('');
+    const [editedNewsTitle, setEditedNewsTitle] = useState('');
+    const [editedNewsSubtitle, setEditedNewsSubtitle] = useState('');
+
+    const handleStartEditNews = (news: NewsItem) => {
+        setEditingNewsId(news.id);
+        const cleaned = cleanContent(news.content || '').text;
+        setEditedNewsContent(cleaned);
+        setEditedNewsTitle(news.title);
+        setEditedNewsSubtitle(news.subtitle || '');
+    };
+
+    const handleSaveNews = async (newsId: string) => {
+        try {
+            await updateDoc(doc(db, 'updates', newsId), {
+                title: editedNewsTitle,
+                subtitle: editedNewsSubtitle,
+                content: editedNewsContent,
+                // If the original content was complex JSON, we are replacing it with plain text. 
+                // This is desired as we are "cleaning" it.
+            });
+
+            // Local state update
+            const news = newsItems.get(newsId);
+            if (news) {
+                const updated = { ...news, title: editedNewsTitle, subtitle: editedNewsSubtitle, content: editedNewsContent };
+                setNewsItems(prev => new Map(prev).set(newsId, updated));
+            }
+
+            setEditingNewsId(null);
+        } catch (e) {
+            console.error('Error updating news:', e);
+            alert('업데이트 실패');
+        }
+    };
+
+    // 헬퍼: 컨텐츠 정제 (JSON 파싱, 태그 제거)
+    const cleanContent = (rawContent: string) => {
+        let content = rawContent;
+        let images: string[] = [];
+
+        // 1. JSON 파싱 시도
+        try {
+            if (content.trim().startsWith('[') || content.trim().startsWith('{')) {
+                const parsed = JSON.parse(content);
+                // 배열이면 각 항목 처리
+                if (Array.isArray(parsed)) {
+                    // "text" 필드나 "content" 필드가 있는 객체 찾기
+                    const textItem = parsed.find(item => item.text || item.content);
+                    if (textItem) {
+                        content = textItem.text || textItem.content;
+                    }
+                    // 단순 문자열 배열인 경우
+                    else if (typeof parsed[0] === 'string') {
+                        content = parsed.join('\n');
+                    }
+                }
+                // 객체이면 text/content 필드 추출
+                else if (typeof parsed === 'object') {
+                    content = parsed.text || parsed.content || content;
+                }
+            }
+        } catch (e) {
+            // 파싱 실패 시 원본 사용
+        }
+
+        // 2. 태그 제거 (#태그, ##태그 등)
+        // 줄 단위로 처리하여 태그만 있는 줄 제거 또는 인라인 태그 제거
+        content = content.replace(/#\S+/g, '').trim();
+
+        // 3. 불필요한 공백 제거
+        content = content.replace(/\n\s*\n/g, '\n').trim();
+
+        return { text: content, images };
+    };
 
     return (
         <AnimatePresence>
@@ -726,15 +899,35 @@ export const InsightDrawer: React.FC<InsightDrawerProps> = ({
                                         {/* View/Edit Toggle */}
                                         <button
                                             onClick={() => setIsViewMode(!isViewMode)}
-                                            className={`p-2 rounded-full transition-colors ${isViewMode ? 'bg-indigo-500/30 text-indigo-300' : 'bg-orange-500/30 text-orange-300'}`}
-                                            title={isViewMode ? '편집 모드로 전환' : '읽기 모드로 전환'}
+                                            className={`flex items-center gap-2 px-3 py-1.5 rounded-full transition-all border ${isViewMode
+                                                ? 'bg-indigo-500/20 border-indigo-500/30 text-indigo-300 hover:bg-indigo-500/30'
+                                                : 'bg-amber-500/20 border-amber-500/30 text-amber-300 hover:bg-amber-500/30'
+                                                }`}
                                         >
                                             {isViewMode ? (
-                                                <Edit3 className="w-5 h-5" />
+                                                <>
+                                                    <Edit3 className="w-4 h-4" />
+                                                    <span className="text-sm font-medium">편집하기</span>
+                                                </>
                                             ) : (
-                                                <Eye className="w-5 h-5" />
+                                                <>
+                                                    <Eye className="w-4 h-4" />
+                                                    <span className="text-sm font-medium">읽기 모드</span>
+                                                </>
                                             )}
                                         </button>
+
+                                        {/* Delete Button (Edit Mode Only, Not New Mode) */}
+                                        {!isViewMode && !isNewMode && (
+                                            <button
+                                                onClick={handleDeleteConcept}
+                                                className="p-2 rounded-full bg-red-500/10 hover:bg-red-500/20 text-red-400 transition-colors"
+                                                title="개념 카드 삭제"
+                                            >
+                                                <Trash2 className="w-5 h-5" />
+                                            </button>
+                                        )}
+
                                         <button
                                             onClick={onClose}
                                             className="p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors"
@@ -756,19 +949,7 @@ export const InsightDrawer: React.FC<InsightDrawerProps> = ({
                                     <div className="p-4 md:p-6 space-y-8">
                                         {/* A 문장: 세상의 관점 */}
                                         <section className="space-y-4">
-                                            <div className="bg-gradient-to-br from-orange-500/10 to-orange-600/5 border border-orange-500/20 rounded-2xl p-5">
-                                                <p className="text-lg text-white leading-relaxed">
-                                                    <span className="text-white/60">"우리는 보통 </span>
-                                                    <span className="text-orange-300 font-semibold">{localConcept.conceptName}</span>
-                                                    <span className="text-white/60">를(을) </span>
-                                                    {sequence.aStatement ? (
-                                                        <span className="text-white font-medium">{sequence.aStatement}</span>
-                                                    ) : (
-                                                        <span className="text-white/40 italic">___</span>
-                                                    )}
-                                                    <span className="text-white/60">라고 생각합니다."</span>
-                                                </p>
-                                            </div>
+
 
                                             {/* 연결된 뉴스 표시 */}
                                             {sequence.recent.length > 0 && (
@@ -780,34 +961,88 @@ export const InsightDrawer: React.FC<InsightDrawerProps> = ({
                                                         return (
                                                             <div
                                                                 key={item.sourceId}
-                                                                className="relative overflow-hidden rounded-2xl border border-white/10 bg-white/5"
+                                                                className="rounded-2xl border border-white/10 bg-white/5 p-5 relative overflow-hidden"
                                                             >
-                                                                {news.images?.[0] && (
-                                                                    <div className="relative w-full h-48">
-                                                                        <img
-                                                                            src={news.images[0]}
-                                                                            alt=""
-                                                                            className="w-full h-full object-cover"
+                                                                {editingNewsId === news.id ? (
+                                                                    <div className="space-y-3" onClick={e => e.stopPropagation()}>
+                                                                        <input
+                                                                            className="w-full bg-white/10 p-2 rounded text-white font-bold"
+                                                                            value={editedNewsTitle}
+                                                                            onChange={e => setEditedNewsTitle(e.target.value)}
+                                                                            placeholder="제목"
                                                                         />
-                                                                        <div className="absolute inset-0 bg-gradient-to-t from-black via-black/30 to-transparent" />
+                                                                        <input
+                                                                            className="w-full bg-white/10 p-2 rounded text-white/80 text-sm"
+                                                                            value={editedNewsSubtitle}
+                                                                            onChange={e => setEditedNewsSubtitle(e.target.value)}
+                                                                            placeholder="부제목"
+                                                                        />
+                                                                        <textarea
+                                                                            className="w-full h-32 bg-white/10 p-2 rounded text-white/60 text-sm"
+                                                                            value={editedNewsContent}
+                                                                            onChange={e => setEditedNewsContent(e.target.value)}
+                                                                            placeholder="내용"
+                                                                        />
+                                                                        <div className="flex justify-end gap-2">
+                                                                            <button
+                                                                                onClick={() => setEditingNewsId(null)}
+                                                                                className="px-3 py-1 bg-white/10 rounded text-xs text-white"
+                                                                            >
+                                                                                취소
+                                                                            </button>
+                                                                            <button
+                                                                                onClick={() => handleSaveNews(news.id)}
+                                                                                className="px-3 py-1 bg-blue-500 rounded text-xs text-white"
+                                                                            >
+                                                                                저장
+                                                                            </button>
+                                                                        </div>
+                                                                    </div>
+                                                                ) : (
+                                                                    <div className="flex flex-col md:flex-row gap-6 md:gap-8">
+                                                                        {/* 글 - 왼쪽 (PC) / 아래 (모바일) */}
+                                                                        <div className="flex-1 min-w-0 order-2 md:order-1">
+                                                                            <div className="group/edit relative">
+                                                                                <h4 className="text-xl md:text-2xl font-bold text-white mb-3 leading-tight pr-8">
+                                                                                    {news.title}
+                                                                                </h4>
+                                                                                {/* Admin Edit Trigger */}
+                                                                                <button
+                                                                                    onClick={(e) => {
+                                                                                        e.stopPropagation();
+                                                                                        handleStartEditNews(news);
+                                                                                    }}
+                                                                                    className="absolute top-0 right-0 opacity-0 group-hover/edit:opacity-100 p-1.5 bg-white/10 hover:bg-white/20 rounded-full transition-all"
+                                                                                    title="관리자 편집"
+                                                                                >
+                                                                                    <Edit3 className="w-4 h-4 text-white/70" />
+                                                                                </button>
+                                                                            </div>
+                                                                            {news.subtitle && (
+                                                                                <p className="text-white/70 text-base font-medium mb-3">
+                                                                                    {news.subtitle}
+                                                                                </p>
+                                                                            )}
+                                                                            {news.content && (
+                                                                                <p className="text-white/50 text-sm leading-relaxed whitespace-pre-wrap">
+                                                                                    {cleanContent(typeof news.content === 'string' ? news.content : '').text}
+                                                                                </p>
+                                                                            )}
+                                                                        </div>
+                                                                        {/* 이미지 - 오른쪽 (PC) / 위 (모바일) - 아이폰 스타일 */}
+                                                                        {news.images?.[0] && (
+                                                                            <div className="flex-shrink-0 w-full md:w-[340px] order-1 md:order-2">
+                                                                                <div className="relative aspect-[9/16] rounded-2xl overflow-hidden shadow-2xl border border-white/10 bg-black/50 group-hover:border-white/20 transition-colors">
+                                                                                    <img
+                                                                                        src={news.images[0]}
+                                                                                        alt=""
+                                                                                        className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+                                                                                    />
+                                                                                </div>
+                                                                            </div>
+                                                                        )}
                                                                     </div>
                                                                 )}
-                                                                <div className={news.images?.[0] ? "absolute bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-black via-black/80 to-transparent" : "p-6"}>
-                                                                    <h4 className="text-xl md:text-2xl font-bold text-white mb-2 leading-tight">
-                                                                        {news.title}
-                                                                    </h4>
-                                                                    {news.subtitle && (
-                                                                        <p className="text-white/80 line-clamp-3 leading-relaxed">
-                                                                            {news.subtitle}
-                                                                        </p>
-                                                                    )}
-                                                                    {/* 내용이 있고 이미지가 없으면 내용을 좀 더 보여줌 */}
-                                                                    {!news.images?.[0] && news.content && (
-                                                                        <p className="text-white/60 text-sm mt-3 line-clamp-4 leading-relaxed">
-                                                                            {news.content}
-                                                                        </p>
-                                                                    )}
-                                                                </div>
                                                             </div>
                                                         );
                                                     })}
@@ -823,6 +1058,20 @@ export const InsightDrawer: React.FC<InsightDrawerProps> = ({
                                                     + 이 관점을 보여주는 뉴스 연결하기
                                                 </button>
                                             )}
+
+                                            <div className="bg-gradient-to-br from-orange-500/10 to-orange-600/5 border border-orange-500/20 rounded-2xl p-5">
+                                                <p className="text-lg text-white leading-relaxed">
+                                                    <span className="text-white/60">"우리는 보통 </span>
+                                                    <span className="text-orange-300 font-semibold">{localConcept.conceptName}</span>
+                                                    <span className="text-white/60">를(을) </span>
+                                                    {sequence.aStatement ? (
+                                                        <span className="text-white font-medium">{sequence.aStatement}</span>
+                                                    ) : (
+                                                        <span className="text-white/40 italic">___</span>
+                                                    )}
+                                                    <span className="text-white/60">라고 생각합니다."</span>
+                                                </p>
+                                            </div>
                                         </section>
 
                                         {/* B 문장: 성경의 관점 */}
@@ -868,25 +1117,31 @@ export const InsightDrawer: React.FC<InsightDrawerProps> = ({
                                                                         "{reflection.verse}"
                                                                     </p>
                                                                 )}
-                                                                {/* 이미지 표시 */}
-                                                                {(reflection.imageUrl || reflection.parentImage) && (
-                                                                    <div className="mt-3 mb-3 h-48 rounded-xl overflow-hidden relative">
-                                                                        <img
-                                                                            src={reflection.imageUrl || reflection.parentImage}
-                                                                            alt=""
-                                                                            className="w-full h-full object-cover"
-                                                                        />
+                                                                {/* 이미지와 글 가로 배치 */}
+                                                                <div className="flex gap-4">
+                                                                    {/* 글 - 왼쪽 */}
+                                                                    <div className="flex-1 min-w-0">
+                                                                        <p className="text-white/80 text-sm leading-relaxed whitespace-pre-wrap">
+                                                                            {cleanContent(displayContent).text}
+                                                                        </p>
+                                                                        {reflection.parentTitle && (
+                                                                            <p className="text-white/40 text-xs mt-3 flex items-center gap-1">
+                                                                                <span>From</span>
+                                                                                <span className="text-amber-500/50">{reflection.parentTitle}</span>
+                                                                            </p>
+                                                                        )}
                                                                     </div>
-                                                                )}
-                                                                <p className="text-white/80 text-sm leading-relaxed whitespace-pre-wrap">
-                                                                    {displayContent}
-                                                                </p>
-                                                                {reflection.parentTitle && (
-                                                                    <p className="text-white/40 text-xs mt-3 flex items-center gap-1">
-                                                                        <span>From</span>
-                                                                        <span className="text-amber-500/50">{reflection.parentTitle}</span>
-                                                                    </p>
-                                                                )}
+                                                                    {/* 이미지 - 오른쪽 */}
+                                                                    {(reflection.imageUrl || reflection.parentImage) && (
+                                                                        <div className="flex-shrink-0 w-32 h-32 rounded-xl overflow-hidden">
+                                                                            <img
+                                                                                src={reflection.imageUrl || reflection.parentImage}
+                                                                                alt=""
+                                                                                className="w-full h-full object-cover"
+                                                                            />
+                                                                        </div>
+                                                                    )}
+                                                                </div>
                                                             </div>
                                                         );
                                                     })}
@@ -971,61 +1226,61 @@ export const InsightDrawer: React.FC<InsightDrawerProps> = ({
                                                         return (
                                                             <div
                                                                 key={item.sourceId}
-                                                                className="relative overflow-hidden rounded-2xl border border-white/10 group hover:border-blue-400/30 transition-all"
+                                                                className="relative overflow-hidden rounded-2xl border border-white/10 group hover:border-blue-400/30 transition-all p-5"
                                                             >
-                                                                {/* Full-width Image or Gradient Placeholder */}
-                                                                <div className="relative w-full h-40">
-                                                                    {news.images?.[0] ? (
-                                                                        <>
-                                                                            <img
-                                                                                src={news.images[0]}
-                                                                                alt=""
-                                                                                className="w-full h-full object-cover"
-                                                                            />
-                                                                            <div className="absolute inset-0 bg-gradient-to-t from-black via-black/50 to-transparent" />
-                                                                        </>
-                                                                    ) : (
-                                                                        <div className="w-full h-full bg-gradient-to-br from-blue-600/30 via-cyan-500/20 to-purple-600/30" />
-                                                                    )}
-
-                                                                    {/* Action Buttons - Fixed position */}
-                                                                    <div className="absolute top-3 right-3 flex gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                                        <button
-                                                                            onClick={() => handleToggleItemPin('recent', item.sourceId)}
-                                                                            className="p-2 rounded-full bg-black/60 backdrop-blur-sm hover:bg-black/80 transition-colors"
-                                                                        >
-                                                                            {item.pinned ? (
-                                                                                <Pin className="w-3.5 h-3.5 text-yellow-400" />
-                                                                            ) : (
-                                                                                <PinOff className="w-3.5 h-3.5 text-white/70" />
-                                                                            )}
-                                                                        </button>
-                                                                        <button
-                                                                            onClick={() => handleRemoveNewsLink(item.sourceId)}
-                                                                            className="p-2 rounded-full bg-red-500/40 backdrop-blur-sm hover:bg-red-500/60 transition-colors"
-                                                                        >
-                                                                            <Trash2 className="w-3.5 h-3.5 text-white" />
-                                                                        </button>
+                                                                <div className="flex flex-col md:flex-row gap-6">
+                                                                    {/* 글 - 왼쪽 */}
+                                                                    <div className="flex-1 min-w-0 order-2 md:order-1">
+                                                                        {/* Pinned Badge */}
+                                                                        {item.pinned && (
+                                                                            <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-yellow-500/20 text-yellow-300 text-[10px] font-medium mb-2">
+                                                                                <Pin className="w-3 h-3" /> 고정됨
+                                                                            </div>
+                                                                        )}
+                                                                        <h4 className="text-lg font-bold text-white mb-2 leading-tight">
+                                                                            {news.title}
+                                                                        </h4>
+                                                                        {news.subtitle && (
+                                                                            <p className="text-sm text-white/60 mb-2">
+                                                                                {news.subtitle}
+                                                                            </p>
+                                                                        )}
                                                                     </div>
 
-                                                                    {/* Pinned Badge */}
-                                                                    {item.pinned && (
-                                                                        <div className="absolute top-3 left-3 px-2 py-1 rounded-full bg-yellow-500/20 backdrop-blur-sm text-yellow-300 text-xs font-medium flex items-center gap-1">
-                                                                            <Pin className="w-3 h-3" /> 고정됨
+                                                                    {/* 이미지 - 오른쪽 (아이폰 스타일) */}
+                                                                    {news.images?.[0] && (
+                                                                        <div className="flex-shrink-0 w-full md:w-[160px] order-1 md:order-2">
+                                                                            <div className="relative aspect-[9/16] rounded-xl overflow-hidden border border-white/10 bg-black/50">
+                                                                                <img
+                                                                                    src={news.images[0]}
+                                                                                    alt=""
+                                                                                    className="absolute inset-0 w-full h-full object-cover"
+                                                                                />
+                                                                            </div>
                                                                         </div>
                                                                     )}
                                                                 </div>
 
-                                                                {/* Content - Overlaid on gradient */}
-                                                                <div className="absolute bottom-0 left-0 right-0 p-4">
-                                                                    <h4 className="text-base font-semibold text-white mb-1 line-clamp-2 drop-shadow-lg">
-                                                                        {news.title}
-                                                                    </h4>
-                                                                    {news.subtitle && (
-                                                                        <p className="text-sm text-white/70 line-clamp-1 drop-shadow">
-                                                                            {news.subtitle}
-                                                                        </p>
-                                                                    )}
+                                                                {/* Action Buttons */}
+                                                                <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+                                                                    <button
+                                                                        onClick={() => handleToggleItemPin('recent', item.sourceId)}
+                                                                        className="p-1.5 rounded-full bg-black/60 backdrop-blur-sm hover:bg-black/80 transition-colors mr-1"
+                                                                        title={item.pinned ? "고정 해제" : "상단 고정"}
+                                                                    >
+                                                                        {item.pinned ? (
+                                                                            <Pin className="w-3.5 h-3.5 text-yellow-400" />
+                                                                        ) : (
+                                                                            <PinOff className="w-3.5 h-3.5 text-white/70" />
+                                                                        )}
+                                                                    </button>
+                                                                    <button
+                                                                        onClick={() => handleRemoveNewsLink(item.sourceId)}
+                                                                        className="p-1.5 rounded-full bg-red-500/40 backdrop-blur-sm hover:bg-red-500/60 transition-colors"
+                                                                        title="삭제"
+                                                                    >
+                                                                        <Trash2 className="w-3.5 h-3.5 text-white" />
+                                                                    </button>
                                                                 </div>
                                                             </div>
                                                         );
@@ -1118,22 +1373,28 @@ export const InsightDrawer: React.FC<InsightDrawerProps> = ({
                                             {/* A Statement - 바로 입력 가능, 전체 저장 시 저장됨 */}
                                             <div className="mt-4 p-4 bg-gradient-to-r from-purple-500/10 to-pink-500/10 rounded-xl border border-purple-500/20">
                                                 <span className="text-xs text-purple-300/70 font-medium block mb-2">A 문장 (세상의 관점)</span>
-                                                <textarea
-                                                    value={sequence.aStatement || ''}
-                                                    onChange={(e) => {
-                                                        const newValue = e.target.value;
-                                                        setLocalConcept(prev => ({
-                                                            ...prev,
-                                                            sequence: {
-                                                                ...getSequence(),
-                                                                aStatement: newValue
-                                                            }
-                                                        }));
-                                                    }}
-                                                    placeholder="우리는 보통 ___를 ___라고 생각합니다."
-                                                    className="w-full p-3 rounded-lg bg-white/10 text-white text-sm border border-purple-500/30 focus:border-purple-400 focus:outline-none resize-none"
-                                                    rows={2}
-                                                />
+                                                <div className="text-white text-lg leading-relaxed">
+                                                    <span className="text-white/60">"우리는 보통 </span>
+                                                    <span className="text-purple-300 font-semibold">{localConcept.conceptName}</span>
+                                                    <span className="text-white/60">를(을) </span>
+                                                    <input
+                                                        type="text"
+                                                        value={sequence.aStatement || ''}
+                                                        onChange={(e) => {
+                                                            const newValue = e.target.value;
+                                                            setLocalConcept(prev => ({
+                                                                ...prev,
+                                                                sequence: {
+                                                                    ...getSequence(),
+                                                                    aStatement: newValue
+                                                                }
+                                                            }));
+                                                        }}
+                                                        placeholder="___"
+                                                        className="bg-white/10 border-b border-purple-500/50 text-white px-2 py-0.5 mx-1 outline-none focus:border-purple-400 min-w-[200px] rounded"
+                                                    />
+                                                    <span className="text-white/60">라고 생각합니다."</span>
+                                                </div>
                                             </div>
                                         </section>
 
@@ -1149,19 +1410,25 @@ export const InsightDrawer: React.FC<InsightDrawerProps> = ({
                                             {/* B Statement - 바로 입력 가능, 전체 저장 시 저장됨 */}
                                             <div className="p-4 bg-gradient-to-r from-green-500/10 to-emerald-500/10 rounded-xl border border-green-500/20">
                                                 <span className="text-xs text-green-300/70 font-medium block mb-2">B 문장 (성경의 관점)</span>
-                                                <textarea
-                                                    value={localConcept.conclusion || ''}
-                                                    onChange={(e) => {
-                                                        const newValue = e.target.value;
-                                                        setLocalConcept(prev => ({
-                                                            ...prev,
-                                                            conclusion: newValue
-                                                        }));
-                                                    }}
-                                                    placeholder="그러나 성경에서 ___는 ___라기보다 ___입니다."
-                                                    className="w-full p-3 rounded-lg bg-white/10 text-white text-sm border border-green-500/30 focus:border-green-400 focus:outline-none resize-none"
-                                                    rows={3}
-                                                />
+                                                <div className="text-white text-lg leading-relaxed">
+                                                    <span className="text-white/60">"그러나 성경에서 </span>
+                                                    <span className="text-green-300 font-semibold">{localConcept.conceptName}</span>
+                                                    <span className="text-white/60">는(은) </span>
+                                                    <input
+                                                        type="text"
+                                                        value={localConcept.conclusion || ''}
+                                                        onChange={(e) => {
+                                                            const newValue = e.target.value;
+                                                            setLocalConcept(prev => ({
+                                                                ...prev,
+                                                                conclusion: newValue
+                                                            }));
+                                                        }}
+                                                        placeholder="___라기보다 ___입니다"
+                                                        className="bg-white/10 border-b border-green-500/50 text-white px-2 py-0.5 mx-1 outline-none focus:border-green-400 min-w-[240px] rounded"
+                                                    />
+                                                    <span className="text-white/60">."</span>
+                                                </div>
                                             </div>
                                         </section>
 
@@ -1260,27 +1527,32 @@ export const InsightDrawer: React.FC<InsightDrawerProps> = ({
                                                                     </blockquote>
                                                                 )}
 
-                                                                {/* Reflection Content */}
-                                                                {/* 이미지 표시 */}
-                                                                {(reflection.imageUrl || reflection.parentImage) && (
-                                                                    <div className="mt-2 mb-2 h-32 rounded-lg overflow-hidden relative">
-                                                                        <img
-                                                                            src={reflection.imageUrl || reflection.parentImage}
-                                                                            alt=""
-                                                                            className="w-full h-full object-cover"
-                                                                        />
-                                                                    </div>
-                                                                )}
-                                                                <p className="text-sm text-white/80 line-clamp-3 leading-relaxed whitespace-pre-wrap">
-                                                                    {reflection.content}
-                                                                </p>
+                                                                {/* Reflection Content - 이미지와 글 가로 배치 */}
+                                                                <div className="flex gap-3">
+                                                                    {/* 글 - 왼쪽 */}
+                                                                    <div className="flex-1 min-w-0">
+                                                                        <p className="text-sm text-white/80 line-clamp-3 leading-relaxed whitespace-pre-wrap">
+                                                                            {cleanContent(reflection.content).text}
+                                                                        </p>
 
-                                                                {/* Parent Title */}
-                                                                {reflection.parentTitle && (
-                                                                    <p className="text-xs text-white/40 mt-2">
-                                                                        출처: {reflection.parentTitle}
-                                                                    </p>
-                                                                )}
+                                                                        {/* Parent Title */}
+                                                                        {reflection.parentTitle && (
+                                                                            <p className="text-xs text-white/40 mt-2">
+                                                                                출처: {reflection.parentTitle}
+                                                                            </p>
+                                                                        )}
+                                                                    </div>
+                                                                    {/* 이미지 - 오른쪽 */}
+                                                                    {(reflection.imageUrl || reflection.parentImage) && (
+                                                                        <div className="flex-shrink-0 w-24 h-24 rounded-lg overflow-hidden">
+                                                                            <img
+                                                                                src={reflection.imageUrl || reflection.parentImage}
+                                                                                alt=""
+                                                                                className="w-full h-full object-cover"
+                                                                            />
+                                                                        </div>
+                                                                    )}
+                                                                </div>
                                                             </div>
                                                         );
                                                     })}
@@ -1288,47 +1560,51 @@ export const InsightDrawer: React.FC<InsightDrawerProps> = ({
                                             )}
                                         </section>
 
-                                        {/* ========== 저장 & 읽기 모드 전환 버튼 ========== */}
-                                        <div className="pt-4 pb-8 flex flex-col gap-3 border-t border-white/10">
-                                            <button
-                                                onClick={async () => {
-                                                    // 유효성 검사
-                                                    if (!localConcept.conceptName.trim()) {
-                                                        alert('개념 이름을 입력해주세요');
-                                                        return;
-                                                    }
-                                                    if (!localConcept.question.trim()) {
-                                                        alert('질문을 입력해주세요');
-                                                        return;
-                                                    }
+                                        {/* ========== 저장 & 읽기 모드 전환 버튼 (편집 모드 전용) ========== */}
+                                        {!isViewMode && (
+                                            <div className="pt-4 pb-8 flex flex-col gap-3 border-t border-white/10 mt-8">
+                                                <button
+                                                    onClick={async () => {
+                                                        // 유효성 검사
+                                                        if (!localConcept.conceptName.trim()) {
+                                                            alert('개념 이름을 입력해주세요');
+                                                            return;
+                                                        }
+                                                        if (!localConcept.question.trim()) {
+                                                            alert('질문을 입력해주세요');
+                                                            return;
+                                                        }
 
-                                                    // 새 카드 생성 모드
-                                                    if (isNewMode && onCreateNew && localConcept.id.startsWith('temp_')) {
-                                                        const savedConcept = await onCreateNew(localConcept);
-                                                        if (savedConcept) {
-                                                            setLocalConcept(savedConcept);
+                                                        // 새 카드 생성 모드
+                                                        if (isNewMode && onCreateNew && localConcept.id.startsWith('temp_')) {
+                                                            const savedConcept = await onCreateNew(localConcept);
+                                                            if (savedConcept) {
+                                                                setLocalConcept(savedConcept);
+                                                                setIsViewMode(true);
+                                                            }
+                                                        } else {
+                                                            // 기존 카드 저장
+                                                            saveToFirestore(localConcept);
                                                             setIsViewMode(true);
                                                         }
-                                                    } else {
-                                                        // 기존 카드 저장
-                                                        saveToFirestore(localConcept);
-                                                        setIsViewMode(true);
-                                                    }
-                                                }}
-                                                className="w-full py-3 bg-gradient-to-r from-indigo-500 to-purple-500 text-white font-bold rounded-xl hover:opacity-90 transition-opacity flex items-center justify-center gap-2"
-                                            >
-                                                <Check className="w-5 h-5" />
-                                                {isNewMode && localConcept.id.startsWith('temp_') ? '새 카드 저장' : '저장 완료'}
-                                            </button>
-                                            <button
-                                                onClick={() => setIsViewMode(true)}
-                                                className="w-full py-2.5 text-white/50 hover:text-white/70 transition-colors flex items-center justify-center gap-2"
-                                            >
-                                                <Eye className="w-4 h-4" />
-                                                읽기 모드로 보기
-                                            </button>
-                                        </div>
+                                                    }}
+                                                    className="w-full py-3 bg-gradient-to-r from-indigo-500 to-purple-500 text-white font-bold rounded-xl hover:opacity-90 transition-opacity flex items-center justify-center gap-2"
+                                                >
+                                                    <Save className="w-5 h-5" />
+                                                    {isNewMode ? '개념 카드 생성하기' : '저장하고 읽기 모드로'}
+                                                </button>
 
+                                                {!isNewMode && (
+                                                    <button
+                                                        onClick={() => setIsViewMode(true)}
+                                                        className="w-full py-2.5 text-white/50 hover:text-white/70 transition-colors flex items-center justify-center gap-2"
+                                                    >
+                                                        <Eye className="w-4 h-4" />
+                                                        변경 취소하고 읽기 모드로
+                                                    </button>
+                                                )}
+                                            </div>
+                                        )}
                                     </div>
                                 )}
                             </div>
@@ -1395,18 +1671,20 @@ export const InsightDrawer: React.FC<InsightDrawerProps> = ({
                                         onClick={() => handleAddNewsLink(news.id)}
                                         className="p-3 bg-white/5 rounded-xl border border-white/10 hover:border-blue-500/30 hover:bg-blue-500/5 cursor-pointer transition-all flex gap-3"
                                     >
-                                        {news.images?.[0] && (
-                                            <div className="w-16 h-16 rounded-lg overflow-hidden flex-shrink-0">
-                                                <img src={news.images[0]} alt="" className="w-full h-full object-cover" />
-                                            </div>
-                                        )}
+                                        {/* 글 - 왼쪽 */}
                                         <div className="flex-1 min-w-0">
                                             <h4 className="text-sm font-medium text-white line-clamp-2">{news.title}</h4>
                                             {news.subtitle && (
                                                 <p className="text-xs text-white/50 line-clamp-1 mt-1">{news.subtitle}</p>
                                             )}
                                         </div>
-                                        <Plus className="w-5 h-5 text-blue-400 flex-shrink-0" />
+                                        {/* 이미지 - 오른쪽 (글 읽을 수 있는 적당한 크기) */}
+                                        {news.images?.[0] && (
+                                            <div className="w-28 h-20 rounded-lg overflow-hidden flex-shrink-0">
+                                                <img src={news.images[0]} alt="" className="w-full h-full object-cover" />
+                                            </div>
+                                        )}
+                                        <Plus className="w-5 h-5 text-blue-400 flex-shrink-0 self-center" />
                                     </div>
                                 ))
                             }
@@ -1418,126 +1696,130 @@ export const InsightDrawer: React.FC<InsightDrawerProps> = ({
                         </div>
                     </motion.div>
                 </motion.div>
-            )}
+            )
+            }
 
             {/* ========== Reflection Picker Modal ========== */}
-            {showReflectionPicker && (
-                <motion.div
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                    className="fixed inset-0 z-[5000] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4"
-                    onClick={() => setShowReflectionPicker(false)}
-                >
+            {
+                showReflectionPicker && (
                     <motion.div
-                        initial={{ scale: 0.9, opacity: 0 }}
-                        animate={{ scale: 1, opacity: 1 }}
-                        exit={{ scale: 0.9, opacity: 0 }}
-                        onClick={(e) => e.stopPropagation()}
-                        className="bg-gradient-to-br from-[#1a1a2e] to-[#16213e] rounded-2xl w-full max-w-lg max-h-[80vh] overflow-hidden border border-white/10 shadow-2xl"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="fixed inset-0 z-[5000] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4"
+                        onClick={() => setShowReflectionPicker(false)}
                     >
-                        {/* Header */}
-                        <div className="p-4 border-b border-white/10">
-                            <div className="flex items-center justify-between mb-3">
-                                <h3 className="text-lg font-bold text-white flex items-center gap-2">
-                                    <Book className="w-5 h-5 text-amber-400" />
-                                    묵상 연결하기
-                                </h3>
-                                <button
-                                    onClick={() => setShowReflectionPicker(false)}
-                                    className="p-1.5 rounded-full bg-white/10 hover:bg-white/20"
-                                >
-                                    <X className="w-4 h-4 text-white" />
-                                </button>
-                            </div>
-                            {/* Search */}
-                            <div className="relative">
-                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/40" />
-                                <input
-                                    type="text"
-                                    value={reflectionSearchQuery}
-                                    onChange={(e) => setReflectionSearchQuery(e.target.value)}
-                                    placeholder="묵상 검색..."
-                                    className="w-full pl-10 pr-4 py-2.5 bg-white/5 border border-white/10 rounded-xl text-white placeholder-white/40 focus:outline-none focus:border-amber-500/50"
-                                />
-                            </div>
-                        </div>
-
-                        {/* Reflection List */}
-                        <div className="p-4 overflow-y-auto max-h-[60vh] space-y-2">
-                            {allReflections.length === 0 ? (
-                                <div className="text-center py-12">
-                                    <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-amber-500/10 flex items-center justify-center">
-                                        <Book className="w-8 h-8 text-amber-400/50" />
-                                    </div>
-                                    <p className="text-white/60 font-medium mb-1">묵상 기록이 없습니다</p>
-                                    <p className="text-sm text-white/40">먼저 '나의 묵상'에서 묵상을 작성해주세요</p>
+                        <motion.div
+                            initial={{ scale: 0.9, opacity: 0 }}
+                            animate={{ scale: 1, opacity: 1 }}
+                            exit={{ scale: 0.9, opacity: 0 }}
+                            onClick={(e) => e.stopPropagation()}
+                            className="bg-gradient-to-br from-[#1a1a2e] to-[#16213e] rounded-2xl w-full max-w-lg max-h-[80vh] overflow-hidden border border-white/10 shadow-2xl"
+                        >
+                            {/* Header */}
+                            <div className="p-4 border-b border-white/10">
+                                <div className="flex items-center justify-between mb-3">
+                                    <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                                        <Book className="w-5 h-5 text-amber-400" />
+                                        묵상 연결하기
+                                    </h3>
+                                    <button
+                                        onClick={() => setShowReflectionPicker(false)}
+                                        className="p-1.5 rounded-full bg-white/10 hover:bg-white/20"
+                                    >
+                                        <X className="w-4 h-4 text-white" />
+                                    </button>
                                 </div>
-                            ) : (
-                                <>
-                                    {allReflections
-                                        .filter(reflection =>
-                                            !sequence.scriptureSupport.some(s => s.sourceId === reflection.id) &&
-                                            (reflectionSearchQuery === '' ||
-                                                (reflection.content || '').toLowerCase().includes(reflectionSearchQuery.toLowerCase()) ||
-                                                (reflection.bibleRef?.toLowerCase().includes(reflectionSearchQuery.toLowerCase())) ||
-                                                (reflection.parentTitle?.toLowerCase().includes(reflectionSearchQuery.toLowerCase())))
-                                        )
-                                        .map(reflection => {
-                                            const displayContent = reflection.content || reflection.text || '';
+                                {/* Search */}
+                                <div className="relative">
+                                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/40" />
+                                    <input
+                                        type="text"
+                                        value={reflectionSearchQuery}
+                                        onChange={(e) => setReflectionSearchQuery(e.target.value)}
+                                        placeholder="묵상 검색..."
+                                        className="w-full pl-10 pr-4 py-2.5 bg-white/5 border border-white/10 rounded-xl text-white placeholder-white/40 focus:outline-none focus:border-amber-500/50"
+                                    />
+                                </div>
+                            </div>
 
-                                            return (
-                                                <div
-                                                    key={reflection.id}
-                                                    onClick={() => handleAddReflectionLink(reflection.id)}
-                                                    className="p-4 bg-white/5 rounded-xl border border-white/10 hover:border-amber-500/40 hover:bg-amber-500/10 cursor-pointer transition-all group"
-                                                >
-                                                    <div className="flex items-start justify-between gap-3">
-                                                        {/* Image Thumbnail */}
-                                                        {(reflection.imageUrl || reflection.parentImage) && (
-                                                            <div className="w-16 h-16 rounded-lg overflow-hidden flex-shrink-0 bg-black/20">
-                                                                <img src={reflection.imageUrl || reflection.parentImage} alt="" className="w-full h-full object-cover" />
+                            {/* Reflection List */}
+                            <div className="p-4 overflow-y-auto max-h-[60vh] space-y-2">
+                                {allReflections.length === 0 ? (
+                                    <div className="text-center py-12">
+                                        <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-amber-500/10 flex items-center justify-center">
+                                            <Book className="w-8 h-8 text-amber-400/50" />
+                                        </div>
+                                        <p className="text-white/60 font-medium mb-1">묵상 기록이 없습니다</p>
+                                        <p className="text-sm text-white/40">먼저 '나의 묵상'에서 묵상을 작성해주세요</p>
+                                    </div>
+                                ) : (
+                                    <>
+                                        {allReflections
+                                            .filter(reflection =>
+                                                !sequence.scriptureSupport.some(s => s.sourceId === reflection.id) &&
+                                                (reflectionSearchQuery === '' ||
+                                                    (reflection.content || '').toLowerCase().includes(reflectionSearchQuery.toLowerCase()) ||
+                                                    (reflection.bibleRef?.toLowerCase().includes(reflectionSearchQuery.toLowerCase())) ||
+                                                    (reflection.parentTitle?.toLowerCase().includes(reflectionSearchQuery.toLowerCase())))
+                                            )
+                                            .map(reflection => {
+                                                const displayContent = reflection.content || reflection.text || '';
+
+                                                return (
+                                                    <div
+                                                        key={reflection.id}
+                                                        onClick={() => handleAddReflectionLink(reflection.id)}
+                                                        className="p-4 bg-white/5 rounded-xl border border-white/10 hover:border-amber-500/40 hover:bg-amber-500/10 cursor-pointer transition-all group"
+                                                    >
+                                                        <div className="flex items-start justify-between gap-3">
+                                                            {/* 글 - 왼쪽 */}
+                                                            <div className="flex-1 min-w-0">
+                                                                {/* Header: Bible ref + Parent title */}
+                                                                <div className="flex items-center gap-2 mb-2">
+                                                                    {reflection.bibleRef && (
+                                                                        <span className="inline-block px-2.5 py-1 rounded-full bg-amber-500/20 text-amber-300 text-xs font-semibold">
+                                                                            📖 {reflection.bibleRef}
+                                                                        </span>
+                                                                    )}
+                                                                    {reflection.parentTitle && (
+                                                                        <span className="text-xs text-white/40">
+                                                                            {reflection.parentTitle}
+                                                                        </span>
+                                                                    )}
+                                                                </div>
+                                                                {/* Content */}
+                                                                <p className="text-sm text-white/80 line-clamp-2 leading-relaxed">
+                                                                    {cleanContent(displayContent).text}
+                                                                </p>
                                                             </div>
-                                                        )}
-                                                        <div className="flex-1 min-w-0">
-                                                            {/* Header: Bible ref + Parent title */}
-                                                            <div className="flex items-center gap-2 mb-2">
-                                                                {reflection.bibleRef && (
-                                                                    <span className="inline-block px-2.5 py-1 rounded-full bg-amber-500/20 text-amber-300 text-xs font-semibold">
-                                                                        📖 {reflection.bibleRef}
-                                                                    </span>
-                                                                )}
-                                                                {reflection.parentTitle && (
-                                                                    <span className="text-xs text-white/40">
-                                                                        {reflection.parentTitle}
-                                                                    </span>
-                                                                )}
+                                                            {/* Image Thumbnail - 오른쪽 */}
+                                                            {(reflection.imageUrl || reflection.parentImage) && (
+                                                                <div className="w-20 h-20 rounded-lg overflow-hidden flex-shrink-0 bg-black/20">
+                                                                    <img src={reflection.imageUrl || reflection.parentImage} alt="" className="w-full h-full object-cover" />
+                                                                </div>
+                                                            )}
+                                                            <div className="w-10 h-10 rounded-full bg-amber-500/20 flex items-center justify-center flex-shrink-0 group-hover:bg-amber-500/30 transition-colors self-center">
+                                                                <Plus className="w-5 h-5 text-amber-400" />
                                                             </div>
-                                                            {/* Content */}
-                                                            <p className="text-sm text-white/80 line-clamp-2 leading-relaxed">
-                                                                {displayContent}
-                                                            </p>
-                                                        </div>
-                                                        <div className="w-10 h-10 rounded-full bg-amber-500/20 flex items-center justify-center flex-shrink-0 group-hover:bg-amber-500/30 transition-colors self-center">
-                                                            <Plus className="w-5 h-5 text-amber-400" />
                                                         </div>
                                                     </div>
-                                                </div>
-                                            );
-                                        })
-                                    }
-                                    {allReflections.filter(r => !sequence.scriptureSupport.some(s => s.sourceId === r.id)).length === 0 && (
-                                        <div className="text-center py-8 text-white/40">
-                                            이미 모든 묵상이 연결되어 있습니다
-                                        </div>
-                                    )}
-                                </>
-                            )}
-                        </div>
+                                                );
+                                            })
+                                        }
+                                        {allReflections.filter(r => !sequence.scriptureSupport.some(s => s.sourceId === r.id)).length === 0 && (
+                                            <div className="text-center py-8 text-white/40">
+                                                이미 모든 묵상이 연결되어 있습니다
+                                            </div>
+                                        )}
+                                    </>
+                                )}
+                            </div>
+                        </motion.div>
                     </motion.div>
-                </motion.div>
-            )}
-        </AnimatePresence>
+                )
+            }
+        </AnimatePresence >
     );
 };
 
