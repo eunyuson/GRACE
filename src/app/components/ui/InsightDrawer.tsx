@@ -213,7 +213,9 @@ export const InsightDrawer: React.FC<InsightDrawerProps> = ({
                 const items = snapshot.docs.map(doc => {
                     const data = doc.data();
                     // RecentUpdates와 호환되도록 image 필드 매핑
-                    const images = [data.image, ...(data.additionalImages || [])].filter(Boolean);
+                    // 빈 문자열과 공백만 있는 URL 제거
+                    const images = [data.image, ...(data.additionalImages || [])]
+                        .filter(url => url && typeof url === 'string' && url.trim().length > 0);
 
                     return {
                         id: doc.id,
@@ -428,11 +430,13 @@ export const InsightDrawer: React.FC<InsightDrawerProps> = ({
 
         try {
             const docRef = doc(db, 'concepts', updatedConcept.id);
+            // Firestore는 undefined 값을 허용하지 않으므로 null 또는 빈 값으로 변환
             await updateDoc(docRef, {
-                conceptName: updatedConcept.conceptName,
-                question: updatedConcept.question,
-                conclusion: updatedConcept.conclusion,
-                sequence: updatedConcept.sequence,
+                conceptName: updatedConcept.conceptName || '',
+                question: updatedConcept.question || '',
+                conclusion: updatedConcept.conclusion ?? null,  // undefined -> null
+                aStatement: (updatedConcept as any).aStatement ?? null,  // 루트 레벨 aStatement도 저장
+                sequence: updatedConcept.sequence || null,
                 updatedAt: Timestamp.now()
             });
             onUpdate(updatedConcept);
@@ -1048,6 +1052,9 @@ export const InsightDrawer: React.FC<InsightDrawerProps> = ({
                                                                                         src={news.images[0]}
                                                                                         alt=""
                                                                                         className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+                                                                                        onError={(e) => {
+                                                                                            (e.target as HTMLImageElement).parentElement!.parentElement!.style.display = 'none';
+                                                                                        }}
                                                                                     />
                                                                                 </div>
                                                                             </div>
@@ -1266,6 +1273,9 @@ export const InsightDrawer: React.FC<InsightDrawerProps> = ({
                                                                                     src={news.images[0]}
                                                                                     alt=""
                                                                                     className="absolute inset-0 w-full h-full object-cover"
+                                                                                    onError={(e) => {
+                                                                                        (e.target as HTMLImageElement).parentElement!.parentElement!.style.display = 'none';
+                                                                                    }}
                                                                                 />
                                                                             </div>
                                                                         </div>
@@ -1898,8 +1908,16 @@ export const InsightDrawer: React.FC<InsightDrawerProps> = ({
                                         </div>
                                         {/* 이미지 - 오른쪽 (글 읽을 수 있는 적당한 크기) */}
                                         {news.images?.[0] && (
-                                            <div className="w-28 h-20 rounded-lg overflow-hidden flex-shrink-0">
-                                                <img src={news.images[0]} alt="" className="w-full h-full object-cover" />
+                                            <div className="w-28 h-20 rounded-lg overflow-hidden flex-shrink-0 bg-white/5">
+                                                <img
+                                                    src={news.images[0]}
+                                                    alt=""
+                                                    className="w-full h-full object-cover"
+                                                    onError={(e) => {
+                                                        // 이미지 로드 실패 시 부모 div 숨기기
+                                                        (e.target as HTMLImageElement).parentElement!.style.display = 'none';
+                                                    }}
+                                                />
                                             </div>
                                         )}
                                         <Plus className="w-5 h-5 text-blue-400 flex-shrink-0 self-center" />
