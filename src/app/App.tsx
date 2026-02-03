@@ -91,6 +91,14 @@ const Home = () => {
           }}
         />
       )}
+
+      <Link
+        to="/admin"
+        className="fixed bottom-4 left-4 z-[2000] text-[8px] text-white/10 hover:text-white/40 tracking-widest uppercase transition-colors cursor-none"
+        style={{ cursor: 'none' }}
+      >
+        Admin Access
+      </Link>
     </>
   );
 };
@@ -105,14 +113,11 @@ export default function App() {
             <Routes>
               <Route path="/" element={<Home />} />
               <Route path="/admin" element={<AdminPage />} />
+              {/* Embed Route for formatting in iframes */}
+              <Route path="/embed/concepts" element={<ConceptCards maxItems={6} />} />
+              <Route path="/share/concepts" element={<ConceptCards />} />
             </Routes>
-            <Link
-              to="/admin"
-              className="fixed bottom-4 left-4 z-[2000] text-[8px] text-white/10 hover:text-white/40 tracking-widest uppercase transition-colors cursor-none"
-              style={{ cursor: 'none' }}
-            >
-              Admin Access
-            </Link>
+
           </BrowserRouter>
         </CursorProvider>
       </GalleryProvider>

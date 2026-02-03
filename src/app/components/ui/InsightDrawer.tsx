@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { X, Pin, PinOff, Plus, Edit3, ChevronRight, Book, MessageCircle, Lightbulb, Eye, EyeOff, Sparkles, Check, XCircle, Loader2, Search, Trash2, Save } from 'lucide-react';
 import { collection, collectionGroup, doc, getDoc, getDocs, updateDoc, deleteDoc, query, where, orderBy, limit, Timestamp } from 'firebase/firestore';
+import { User } from 'firebase/auth';
 import { db } from '../../firebase';
 import { ConceptCard, SequenceItem, ResponseSnippet, SequenceData, AIConclusionSuggestion, AIScriptureSuggestion } from '../../types/questionBridge';
 import { generateReactionSnippets, generateConclusionCandidates, recommendScriptures, isAIEnabled } from '../../services/aiService';
@@ -40,6 +41,7 @@ interface InsightDrawerProps {
     isNewMode?: boolean; // 새 카드 생성 모드
     isEditMode?: boolean; // 기존 카드 편집 모드
     onCreateNew?: (newConcept: ConceptCard) => Promise<ConceptCard | null>; // 새 카드 생성 콜백
+    currentUser?: User | null;
 }
 
 export const InsightDrawer: React.FC<InsightDrawerProps> = ({
@@ -49,7 +51,8 @@ export const InsightDrawer: React.FC<InsightDrawerProps> = ({
     onUpdate,
     isNewMode = false,
     isEditMode = false,
-    onCreateNew
+    onCreateNew,
+    currentUser
 }) => {
     // 로컬 상태
     const [localConcept, setLocalConcept] = useState<ConceptCard>(concept);
@@ -779,6 +782,12 @@ export const InsightDrawer: React.FC<InsightDrawerProps> = ({
     const [editedNewsTitle, setEditedNewsTitle] = useState('');
     const [editedNewsSubtitle, setEditedNewsSubtitle] = useState('');
 
+    // 묵상 편집 상태
+    const [editingReflectionId, setEditingReflectionId] = useState<string | null>(null);
+    const [editedReflectionContent, setEditedReflectionContent] = useState('');
+    const [editedReflectionBibleRef, setEditedReflectionBibleRef] = useState('');
+    const [editedReflectionVerse, setEditedReflectionVerse] = useState('');
+
     const handleStartEditNews = (news: NewsItem) => {
         setEditingNewsId(news.id);
         const cleaned = cleanContent(news.content || '').text;
@@ -808,6 +817,41 @@ export const InsightDrawer: React.FC<InsightDrawerProps> = ({
         } catch (e) {
             console.error('Error updating news:', e);
             alert('업데이트 실패');
+        }
+    };
+
+    const handleStartEditReflection = (reflection: ReflectionItem) => {
+        setEditingReflectionId(reflection.id);
+        const displayContent = reflection.content || (reflection as any).text || '';
+        setEditedReflectionContent(cleanContent(displayContent).text);
+        setEditedReflectionBibleRef(reflection.bibleRef || '');
+        setEditedReflectionVerse(reflection.verse || '');
+    };
+
+    const handleSaveReflection = async (reflectionId: string) => {
+        try {
+            await updateDoc(doc(db, 'reflections', reflectionId), {
+                content: editedReflectionContent,
+                bibleRef: editedReflectionBibleRef,
+                verse: editedReflectionVerse,
+            });
+
+            // Local state update
+            const reflection = reflectionItems.get(reflectionId);
+            if (reflection) {
+                const updated = {
+                    ...reflection,
+                    content: editedReflectionContent,
+                    bibleRef: editedReflectionBibleRef,
+                    verse: editedReflectionVerse
+                };
+                setReflectionItems(prev => new Map(prev).set(reflectionId, updated));
+            }
+
+            setEditingReflectionId(null);
+        } catch (e) {
+            console.error('Error updating reflection:', e);
+            alert('묵상 업데이트 실패');
         }
     };
 
@@ -966,8 +1010,8 @@ export const InsightDrawer: React.FC<InsightDrawerProps> = ({
                                         <section className="space-y-4">
 
 
-                                            {/* 연결된 뉴스 표시 */}
-                                            {sequence.recent.length > 0 && (
+                                            {/* 연결된 뉴스 표시 - 로그인 사용자만 */}
+                                            {currentUser && sequence.recent.length > 0 && (
                                                 <div className="space-y-3">
                                                     {sequence.recent.map((item) => {
                                                         const news = newsItems.get(item.sourceId);
@@ -1067,8 +1111,8 @@ export const InsightDrawer: React.FC<InsightDrawerProps> = ({
                                                 </div>
                                             )}
 
-                                            {/* 뉴스가 없을 때 안내 */}
-                                            {sequence.recent.length === 0 && (
+                                            {/* 뉴스가 없을 때 안내 - 로그인 사용자만 */}
+                                            {currentUser && sequence.recent.length === 0 && (
                                                 <button
                                                     onClick={() => { setIsViewMode(false); setShowNewsPicker(true); }}
                                                     className="w-full py-4 text-center text-white/40 text-sm border border-dashed border-white/20 rounded-xl hover:bg-white/5 hover:border-white/30 transition-all"
@@ -1077,39 +1121,45 @@ export const InsightDrawer: React.FC<InsightDrawerProps> = ({
                                                 </button>
                                             )}
 
-                                            <div className="bg-gradient-to-br from-orange-500/10 to-orange-600/5 border border-orange-500/20 rounded-2xl p-5">
-                                                <p className="text-lg text-white leading-relaxed">
-                                                    <span className="text-white/60">"우리는 보통 </span>
-                                                    <span className="text-orange-300 font-semibold">{localConcept.conceptName}</span>
-                                                    <span className="text-white/60">를(을) </span>
-                                                    {sequence.aStatement ? (
-                                                        <span className="text-white font-medium">{sequence.aStatement}</span>
-                                                    ) : (
-                                                        <span className="text-white/40 italic">___</span>
-                                                    )}
-                                                    <span className="text-white/60">라고 생각합니다."</span>
-                                                </p>
-                                            </div>
+                                            {/* A Statement merged below */}
                                         </section>
 
                                         {/* B 문장: 성경의 관점 */}
                                         <section className="space-y-4">
-                                            <div className="bg-gradient-to-br from-emerald-500/10 to-teal-600/5 border border-emerald-500/20 rounded-2xl p-5">
-                                                <p className="text-lg text-white leading-relaxed">
-                                                    <span className="text-white/60">"그러나 성경에서 </span>
-                                                    <span className="text-emerald-300 font-semibold">{localConcept.conceptName}</span>
-                                                    <span className="text-white/60">는(은) </span>
-                                                    {localConcept.conclusion ? (
-                                                        <span className="text-white font-medium">{localConcept.conclusion}</span>
-                                                    ) : (
-                                                        <span className="text-white/40 italic">___라기보다 ___입니다</span>
-                                                    )}
-                                                    <span className="text-white/60">."</span>
-                                                </p>
+                                            <div className="rounded-2xl border border-white/10 bg-white/5 overflow-hidden">
+                                                {/* A Statement Part */}
+                                                <div className="p-6 border-b border-white/5 bg-gradient-to-br from-orange-500/5 to-transparent">
+                                                    <p className="text-lg text-white leading-relaxed">
+                                                        <span className="text-white/60">"우리는 보통 </span>
+                                                        <span className="text-orange-300 font-semibold">{localConcept.conceptName}</span>
+                                                        <span className="text-white/60">를(을) </span>
+                                                        {sequence.aStatement ? (
+                                                            <span className="text-white font-medium">{sequence.aStatement}</span>
+                                                        ) : (
+                                                            <span className="text-white/40 italic">___</span>
+                                                        )}
+                                                        <span className="text-white/60">라고 생각합니다."</span>
+                                                    </p>
+                                                </div>
+
+                                                {/* B Statement Part */}
+                                                <div className="p-6 bg-gradient-to-br from-emerald-500/5 to-transparent">
+                                                    <p className="text-lg text-white leading-relaxed">
+                                                        <span className="text-white/60">"그러나 성경에서 </span>
+                                                        <span className="text-emerald-300 font-semibold">{localConcept.conceptName}</span>
+                                                        <span className="text-white/60">는(은) </span>
+                                                        {localConcept.conclusion ? (
+                                                            <span className="text-white font-medium">{localConcept.conclusion}</span>
+                                                        ) : (
+                                                            <span className="text-white/40 italic">___라기보다 ___입니다</span>
+                                                        )}
+                                                        <span className="text-white/60">."</span>
+                                                    </p>
+                                                </div>
                                             </div>
 
-                                            {/* 연결된 묵상 표시 */}
-                                            {sequence.scriptureSupport.length > 0 && (
+                                            {/* 연결된 묵상 표시 - 로그인 사용자만 */}
+                                            {currentUser && sequence.scriptureSupport.length > 0 && (
                                                 <div className="space-y-3">
                                                     {sequence.scriptureSupport.map((item) => {
                                                         const reflection = reflectionItems.get(item.sourceId);
@@ -1122,52 +1172,104 @@ export const InsightDrawer: React.FC<InsightDrawerProps> = ({
                                                                 key={item.sourceId}
                                                                 className="bg-gradient-to-br from-amber-500/10 to-yellow-600/5 border border-amber-500/20 rounded-2xl p-5"
                                                             >
-                                                                {reflection.bibleRef && (
-                                                                    <div className="flex items-center gap-2 mb-3">
-                                                                        <Book className="w-4 h-4 text-amber-400" />
-                                                                        <span className="text-amber-300 font-semibold text-sm">
-                                                                            {reflection.bibleRef}
-                                                                        </span>
+                                                                {editingReflectionId === reflection.id ? (
+                                                                    // 편집 모드
+                                                                    <div className="space-y-3" onClick={e => e.stopPropagation()}>
+                                                                        <input
+                                                                            className="w-full bg-white/10 p-2 rounded text-amber-300 font-semibold text-sm"
+                                                                            value={editedReflectionBibleRef}
+                                                                            onChange={e => setEditedReflectionBibleRef(e.target.value)}
+                                                                            placeholder="성경 구절 (예: 요한복음 3:16)"
+                                                                        />
+                                                                        <input
+                                                                            className="w-full bg-white/10 p-2 rounded text-white/80 text-sm italic"
+                                                                            value={editedReflectionVerse}
+                                                                            onChange={e => setEditedReflectionVerse(e.target.value)}
+                                                                            placeholder="말씀 본문"
+                                                                        />
+                                                                        <textarea
+                                                                            className="w-full h-32 bg-white/10 p-2 rounded text-white/80 text-sm"
+                                                                            value={editedReflectionContent}
+                                                                            onChange={e => setEditedReflectionContent(e.target.value)}
+                                                                            placeholder="묵상 내용"
+                                                                        />
+                                                                        <div className="flex justify-end gap-2">
+                                                                            <button
+                                                                                onClick={() => setEditingReflectionId(null)}
+                                                                                className="px-3 py-1 bg-white/10 rounded text-xs text-white"
+                                                                            >
+                                                                                취소
+                                                                            </button>
+                                                                            <button
+                                                                                onClick={() => handleSaveReflection(reflection.id)}
+                                                                                className="px-3 py-1 bg-amber-500 rounded text-xs text-white"
+                                                                            >
+                                                                                저장
+                                                                            </button>
+                                                                        </div>
                                                                     </div>
-                                                                )}
-                                                                {reflection.verse && (
-                                                                    <p className="text-white/80 text-base italic mb-3 border-l-2 border-amber-500/30 pl-3">
-                                                                        "{reflection.verse}"
-                                                                    </p>
-                                                                )}
-                                                                {/* 이미지와 글 가로 배치 */}
-                                                                <div className="flex gap-4">
-                                                                    {/* 글 - 왼쪽 */}
-                                                                    <div className="flex-1 min-w-0">
-                                                                        <p className="text-white/80 text-sm leading-relaxed whitespace-pre-wrap">
-                                                                            {cleanContent(displayContent).text}
-                                                                        </p>
-                                                                        {reflection.parentTitle && (
-                                                                            <p className="text-white/40 text-xs mt-3 flex items-center gap-1">
-                                                                                <span>From</span>
-                                                                                <span className="text-amber-500/50">{reflection.parentTitle}</span>
+                                                                ) : (
+                                                                    // 보기 모드
+                                                                    <div className="group/edit relative">
+                                                                        {reflection.bibleRef && (
+                                                                            <div className="flex items-center gap-2 mb-3">
+                                                                                <Book className="w-4 h-4 text-amber-400" />
+                                                                                <span className="text-amber-300 font-semibold text-sm">
+                                                                                    {reflection.bibleRef}
+                                                                                </span>
+                                                                            </div>
+                                                                        )}
+                                                                        {reflection.verse && (
+                                                                            <p className="text-white/80 text-base italic mb-3 border-l-2 border-amber-500/30 pl-3">
+                                                                                "{reflection.verse}"
                                                                             </p>
                                                                         )}
-                                                                    </div>
-                                                                    {/* 이미지 - 오른쪽 */}
-                                                                    {(reflection.imageUrl || reflection.parentImage) && (
-                                                                        <div className="flex-shrink-0 w-32 h-32 rounded-xl overflow-hidden">
-                                                                            <img
-                                                                                src={reflection.imageUrl || reflection.parentImage}
-                                                                                alt=""
-                                                                                className="w-full h-full object-cover"
-                                                                            />
+                                                                        {/* 편집 버튼 */}
+                                                                        <button
+                                                                            onClick={(e) => {
+                                                                                e.stopPropagation();
+                                                                                handleStartEditReflection(reflection);
+                                                                            }}
+                                                                            className="absolute top-0 right-0 opacity-0 group-hover/edit:opacity-100 p-1.5 bg-white/10 hover:bg-white/20 rounded-full transition-all"
+                                                                            title="묵상 편집"
+                                                                        >
+                                                                            <Edit3 className="w-4 h-4 text-amber-400" />
+                                                                        </button>
+                                                                        {/* 이미지와 글 가로 배치 */}
+                                                                        <div className="flex gap-4">
+                                                                            {/* 글 - 왼쪽 */}
+                                                                            <div className="flex-1 min-w-0">
+                                                                                <p className="text-white/80 text-sm leading-relaxed whitespace-pre-wrap">
+                                                                                    {cleanContent(displayContent).text}
+                                                                                </p>
+                                                                                {reflection.parentTitle && (
+                                                                                    <p className="text-white/40 text-xs mt-3 flex items-center gap-1">
+                                                                                        <span>From</span>
+                                                                                        <span className="text-amber-500/50">{reflection.parentTitle}</span>
+                                                                                    </p>
+                                                                                )}
+                                                                            </div>
+                                                                            {/* 이미지 - 오른쪽 */}
+                                                                            {(reflection.imageUrl || reflection.parentImage) && (
+                                                                                <div className="flex-shrink-0 w-32 h-32 rounded-xl overflow-hidden">
+                                                                                    <img
+                                                                                        src={reflection.imageUrl || reflection.parentImage}
+                                                                                        alt=""
+                                                                                        className="w-full h-full object-cover"
+                                                                                    />
+                                                                                </div>
+                                                                            )}
                                                                         </div>
-                                                                    )}
-                                                                </div>
+                                                                    </div>
+                                                                )}
                                                             </div>
                                                         );
                                                     })}
                                                 </div>
                                             )}
 
-                                            {/* 묵상이 없을 때 안내 */}
-                                            {sequence.scriptureSupport.length === 0 && (
+                                            {/* 묵상이 없을 때 안내 - 로그인 사용자만 */}
+                                            {currentUser && sequence.scriptureSupport.length === 0 && (
                                                 <button
                                                     onClick={() => { setIsViewMode(false); setShowReflectionPicker(true); }}
                                                     className="w-full py-4 text-center text-white/40 text-sm border border-dashed border-white/20 rounded-xl hover:bg-white/5 hover:border-white/30 transition-all"

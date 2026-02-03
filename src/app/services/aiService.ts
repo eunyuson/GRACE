@@ -48,7 +48,7 @@ export const generateReactionSnippets = async (
     }
 
     try {
-        const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
+        const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash-lite' });
 
         const prompt = `당신은 사람의 내면 반응을 언어로 꺼내주는 도우미입니다.
 
@@ -126,7 +126,7 @@ export const generateConclusionCandidates = async (
     }
 
     try {
-        const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
+        const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash-lite' });
 
         const prompt = `당신은 성경적 관점으로 사고를 열어주는 도우미입니다.
 
@@ -220,7 +220,7 @@ export const recommendScriptures = async (
     }
 
     try {
-        const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
+        const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash-lite' });
 
         // 최대 20개의 묵상만 분석 (토큰 제한)
         const limitedReflections = reflections.slice(0, 20);

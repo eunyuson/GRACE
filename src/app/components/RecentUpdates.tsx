@@ -145,22 +145,45 @@ export const RecentUpdates: React.FC<RecentUpdatesProps> = ({ isAdmin = false })
         const unsubscribe = onSnapshot(q,
             (snapshot) => {
                 const updates = snapshot.docs
-                    .map(doc => ({
-                        id: doc.id,
-                        ...doc.data()
-                    } as UpdateItem));
+                    .map(doc => {
+                        const data = doc.data();
+                        return {
+                            // 데이터 필드 타입 안전성 확보
+                            title: typeof data.title === 'string' ? data.title : '',
+                            subtitle: typeof data.subtitle === 'string' ? data.subtitle : '',
+                            desc: typeof data.desc === 'string' ? data.desc : '',
+                            image: typeof data.image === 'string' ? data.image : undefined,
+                            // Content가 배열이 아닌 경우(예: 레거시 문자열 데이터) 빈 배열로 처리하여 크래시 방지
+                            content: Array.isArray(data.content) ? data.content : [],
+                            createdAt: data.createdAt
+                        } as UpdateItem;
+                    });
 
-                updates.sort((a, b) => {
-                    // content[0].date (실제 작성 날짜) 우선, 없으면 createdAt 사용
-                    const getDate = (item: UpdateItem) => {
-                        const contentDate = item.content?.[0]?.date;
-                        if (contentDate) return new Date(contentDate);
-                        return item.createdAt?.toDate?.() || new Date(0);
-                    };
-                    const dateA = getDate(a);
-                    const dateB = getDate(b);
-                    return dateB.getTime() - dateA.getTime();
-                });
+                try {
+                    updates.sort((a, b) => {
+                        // content[0].date (실제 작성 날짜) 우선, 없으면 createdAt 사용
+                        const getDate = (item: UpdateItem) => {
+                            try {
+                                const contentDate = item.content?.[0]?.date;
+                                if (contentDate) return new Date(contentDate);
+
+                                // Handle Firestore Timestamp or Date object or null safely
+                                const ca = item.createdAt;
+                                if (ca?.toDate) return ca.toDate();
+                                if (ca instanceof Date) return ca;
+                                if (ca && typeof ca.seconds === 'number') return new Date(ca.seconds * 1000);
+                            } catch (e) {
+                                // Date parsing error - fall through to return epoch
+                            }
+                            return new Date(0);
+                        };
+                        const dateA = getDate(a);
+                        const dateB = getDate(b);
+                        return dateB.getTime() - dateA.getTime(); // Newest first
+                    });
+                } catch (e) {
+                    console.error('Sort error:', e);
+                }
                 setItems(updates);
 
                 // 모든 태그 수집
@@ -293,7 +316,8 @@ export const RecentUpdates: React.FC<RecentUpdatesProps> = ({ isAdmin = false })
 
     // 태그 추출 (# 포함 유지)
     const getTags = (item: UpdateItem): string[] => {
-        const tagSection = item.content?.find(c => c.keyword === 'TAGS');
+        if (!item?.content || !Array.isArray(item.content)) return [];
+        const tagSection = item.content.find(c => c && c.keyword === 'TAGS');
         if (tagSection?.text) {
             return tagSection.text
                 .split(',')
@@ -457,43 +481,55 @@ export const RecentUpdates: React.FC<RecentUpdatesProps> = ({ isAdmin = false })
 
     // 본문 가져오기
     const getContent = (item: UpdateItem) => {
-        return item.content?.find(c => c.keyword === 'CONTENT')?.text || item.desc || '';
+        if (!item?.content || !Array.isArray(item.content)) return item.desc || '';
+        return item.content.find(c => c && c.keyword === 'CONTENT')?.text || item.desc || '';
     };
 
     // 태그 문자열 가져오기
     const getTagsString = (item: UpdateItem) => {
-        return item.content?.find(c => c.keyword === 'TAGS')?.text || '';
+        if (!item?.content || !Array.isArray(item.content)) return '';
+        return item.content.find(c => c && c.keyword === 'TAGS')?.text || '';
     };
 
     // 검색 + 태그 필터링 (포함/제외)
-    const filteredItems = items.filter(item => {
-        const itemTags = getTags(item);
+    const filteredItems = useMemo(() => {
+        try {
+            return items.filter(item => {
+                if (!item) return false;
+                const itemTags = getTags(item);
 
-        // 포함 태그 필터: 모든 포함 태그가 있어야 함
-        const includeTags = Object.entries(tagFilters)
-            .filter(([_, mode]) => mode === 'include')
-            .map(([tag]) => tag);
-        if (includeTags.length > 0 && !includeTags.every(tag => itemTags.includes(tag))) {
-            return false;
+                // 포함 태그 필터: 모든 포함 태그가 있어야 함
+                const includeTags = Object.entries(tagFilters)
+                    .filter(([_, mode]) => mode === 'include')
+                    .map(([tag]) => tag);
+                if (includeTags.length > 0 && !includeTags.every(tag => itemTags.includes(tag))) {
+                    return false;
+                }
+
+                // 제외 태그 필터: 제외 태그가 하나라도 있으면 제외
+                const excludeTags = Object.entries(tagFilters)
+                    .filter(([_, mode]) => mode === 'exclude')
+                    .map(([tag]) => tag);
+                if (excludeTags.some(tag => itemTags.includes(tag))) {
+                    return false;
+                }
+
+                if (!searchQuery) return true;
+                const q = searchQuery.toLowerCase();
+                const contentText = getContent(item).toLowerCase();
+
+                return (
+                    (item.title && item.title.toLowerCase().includes(q)) ||
+                    (item.subtitle && item.subtitle.toLowerCase().includes(q)) ||
+                    (item.desc && item.desc.toLowerCase().includes(q)) ||
+                    (contentText && contentText.includes(q))
+                );
+            });
+        } catch (e) {
+            console.error('Filtering error:', e);
+            return items; // Fallback to all items on error
         }
-
-        // 제외 태그 필터: 제외 태그가 하나라도 있으면 제외
-        const excludeTags = Object.entries(tagFilters)
-            .filter(([_, mode]) => mode === 'exclude')
-            .map(([tag]) => tag);
-        if (excludeTags.some(tag => itemTags.includes(tag))) {
-            return false;
-        }
-
-        if (!searchQuery) return true;
-        const q = searchQuery.toLowerCase();
-        return (
-            item.title?.toLowerCase().includes(q) ||
-            item.subtitle?.toLowerCase().includes(q) ||
-            item.desc?.toLowerCase().includes(q) ||
-            item.content?.[0]?.text?.toLowerCase().includes(q)
-        );
-    });
+    }, [items, tagFilters, searchQuery]);
 
     // 동적 태그 카운트: 필터된 아이템 기준으로 계산
     const dynamicTagCounts = useMemo(() => {
@@ -510,11 +546,16 @@ export const RecentUpdates: React.FC<RecentUpdatesProps> = ({ isAdmin = false })
 
         // 필터된 아이템 내에서 태그 카운트 계산
         const counts: { [tag: string]: number } = {};
-        filteredItems.forEach(item => {
-            getTags(item).forEach(tag => {
-                counts[tag] = (counts[tag] || 0) + 1;
+        try {
+            filteredItems.forEach(item => {
+                if (!item) return;
+                getTags(item).forEach(tag => {
+                    counts[tag] = (counts[tag] || 0) + 1;
+                });
             });
-        });
+        } catch (e) {
+            console.error('Tag counting error:', e);
+        }
         return counts;
     }, [filteredItems, tagFilters, searchQuery, allTags]);
 
@@ -586,6 +627,7 @@ export const RecentUpdates: React.FC<RecentUpdatesProps> = ({ isAdmin = false })
         if (!dateStr) return '';
         try {
             const date = new Date(dateStr);
+            if (isNaN(date.getTime())) return dateStr;
             return new Intl.DateTimeFormat('ko-KR', {
                 year: 'numeric',
                 month: 'long',
@@ -1102,8 +1144,9 @@ export const RecentUpdates: React.FC<RecentUpdatesProps> = ({ isAdmin = false })
                             {/* Tags - Moved out of sticky header */}
                             {getTags(selectedItem).length > 0 && (
                                 <div className="flex flex-wrap gap-2 mb-4">
-                                    {getTags(selectedItem)
+                                    {(getTags(selectedItem) || [])
                                         .sort((a, b) => {
+                                            if (!a || !b) return 0;
                                             // Sort by hierarchy: # -> ## -> ###
                                             const getLevel = (tag: string) => tag.startsWith('###') ? 3 : tag.startsWith('##') ? 2 : 1;
                                             return getLevel(a) - getLevel(b);
@@ -1157,9 +1200,9 @@ export const RecentUpdates: React.FC<RecentUpdatesProps> = ({ isAdmin = false })
                             )}
 
                             {/* Layout with floating image on left */}
-                            <div className={`${selectedItem.image && !selectedItem.image.includes('unsplash.com') ? 'md:flex md:gap-6' : ''}`}>
+                            <div className={`${selectedItem.image && typeof selectedItem.image === 'string' && !selectedItem.image.includes('unsplash.com') ? 'md:flex md:gap-6' : ''}`}>
                                 {/* Floating Image - Left side on desktop */}
-                                {selectedItem.image && !selectedItem.image.includes('unsplash.com') && (
+                                {selectedItem.image && typeof selectedItem.image === 'string' && !selectedItem.image.includes('unsplash.com') && (
                                     <div className="md:sticky md:top-24 md:self-start mb-4 md:mb-0 md:flex-shrink-0">
                                         <div className="relative group/img">
                                             <div className="md:w-96 lg:w-[480px] overflow-hidden rounded-xl border border-white/10 bg-black/30 shadow-lg hover:shadow-xl hover:shadow-blue-500/10 transition-all duration-300">
@@ -1865,7 +1908,7 @@ export const RecentUpdates: React.FC<RecentUpdatesProps> = ({ isAdmin = false })
 
                                 <div onClick={() => setSelectedItem(item)}>
                                     {/* Image Thumbnail - Moved to Top */}
-                                    {item.image && !item.image.includes('unsplash.com') && (
+                                    {item.image && typeof item.image === 'string' && !item.image.includes('unsplash.com') && (
                                         <div className="relative w-full aspect-video md:h-48 mb-4 overflow-hidden rounded-xl bg-black/20">
                                             <img
                                                 src={item.image}
@@ -1887,12 +1930,12 @@ export const RecentUpdates: React.FC<RecentUpdatesProps> = ({ isAdmin = false })
                                     </h3>
 
                                     <p className="text-white/50 text-sm mb-3 line-clamp-2 leading-relaxed">
-                                        {item.subtitle || item.desc?.slice(0, 80)}
+                                        {item.subtitle || (typeof item.desc === 'string' ? item.desc.slice(0, 80) : '')}
                                     </p>
 
                                     {/* Show text preview only if no image, or if short */}
                                     <p className="text-white/30 text-xs line-clamp-3 mb-4 leading-relaxed font-light">
-                                        {getContent(item).slice(0, 100)}...
+                                        {(typeof getContent(item) === 'string' ? getContent(item) : '').slice(0, 100)}...
                                     </p>
 
                                     {/* Tags Preview - Flattened */}
@@ -1900,6 +1943,7 @@ export const RecentUpdates: React.FC<RecentUpdatesProps> = ({ isAdmin = false })
                                         <div className="flex flex-wrap gap-1.5 mb-4">
                                             {getTags(item)
                                                 .sort((a, b) => {
+                                                    if (!a || !b) return 0;
                                                     const getLevel = (t: string) => t.startsWith('###') ? 3 : t.startsWith('##') ? 2 : 1;
                                                     return getLevel(a) - getLevel(b);
                                                 })
@@ -1961,7 +2005,7 @@ export const RecentUpdates: React.FC<RecentUpdatesProps> = ({ isAdmin = false })
                     sourceId={selectedItem.id}
                     sourceType="news"
                     sourceTitle={selectedItem.title}
-                    sourceExcerpt={selectedItem.content?.[0]?.text?.slice(0, 150)}
+                    sourceExcerpt={(typeof getContent(selectedItem) === 'string' ? getContent(selectedItem) : '').slice(0, 150)}
                     onClose={() => setShowLinkModal(false)}
                     onSuccess={() => setShowLinkModal(false)}
                 />

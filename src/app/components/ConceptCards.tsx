@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { X, Plus, Lightbulb, Link2, Edit2, Trash2, ChevronRight } from 'lucide-react';
-import { collection, query, onSnapshot, deleteDoc, doc, updateDoc, addDoc, orderBy, serverTimestamp } from 'firebase/firestore';
+import { collection, query, onSnapshot, deleteDoc, doc, updateDoc, addDoc, orderBy, serverTimestamp, limit } from 'firebase/firestore';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { db, auth } from '../firebase';
 import {
@@ -17,9 +17,10 @@ import { InsightDrawer } from './ui/InsightDrawer';
 
 interface ConceptCardsProps {
     onViewRelated?: (question: string, sourceId: string, sourceType: 'concept') => void;
+    maxItems?: number;
 }
 
-export const ConceptCards: React.FC<ConceptCardsProps> = ({ onViewRelated }) => {
+export const ConceptCards: React.FC<ConceptCardsProps> = ({ onViewRelated, maxItems }) => {
     const [concepts, setConcepts] = useState<ConceptCard[]>([]);
     const [loading, setLoading] = useState(true);
     const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -58,7 +59,12 @@ export const ConceptCards: React.FC<ConceptCardsProps> = ({ onViewRelated }) => 
 
     // Fetch concepts
     useEffect(() => {
-        const q = query(collection(db, 'concepts'), orderBy('createdAt', 'desc'));
+        let q;
+        if (maxItems) {
+            q = query(collection(db, 'concepts'), orderBy('createdAt', 'desc'), limit(maxItems));
+        } else {
+            q = query(collection(db, 'concepts'), orderBy('createdAt', 'desc'));
+        }
 
         const unsubscribe = onSnapshot(q, snapshot => {
             const items = snapshot.docs.map(doc => ({
@@ -75,6 +81,18 @@ export const ConceptCards: React.FC<ConceptCardsProps> = ({ onViewRelated }) => 
 
         return () => unsubscribe();
     }, []);
+
+    // Check URL query params for deep linking
+    useEffect(() => {
+        const params = new URLSearchParams(window.location.search);
+        const cardId = params.get('cardId');
+        if (cardId && concepts.length > 0 && !selectedConceptForDrawer) {
+            const found = concepts.find(c => c.id === cardId);
+            if (found) {
+                setSelectedConceptForDrawer(found);
+            }
+        }
+    }, [concepts]);
 
     // Reset form
     const resetForm = () => {
@@ -174,11 +192,10 @@ export const ConceptCards: React.FC<ConceptCardsProps> = ({ onViewRelated }) => 
         );
     };
 
-    if (!currentUser) {
+    if (loading) {
         return (
-            <div className="flex flex-col items-center justify-center min-h-[50vh] text-white/50">
-                <div className="text-4xl mb-4">🔒</div>
-                <p>로그인이 필요한 서비스입니다.</p>
+            <div className="flex items-center justify-center min-h-[50vh] text-white/50">
+                <div className="text-lg">로딩 중...</div>
             </div>
         );
     }
@@ -314,7 +331,7 @@ export const ConceptCards: React.FC<ConceptCardsProps> = ({ onViewRelated }) => 
                                     </div>
 
                                     {/* Actions */}
-                                    {currentUser?.uid === concept.userId && (
+                                    {currentUser && (
                                         <div className="absolute bottom-4 right-4 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity z-30">
                                             <button
                                                 onClick={(e) => {
@@ -344,41 +361,42 @@ export const ConceptCards: React.FC<ConceptCardsProps> = ({ onViewRelated }) => 
                     </div>
                 )}
 
-                {/* Floating Create Button */}
-                <motion.button
-                    whileHover={{ scale: 1.1 }}
-                    whileTap={{ scale: 0.9 }}
-                    onClick={() => {
-                        // 새 카드 생성: 빈 ConceptCard 생성 후 InsightDrawer 열기
-                        if (!currentUser) return;
-                        const newConcept: ConceptCard = {
-                            id: `temp_${Date.now()}`, // 임시 ID
-                            conceptName: '',
-                            conceptPhrase: '',
-                            question: '',
-                            type: 'concept',
-                            userId: currentUser.uid,
-                            userName: currentUser.displayName || '익명',
-                            sequence: {
-                                recent: [],
-                                responses: [],
-                                aStatement: '',
-                                scriptureSupport: [],
-                                aiReactionSuggestions: [],
-                                aiConclusionSuggestions: [],
-                                aiScriptureSuggestions: []
-                            }
-                        };
-                        setSelectedConceptForDrawer(newConcept);
-                        setIsNewCardMode(true);
-                    }}
-                    className="fixed bottom-8 right-8 z-[2000] bg-gradient-to-r from-indigo-500 to-purple-500 text-white p-4 rounded-full shadow-2xl hover:shadow-indigo-500/30 transition-all flex items-center justify-center"
-                    initial={{ scale: 0 }}
-                    animate={{ scale: 1 }}
-                    transition={{ type: "spring", stiffness: 260, damping: 20 }}
-                >
-                    <Plus size={24} strokeWidth={3} />
-                </motion.button>
+                {/* Floating Create Button - 로그인한 사용자에게만 표시 */}
+                {currentUser && (
+                    <motion.button
+                        whileHover={{ scale: 1.1 }}
+                        whileTap={{ scale: 0.9 }}
+                        onClick={() => {
+                            // 새 카드 생성: 빈 ConceptCard 생성 후 InsightDrawer 열기
+                            const newConcept: ConceptCard = {
+                                id: `temp_${Date.now()}`, // 임시 ID
+                                conceptName: '',
+                                conceptPhrase: '',
+                                question: '',
+                                type: 'concept',
+                                userId: currentUser.uid,
+                                userName: currentUser.displayName || '익명',
+                                sequence: {
+                                    recent: [],
+                                    responses: [],
+                                    aStatement: '',
+                                    scriptureSupport: [],
+                                    aiReactionSuggestions: [],
+                                    aiConclusionSuggestions: [],
+                                    aiScriptureSuggestions: []
+                                }
+                            };
+                            setSelectedConceptForDrawer(newConcept);
+                            setIsNewCardMode(true);
+                        }}
+                        className="fixed bottom-8 right-8 z-[2000] bg-gradient-to-r from-indigo-500 to-purple-500 text-white p-4 rounded-full shadow-2xl hover:shadow-indigo-500/30 transition-all flex items-center justify-center"
+                        initial={{ scale: 0 }}
+                        animate={{ scale: 1 }}
+                        transition={{ type: "spring", stiffness: 260, damping: 20 }}
+                    >
+                        <Plus size={24} strokeWidth={3} />
+                    </motion.button>
+                )}
             </div>
 
             {/* Create/Edit Modal */}
@@ -577,6 +595,7 @@ export const ConceptCards: React.FC<ConceptCardsProps> = ({ onViewRelated }) => 
             {/* InsightDrawer (Sequence Card) */}
             {selectedConceptForDrawer && (
                 <InsightDrawer
+                    currentUser={currentUser}
                     concept={selectedConceptForDrawer}
                     isOpen={!!selectedConceptForDrawer}
                     onClose={() => {

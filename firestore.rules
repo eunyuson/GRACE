@@ -80,8 +80,8 @@ service cloud.firestore {
     // 메모 컬렉션 그룹 규칙 (나의 묵상 기능용)
     // Collection Group Query를 위해 모든 경로의 memos 서브컬렉션에 대한 규칙 필요
     match /{path=**}/memos/{memoId} {
-      // 로그인된 사용자는 읽기 가능 (쿼리에서 userId 필터링)
-      allow read: if request.auth != null;
+      // 누구나 읽기 가능 (공개 묵상)
+      allow read: if true;
       
       // 로그인된 사용자만 쓰기 가능
       allow write: if request.auth != null;
