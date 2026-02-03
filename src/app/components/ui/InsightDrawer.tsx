@@ -1904,19 +1904,34 @@ export const InsightDrawer: React.FC<InsightDrawerProps> = ({
                                                             return;
                                                         }
 
-                                                        // 새 카드 생성 모드
-                                                        if (isNewMode && onCreateNew && localConcept.id.startsWith('temp_')) {
-                                                            const savedConcept = await onCreateNew(localConcept);
-                                                            if (savedConcept) {
-                                                                setLocalConcept(savedConcept);
-                                                                // 상태 업데이트가 충분히 반영된 후 모드 전환
+                                                        try {
+                                                            // 새 카드 생성 모드
+                                                            if (isNewMode && onCreateNew && localConcept.id.startsWith('temp_')) {
+                                                                console.log('[InsightDrawer] Creating new concept...');
+                                                                const savedConcept = await onCreateNew(localConcept);
+                                                                if (savedConcept) {
+                                                                    console.log('[InsightDrawer] New concept created:', savedConcept.id);
+                                                                    setLocalConcept(savedConcept);
+                                                                    // 상태 업데이트가 충분히 반영된 후 모드 전환
+                                                                    setTimeout(() => {
+                                                                        setIsViewMode(true);
+                                                                        // Force close or update state if needed, but normally isViewMode=true is enough
+                                                                        // The parent component should handle the switch from "new mode" to "view mode" in its state
+                                                                    }, 100);
+                                                                } else {
+                                                                    console.error('[InsightDrawer] onCreateNew returned null');
+                                                                    alert('개념 카드 생성에 실패했습니다 (반환값 없음).');
+                                                                }
+                                                            } else {
+                                                                // 기존 카드 저장
+                                                                console.log('[InsightDrawer] Updating existing concept...');
+                                                                await saveToFirestore(localConcept);
+                                                                // 안전하게 모드 전환
                                                                 setTimeout(() => setIsViewMode(true), 100);
                                                             }
-                                                        } else {
-                                                            // 기존 카드 저장
-                                                            await saveToFirestore(localConcept);
-                                                            // 안전하게 모드 전환
-                                                            setTimeout(() => setIsViewMode(true), 100);
+                                                        } catch (err: any) {
+                                                            console.error('[InsightDrawer] Save failed:', err);
+                                                            alert(`저장 실패: ${err.message}`);
                                                         }
                                                     }}
                                                     className="w-full py-3 bg-gradient-to-r from-indigo-500 to-purple-500 text-white font-bold rounded-xl hover:opacity-90 transition-opacity flex items-center justify-center gap-2"
