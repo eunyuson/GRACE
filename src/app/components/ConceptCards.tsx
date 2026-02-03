@@ -612,10 +612,34 @@ export const ConceptCards: React.FC<ConceptCardsProps> = ({ onViewRelated, maxIt
                     onCreateNew={async (newConcept) => {
                         // 새 카드를 Firestore에 저장
                         try {
+                            // Undefined 제거를 위한 살균 함수 (LinkToConceptModal과 동일 로직)
+                            const sanitizeData = (data: any): any => {
+                                if (data === undefined) return null; // undefined를 null로 변환하거나 제거
+                                if (Array.isArray(data)) {
+                                    return data.map(item => sanitizeData(item));
+                                }
+                                if (data !== null && typeof data === 'object' && !(data instanceof Date)) {
+                                    // Check for Firestore specific types (Timestamp etc) - crude check
+                                    if (data.seconds !== undefined && data.nanoseconds !== undefined) return data;
+
+                                    return Object.entries(data).reduce((acc, [key, value]) => {
+                                        if (value !== undefined) {
+                                            acc[key] = sanitizeData(value);
+                                        }
+                                        return acc;
+                                    }, {} as any);
+                                }
+                                return data;
+                            };
+
                             // 임시 ID 제외하고 저장
                             const { id: tempId, ...conceptData } = newConcept;
+                            const sanitizedData = sanitizeData(conceptData);
+
+                            console.log('[ConceptCards] creating doc with:', sanitizedData);
+
                             const docRef = await addDoc(collection(db, 'concepts'), {
-                                ...conceptData,
+                                ...sanitizedData,
                                 createdAt: serverTimestamp(),
                                 updatedAt: serverTimestamp()
                             });
