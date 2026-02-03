@@ -145,9 +145,7 @@ export const LinkToConceptModal: React.FC<LinkToConceptModalProps> = ({
                     if (data.seconds !== undefined && data.nanoseconds !== undefined) return data;
 
                     return Object.entries(data).reduce((acc, [key, value]) => {
-                        if (value !== undefined) {
-                            acc[key] = sanitizeData(value);
-                        }
+                        acc[key] = sanitizeData(value);
                         return acc;
                     }, {} as any);
                 }
