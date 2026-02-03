@@ -330,7 +330,7 @@ export const InsightDrawer: React.FC<InsightDrawerProps> = ({
             sourceId: newsId,
             pinned: false,
             confidence: 1.0,
-            sourcePath: null, // Avoid undefined
+            sourcePath: undefined,
             addedAt: Timestamp.now()
         };
 
@@ -889,8 +889,8 @@ export const InsightDrawer: React.FC<InsightDrawerProps> = ({
         // 줄 단위로 처리하여 태그만 있는 줄 제거 또는 인라인 태그 제거
         content = content.replace(/#\S+/g, '').trim();
 
-        // 3. 불필요한 공백 제거
-        content = content.replace(/\n\s*\n/g, '\n').trim();
+        // 3. 불필요한 공백 제거 (연속된 줄바꿈 보존)
+        content = content.trim();
 
         return { text: content, images };
     };
@@ -1906,6 +1906,7 @@ export const InsightDrawer: React.FC<InsightDrawerProps> = ({
 
                                                         // 새 카드 생성 모드
                                                         if (isNewMode && onCreateNew && localConcept.id.startsWith('temp_')) {
+                                                            const savedConcept = await onCreateNew(localConcept);
                                                             if (savedConcept) {
                                                                 setLocalConcept(savedConcept);
                                                                 // 상태 업데이트가 충분히 반영된 후 모드 전환

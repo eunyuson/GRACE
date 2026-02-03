@@ -2006,6 +2006,7 @@ export const RecentUpdates: React.FC<RecentUpdatesProps> = ({ isAdmin = false })
                     sourceType="news"
                     sourceTitle={selectedItem.title}
                     sourceExcerpt={(typeof getContent(selectedItem) === 'string' ? getContent(selectedItem) : '').slice(0, 150)}
+                    sourcePath={`updates/${selectedItem.id}`}
                     onClose={() => setShowLinkModal(false)}
                     onSuccess={() => setShowLinkModal(false)}
                 />

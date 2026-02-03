@@ -11,8 +11,10 @@ import { AdminPage } from './admin/AdminPage';
 import { MyReflections } from './components/MyReflections';
 import { ConceptCards } from './components/ConceptCards';
 
+import { HymnGallery } from './components/HymnGallery';
+
 const Home = () => {
-  const [activeTab, setActiveTab] = useState<'gallery' | 'updates' | 'concepts' | 'reflections'>('gallery');
+  const [activeTab, setActiveTab] = useState<'gallery' | 'updates' | 'concepts' | 'reflections' | 'hymns'>('gallery');
   const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
@@ -68,6 +70,15 @@ const Home = () => {
           >
             나의 묵상
           </button>
+          <button
+            onClick={() => setActiveTab('hymns')}
+            className={`px-3 md:px-4 py-1.5 text-[8px] md:text-[10px] tracking-[0.1em] md:tracking-[0.15em] uppercase transition-all duration-300 rounded-full ${activeTab === 'hymns'
+              ? 'bg-gradient-to-r from-green-500/30 to-teal-500/30 text-white'
+              : 'text-white/50 hover:text-white/80'
+              }`}
+          >
+            🎵 찬송가
+          </button>
         </div>
       </nav>
 
@@ -78,6 +89,8 @@ const Home = () => {
         <RecentUpdates isAdmin={isAdmin} />
       ) : activeTab === 'concepts' ? (
         <ConceptCards />
+      ) : activeTab === 'hymns' ? (
+        <HymnGallery />
       ) : (
         <MyReflections
           onSelectCallback={(parentId) => {

@@ -67,9 +67,9 @@ export const LinkToConceptModal: React.FC<LinkToConceptModalProps> = ({
                 id: `${sourceType}_${sourceId}_${Date.now()}`,
                 sourceId,
                 sourceType,
-                title: sourceTitle,
+                ...(sourceTitle ? { title: sourceTitle } : {}),
                 excerpt: excerpt.trim(),
-                why: why.trim() || undefined,
+                ...(why.trim() ? { why: why.trim() } : {}),
                 pinned,
                 createdBy: 'manual',
                 addedAt: serverTimestamp()
@@ -99,7 +99,7 @@ export const LinkToConceptModal: React.FC<LinkToConceptModalProps> = ({
             const sequenceItem = {
                 sourceType,
                 sourceId,
-                sourcePath, // Save sourcePath
+                ...(sourcePath ? { sourcePath } : {}), // Save sourcePath only if exists
                 pinned,
                 confidence: 1.0, // 수동 연결 = 100% 신뢰도
                 addedAt: serverTimestamp()
