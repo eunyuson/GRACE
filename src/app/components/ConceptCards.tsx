@@ -94,6 +94,21 @@ export const ConceptCards: React.FC<ConceptCardsProps> = ({ onViewRelated, maxIt
         }
     }, [concepts]);
 
+    // Sync selected concept with real-time updates (Fix for "Link not showing" issue)
+    useEffect(() => {
+        if (selectedConceptForDrawer) {
+            const updated = concepts.find(c => c.id === selectedConceptForDrawer.id);
+            // Only update if the object reference changed (Firestore snapshot returns new objects)
+            // Checks for actual data change are handled by React, but we should ensure we have the latest version.
+            // Note: This might overwrite unsaved local edits if they are not pushed to parent, 
+            // but InsightDrawer manages its own localConcept state and only syncs on ID change or View Mode.
+            // However, to see the "Link" immediately, we need to update the prop.
+            if (updated && updated !== selectedConceptForDrawer) {
+                setSelectedConceptForDrawer(updated);
+            }
+        }
+    }, [concepts]);
+
     // Reset form
     const resetForm = () => {
         setConceptName('');
