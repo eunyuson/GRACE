@@ -22,20 +22,23 @@ export const HymnGallery: React.FC = () => {
 
     useEffect(() => {
         // Fetch hymns - optimize by limiting initial load if needed, but for 645 items it's okay-ish to load basic data
-        // Ideally we interact with a collection 'hymns'
-        const q = query(collection(db, 'hymns'), orderBy('number', 'asc'));
+        // Removing orderBy to avoid index requirement block. Sorting client-side since data set is small (<1000).
+        const q = query(collection(db, 'hymns'));
 
         const unsubscribe = onSnapshot(q, (snapshot) => {
             const items = snapshot.docs.map(doc => ({
                 id: doc.id,
                 ...doc.data()
             } as Hymn));
+
+            // Client-side sort
+            items.sort((a, b) => (a.number || 0) - (b.number || 0));
+
             setHymns(items);
             setLoading(false);
         }, (error) => {
             console.error("Error fetching hymns:", error);
             setLoading(false);
-            // Optionally set error state here if you had one, but at least stop loading
         });
 
         return () => unsubscribe();
