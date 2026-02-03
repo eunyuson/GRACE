@@ -32,6 +32,10 @@ export const HymnGallery: React.FC = () => {
             } as Hymn));
             setHymns(items);
             setLoading(false);
+        }, (error) => {
+            console.error("Error fetching hymns:", error);
+            setLoading(false);
+            // Optionally set error state here if you had one, but at least stop loading
         });
 
         return () => unsubscribe();
