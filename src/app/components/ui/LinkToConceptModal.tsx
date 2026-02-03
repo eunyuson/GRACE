@@ -58,22 +58,34 @@ export const LinkToConceptModal: React.FC<LinkToConceptModalProps> = ({
     );
 
     // Handle save
+    // Handle save
     const handleSave = async () => {
         if (!selectedConcept || !excerpt.trim()) return;
 
         setSaving(true);
         try {
+            console.log('Attempting to link concept:', {
+                selectedConceptId: selectedConcept.id,
+                sourceType,
+                sourceId,
+                sourcePath
+            });
+
             const evidenceItem: EvidenceItem = {
                 id: `${sourceType}_${sourceId}_${Date.now()}`,
                 sourceId,
                 sourceType,
-                ...(sourceTitle ? { title: sourceTitle } : {}),
+                title: sourceTitle || '', // Ensure string
                 excerpt: excerpt.trim(),
-                ...(why.trim() ? { why: why.trim() } : {}),
                 pinned,
                 createdBy: 'manual',
                 addedAt: serverTimestamp()
             };
+
+            // Only add optional fields if they have truthy values
+            if (why && why.trim()) {
+                evidenceItem.why = why.trim();
+            }
 
             // Get current bridge data or create new (Legacy support)
             const currentBridge: BridgeData = selectedConcept.bridge || {
@@ -95,28 +107,35 @@ export const LinkToConceptModal: React.FC<LinkToConceptModalProps> = ({
                 scriptureSupport: []
             };
 
-            // SequenceItem 생성
-            const sequenceItem = {
+            // SequenceItem 생성 - Undefined 방지 철저
+            const sequenceItem: any = {
                 sourceType,
                 sourceId,
-                ...(sourcePath ? { sourcePath } : {}), // Save sourcePath only if exists
                 pinned,
-                confidence: 1.0, // 수동 연결 = 100% 신뢰도
+                confidence: 1.0,
                 addedAt: serverTimestamp()
             };
+
+            if (sourcePath) {
+                sequenceItem.sourcePath = sourcePath;
+            }
 
             // sourceType에 따라 적절한 배열에 추가
             if (sourceType === 'news') {
                 // 중복 방지
-                if (!currentSequence.recent.find(r => r.sourceId === sourceId)) {
-                    currentSequence.recent = [...currentSequence.recent, sequenceItem];
+                const exists = currentSequence.recent?.some(r => r.sourceId === sourceId);
+                if (!exists) {
+                    currentSequence.recent = [...(currentSequence.recent || []), sequenceItem];
                 }
             } else if (sourceType === 'reflection') {
                 // 중복 방지
-                if (!currentSequence.scriptureSupport.find(s => s.sourceId === sourceId)) {
-                    currentSequence.scriptureSupport = [...currentSequence.scriptureSupport, sequenceItem];
+                const exists = currentSequence.scriptureSupport?.some(s => s.sourceId === sourceId);
+                if (!exists) {
+                    currentSequence.scriptureSupport = [...(currentSequence.scriptureSupport || []), sequenceItem];
                 }
             }
+
+            console.log('Updating document...', { id: selectedConcept.id, sequence: currentSequence });
 
             // Update Firestore (both legacy bridge and new sequence)
             await updateDoc(doc(db, 'concepts', selectedConcept.id), {
@@ -125,11 +144,17 @@ export const LinkToConceptModal: React.FC<LinkToConceptModalProps> = ({
                 updatedAt: serverTimestamp()
             });
 
+            console.log('Link success!');
             onSuccess?.();
             onClose();
-        } catch (err) {
-            console.error('Link to concept error:', err);
-            alert('연결 실패');
+        } catch (err: any) {
+            console.error('Link to concept error details:', err);
+            // Show more specific error to user if possible, or at least log it
+            if (err.code === 'permission-denied') {
+                alert('권한이 없습니다. 관리자에게 문의하세요.');
+            } else {
+                alert(`연결 실패: ${err.message || '알 수 없는 오류'}`);
+            }
         } finally {
             setSaving(false);
         }
