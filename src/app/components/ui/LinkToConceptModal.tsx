@@ -137,18 +137,28 @@ export const LinkToConceptModal: React.FC<LinkToConceptModalProps> = ({
 
             // Sanitize function to remove undefined values recursively
             const sanitizeData = (data: any): any => {
+                // If data itself is undefined, return undefined (so parent can omit it)
+                if (data === undefined) return undefined;
+
                 if (Array.isArray(data)) {
-                    return data.map(item => sanitizeData(item));
+                    // Filter out undefined items from arrays
+                    return data.map(item => sanitizeData(item)).filter(item => item !== undefined);
                 }
+
                 if (data !== null && typeof data === 'object' && !(data instanceof Date)) {
                     // Check for Firestore specific types (Timestamp) - crude check
                     if (data.seconds !== undefined && data.nanoseconds !== undefined) return data;
 
                     return Object.entries(data).reduce((acc, [key, value]) => {
-                        acc[key] = sanitizeData(value);
+                        const sanitizedValue = sanitizeData(value);
+                        // Only add key if value is NOT undefined
+                        if (sanitizedValue !== undefined) {
+                            acc[key] = sanitizedValue;
+                        }
                         return acc;
                     }, {} as any);
                 }
+
                 return data;
             };
 
