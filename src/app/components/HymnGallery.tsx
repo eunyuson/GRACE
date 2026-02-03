@@ -21,9 +21,10 @@ export const HymnGallery: React.FC = () => {
     const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
 
     useEffect(() => {
-        // Fetch hymns - optimize by limiting initial load if needed, but for 645 items it's okay-ish to load basic data
-        // Removing orderBy to avoid index requirement block. Sorting client-side since data set is small (<1000).
-        const q = query(collection(db, 'hymns'));
+        // Fetch hymns from 'gallery' collection where type == 'hymn'
+        // This relies on 'gallery' being public readable.
+        // We do NOT use orderBy here to avoid index requirements for safe initial loading
+        const q = query(collection(db, 'gallery'), where('type', '==', 'hymn'));
 
         const unsubscribe = onSnapshot(q, (snapshot) => {
             const items = snapshot.docs.map(doc => ({
