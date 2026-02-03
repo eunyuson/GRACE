@@ -135,14 +135,35 @@ export const LinkToConceptModal: React.FC<LinkToConceptModalProps> = ({
                 }
             }
 
-            console.log('Updating document...', { id: selectedConcept.id, sequence: currentSequence });
+            // Sanitize function to remove undefined values recursively
+            const sanitizeData = (data: any): any => {
+                if (Array.isArray(data)) {
+                    return data.map(item => sanitizeData(item));
+                }
+                if (data !== null && typeof data === 'object' && !(data instanceof Date)) {
+                    // Check for Firestore specific types (Timestamp) - crude check
+                    if (data.seconds !== undefined && data.nanoseconds !== undefined) return data;
 
-            // Update Firestore (both legacy bridge and new sequence)
-            await updateDoc(doc(db, 'concepts', selectedConcept.id), {
+                    return Object.entries(data).reduce((acc, [key, value]) => {
+                        if (value !== undefined) {
+                            acc[key] = sanitizeData(value);
+                        }
+                        return acc;
+                    }, {} as any);
+                }
+                return data;
+            };
+
+            const dataToUpdate = sanitizeData({
                 bridge: currentBridge,
                 sequence: currentSequence,
                 updatedAt: serverTimestamp()
             });
+
+            console.log('Sanitized data preview:', dataToUpdate);
+
+            // Update Firestore (both legacy bridge and new sequence)
+            await updateDoc(doc(db, 'concepts', selectedConcept.id), dataToUpdate);
 
             console.log('Link success!');
             onSuccess?.();
@@ -150,7 +171,9 @@ export const LinkToConceptModal: React.FC<LinkToConceptModalProps> = ({
         } catch (err: any) {
             console.error('Link to concept error details:', err);
             // Show more specific error to user if possible, or at least log it
-            if (err.code === 'permission-denied') {
+            if (err.message && err.message.includes('undefined')) {
+                alert(`데이터 오류: ${err.message}. (개발자에게 문의하세요)`);
+            } else if (err.code === 'permission-denied') {
                 alert('권한이 없습니다. 관리자에게 문의하세요.');
             } else {
                 alert(`연결 실패: ${err.message || '알 수 없는 오류'}`);
