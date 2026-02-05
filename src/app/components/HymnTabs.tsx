@@ -11,7 +11,7 @@ export const HymnTabs: React.FC<HymnTabsProps> = ({ isAdmin = false }) => {
 
   return (
     <div className="relative w-full h-full">
-      <div className="fixed top-24 left-4 md:left-10 z-[2050] flex gap-1 p-1 rounded-full bg-white/5 backdrop-blur-sm border border-white/10">
+      <div className="fixed top-24 md:top-28 left-4 md:left-10 z-[2200] flex gap-1 p-1 rounded-full bg-white/10 backdrop-blur-sm border border-white/15 shadow-lg pointer-events-auto">
         <button
           onClick={() => setActive('hymn')}
           className={`px-3 py-1.5 text-[9px] md:text-[10px] tracking-[0.15em] uppercase rounded-full transition-all ${
