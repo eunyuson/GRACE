@@ -149,6 +149,43 @@ export const HymnGallery: React.FC<HymnGalleryProps> = ({ isAdmin = false }) => 
         return () => unsubscribe();
     }, []);
 
+    useEffect(() => {
+        // Keydown listener for quick number entry
+        const handleKeyDown = (e: KeyboardEvent) => {
+            // Ignore if focus is on an input or textarea
+            const target = e.target as HTMLElement;
+            if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) {
+                return;
+            }
+
+            // Handle number keys
+            if (/^[0-9]$/.test(e.key)) {
+                setSearchQuery(prev => {
+                    // If length is already 3, restart
+                    if (prev.length >= 3 && !isNaN(parseInt(prev))) return e.key;
+
+                    // If previous query was not numeric (e.g. title search), start new number
+                    if (prev && isNaN(parseInt(prev))) return e.key;
+
+                    return prev + e.key;
+                });
+            }
+
+            // Handle Backspace
+            if (e.key === 'Backspace') {
+                setSearchQuery(prev => prev.slice(0, -1));
+            }
+
+            // Handle Escape to clear
+            if (e.key === 'Escape') {
+                setSearchQuery('');
+            }
+        };
+
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, []);
+
     // Enhanced filtering: number, title, code, category + tag filter
     const filteredHymns = useMemo(() => {
         let results = hymns;
@@ -179,7 +216,7 @@ export const HymnGallery: React.FC<HymnGalleryProps> = ({ isAdmin = false }) => 
     }, [hymns, searchQuery, selectedCategory]);
 
     return (
-        <div className="w-full h-full overflow-hidden flex flex-col pt-32 px-4 md:px-10 pb-10">
+        <div className="w-full h-full overflow-hidden flex flex-col pt-44 md:pt-32 px-4 md:px-10 pb-10">
             {/* Header & Search */}
             <div className="flex flex-col gap-4 mb-6">
                 <div className="flex flex-col lg:flex-row justify-between items-start lg:items-end gap-4">
