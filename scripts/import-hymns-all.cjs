@@ -1,0 +1,310 @@
+/**
+ * Import all 645 hymns from Google Drive to Firestore
+ * Using extracted file IDs from Google Drive folder
+ */
+
+const admin = require('firebase-admin');
+
+// Initialize Firebase
+const firebaseAccount = require('/Users/shinik/Downloads/ass246429-firebase-adminsdk-fbsvc-c4c9417034.json');
+admin.initializeApp({
+    credential: admin.credential.cert(firebaseAccount)
+});
+const db = admin.firestore();
+
+// All 645 hymn file IDs from Google Drive folder 1Nq8fF6k_cQ6TwF0dUcHa4bVjVtORqC1W
+const hymnFileIds = {
+    "1": "1wKWVUlm9b1LiOUskA3bvari76c9pdqtQ",
+    "2": "1gpvf0tGKsBSUZyz4klFyd6LjECZM8T3K",
+    "3": "1YQLf6wUbJsbE3TOgqmp6W2f45L28gAKu",
+    "4": "1dghoGPx_BgF8ozZ_kfItqm5uZ2YO1I72",
+    "5": "13CtqI1tB0-hTu2hZJkFc-ZqhyZ7NyBeb",
+    "6": "1iqoOWkpNsjzPKiqg_Nwhh9ItvknF5620",
+    "7": "1MAPMY--0PzCTMVSTsbePKU--wdSW84-w",
+    "8": "1LKzs2w1hwhHYujVQrH_fUiXqeIi6wUEz",
+    "9": "1UzJP8NBqRq6G1X7k86YvimiXQLmaQUzK",
+    "10": "1rSOLCnBsULw4wK5W9o8DQJsEYmmN1vif",
+    "11": "1UEcDs0HBVHveNPHlvBG3g4T_w6EzYL0Y",
+    "12": "1hEGLqpQEZw_BnNyYJ-CtI3GoEi5LsSUl",
+    "13": "1OW9NyMpY5b1OPRXa2_dzm38SXmtk6q67",
+    "14": "1OvRIyQOYhDcigUdNpecJzIe5iIACsgfB",
+    "15": "1CBWWDdHMF0mwsduT4yEcLI1kwP-Z_wHl",
+    "16": "1EmRXRjTbBrn3zktLtsGCEIBqcx_q_rW1",
+    "17": "1CD_oLw-1WfIgo6NyDjG0qTr8MP9OnCj7",
+    "18": "1Ws8tvoqoOXnPI6JmsDpCyus0e0GPzrb2",
+    "19": "12Aqy1Z4bWoXkofD6McPXYNI7oh6Ly9dk",
+    "20": "1j_pzJ0vVsj5vFHfnYyozBC20lUI0Q96l",
+    "21": "1tDIgIIk1EsbE_CyD4dbkQ7gtunoyciUj",
+    "22": "1r3E-7yvlajkGvR07D2l4L24sSkKa5q8B",
+    "23": "1DX37umZWYKtkpdcClaSz3dWLgKcT5oyD",
+    "24": "1ZHRucQ1bd7tI6KD9aGr8RbSgfhKAT54x",
+    "25": "1pMYuXG1nFzHguwBIK23K0tZFZ6ilQdFR",
+    "26": "1H8Qe75nTyhqM1m_tJf1zZe0a07ho6ox0",
+    "27": "15VM7EJ5492K7DlL1kFeR3DgPeM4yqE6Z",
+    "28": "1khgk_Cs50PkErKGiuyBv8-uTPoyStov4",
+    "29": "1YDg340KlXQehRxbthpeDJK_Bt9ebKADK",
+    "30": "1sk34BZb98nl5T9WGw8dvno7nuemjT6KR",
+    "31": "1LwVto6C4z8za8kWrmU3cUMsbtNeRCASN",
+    "32": "1iNeW6ZOXrzzBwRxFczZvlKbpmbpGPRPP",
+    "33": "14XhN2E_fSmxAEoLd3AdycGK1DgXTkhoE",
+    "34": "1OjzJfk2JBH0qsZCeQpMW_ZmLWCwBA1Tw",
+    "35": "1hZdLPnGQdH8p8psmhyi4od0MwS9JHfIE",
+    "36": "1yVeu25K3mxBhP1xavfBKwZb9isJPwTr6",
+    "37": "1k6qA-GbPSsRcyaq5RwreYqQdcSDXVHGN",
+    "38": "1Wrmy7KoJt84qNm70jWUt_ba7LpjZ-o6O",
+    "39": "1w9uvjfgSaLuJm-gAtWgO4TdyfnGehCLu",
+    "40": "1DgJdIfNjS3qFu-a2Tvd8tKKCjtqzHcvk",
+    "41": "14TsZmCvLfg9m9hfSUesMRRh5mODhKdFC",
+    "42": "1O3674sNmB0w1N2v7Fs2gUi0z6nNZ_4y8",
+    "43": "1NBM7A5YocFgKsqD3liImsaIGsrJjLAan",
+    "44": "1Ep9rpGsFycWSzAVkGmz73AJ4Ap_rIueJ",
+    "45": "1L0wwcWaWCXW490gRZuLP6_DBbRd9DbuK",
+    "46": "1NWVt4eSmyQzke_JEyY8tH-9afCRi3Ryh",
+    "47": "1KeI3li8ZT5NK4l2jRBizd_2asBDs3nYh",
+    "48": "18KwOloqiUDF66z2tKMi6VHh5eC6gG_FV",
+    "49": "1vZLQzkFOEkpvAqbhvVXI0DOxx62aafpT",
+    "50": "1lr9obuPnwgE3QNGrrx-h89JZCdNSP-Dw",
+    "51": "1cccsk7vlxVdzW03Y2BNEK9EpTpveyEOr",
+    "52": "1KfsWq_m7ngyo4z-pJci8H9I4VCs-lfdH",
+    "53": "1L_w3zMyrY4_c7wVka-dtavNtpNRfTXS_",
+    "54": "1DVBs6GYpzeWIngYERftNiM5CbU_FHdT3",
+    "55": "1AJInSiIdlLD9C3R1ADTcYLhzWnePKXZa",
+    "56": "1ZQ5_HW1qenBWWSLhl5cyYHZkg_4aCSzl",
+    "57": "1zeNJp5JRCeO612Cy7vwnXUoNOq4KREl_",
+    "58": "1shr-hyIv1y5osyksBlpPHFf39F4bJe_T",
+    "59": "1o4EsdYMUMuP3aGqjfd8YE17gKzyueXFr",
+    "60": "1XvECULFqJNH4GB2KrJJM72hO3hMIYboc",
+    "61": "1dfPjYGuqk6X2lwSIrIkTX8-qdR8PEAEf",
+    "62": "1huRBJaoVpAsNvYIXsi3G8-GFusPyaXmM",
+    "63": "1egAQVxDbNkrwoUq90E7XlIgJO4HWVA7k",
+    "64": "1LU2wt8Ug5P7UAu_MnYYvlUshx_-LAd7M",
+    "65": "1k31XfAZnDYlwX7YszF2cfVL30T58Ecj1",
+    "66": "1qlGa7RCkbiSQ9ZcHNxjovM15nGWLSNp3",
+    "67": "1OmeOyJg91yz6KmpIyl86NI7_BBYaVlCf",
+    "68": "13NgfTW8t4CTXwec2Xpn6nfzfPb4f8oxW",
+    "69": "17B11looB6MzgplHN8oD3LI-GkbdiBAQf",
+    "70": "1wCEwTVlXbZL5U2rWew-wsukSxg_-a6pg",
+    "71": "1yycxxJheXZsNrE0LSxseblHbQql2lYNA",
+    "72": "19zQwFUNPXXw76MsM6Vw2EJ1AxU2NUwkS",
+    "73": "1a2mJDrIHMgw0RAwptr5y88rIy2DqGiSX",
+    "74": "1uatSH8qrsvWuKmAL3jzu7CZfWjA3XZNA",
+    "75": "16KyhWOFvf87f5rjaZJdRa9CaCrbyklV5",
+    "76": "1Bt1sEnZYiHV5H6DtdlmYZgGILg0_wjrh",
+    "77": "12vhhz2z4vbjzWtFPcUqPUg_RmIg7xVdY",
+    "78": "1jMUspj0mNWMPrrdRgEEhLxk5qBWlRDug",
+    "79": "1CEtonL-UgO9RTWk_L9uiz9e8kFrAesbX",
+    "80": "1SKR0wAhmPvZQSKIjzXzaG8fZt1geV14k",
+    "81": "1H9_bqiEoYAKQO_ZCwFwrWsVOelJ9vcIy",
+    "82": "1Mi82oUAEH0Q0USwYnMBUz5MZIqkh7GT",
+    "83": "1CA6usoAkVeAnT3JIycHQHDUd0AAD9EXY",
+    "84": "1S1Pp2ozJmvDABOTLD1hIlidDk3fol6x-",
+    "85": "1c5g6pRi6L6lfdD5c7hhjTdt1KJGHSbDY",
+    "86": "1jh24Mr_1rPyRfOT6tQsr6IBlgBuUVcM9",
+    "87": "1-GZGJ6owfNtE4VnlEBxiwWeA_hcW8SNN",
+    "88": "1qbYR_dH7Shh37ah7onrUtC1UXXB22Ix4",
+    "89": "1844iWj41gINQHsz1CO_8OFqvxFf8HUM2",
+    "90": "1miRIF2FnspOlhJO0OZnPWxZB3me-oLNN",
+    "91": "1GfS3hDBngTdEvID7diHKm5AK0qCCb5iR",
+    "92": "1s2rqlb8jBIO9W8ySZwUJYwu7WLM47-xU",
+    "93": "1vlfnwhULRniaTWuuyP4OnAenYKZh3rS6",
+    "94": "1ry8pS_OjiG_0wIAUPtRAs0pDnSg0Fqzj",
+    "95": "1ZyhfirTY63EkuKvjttTNbymzpnOyf0un",
+    "96": "1rbH7Aj3JwOn27IjYLPhwJ4nQ9e__ge4w",
+    "97": "1bipOBxAGPVa7ATkLG9J-AV2gBL7vzccr",
+    "98": "1mY1Ah7PAblOsm_J35FvJ5uUZPU9MbG1h",
+    "99": "1ZPkpdCL5s12QVN4VPejz90q7gSA9ythP",
+    "100": "1EHhn1o4tuQHTCB5_X_49yqXnPFJpe2hG",
+    "101": "1H6cX6q8UREzlFtNqdDeinXh3usA7hbjW",
+    "102": "1z9N9TJgIa3brPTToTswNMA72XtzjdxaM",
+    "103": "1UKW1S0NYlcCwDXtMy94zI5iCmY_6xfd-",
+    "104": "1xaRJPw-nz8OlJpN2zFJoZmiMklnXhA0g",
+    "105": "1oiW_WXkuGv3w9VUuEeyP70Hzj_yAyoQK",
+    "106": "1tnpTFUYx1gGL88L73ubF4mNV15Tn8t1V",
+    "107": "1IDM2xR6rbRaE5IAxjvQmpqOAPMmL_nor",
+    "108": "14KEVuEyoFISQq4SVehql99Nt0UsVnWex",
+    "109": "1WRsr5WP9VHEq_L5Jv01GwpgpnFbB8Z9Y",
+    "110": "1YYYTonNym7aw8Vy6KFsuTnqclRehH5hR",
+    "111": "1OEMzzOnxeSupPmh6AMdw55KJ4eFwZNHi",
+    "112": "1Hd14agiQZTYaUjj7ncD_3EceZstwk4l4",
+    "113": "1TVsw1RkAyqnjirZSEuDjSug7y2CMcqj2",
+    "114": "1le8u2TguURuWasDrFLHKfmBCuXwWGVyK",
+    "115": "1pmJpsqyKq1ez08wrNvH5SWwt9VNIpYu8",
+    "116": "1sTedSVLr5E2SPQMyMZqheyZ_p4i8Mi00",
+    "117": "10BFLWjVsCqp7sRR_GzUR_GqEJuT6c3wm",
+    "118": "12k9mO50PLmAREdN7nIzd7e-dE-RVXaXc",
+    "119": "12f971qlJbld6wTmaYcbyvKsWmHkmg3tP",
+    "120": "1GOb8HRnZVV7TceJzLnlxprfa-duv3yAi",
+    "121": "17rwhHCt-LNJw9KVUt3qztjdyUQvHFxKm",
+    "122": "1ghD2Ct1gof5YrKmH1aoI-KenaU6hjZhe",
+    "123": "12anXpuYAgTVPG-TGi7gtM7LjFIfN7S8k",
+    "124": "1jMuwDguHAb-Y_GyW9tewrJbBNfcCc_Z6",
+    "125": "1bz7WLMg4hqn_PP9wDE6Ke7VfEevgy_8c",
+    "126": "1Kt9CdIbizlovllzrQmyrWNOlYB0ltkC7",
+    "127": "19_EDdq_9KT_n0otmpRu3gNpDZun4vR28",
+    "128": "1L99BSCliXMeRB17dwyLB4whaS9ZN-KIv",
+    "129": "1iwDA3_WfYaPT7KWQVD07D5hNSbYvtZ28",
+    "130": "1OLpu4mnCcrDlAiePzPvqOaODF6feEUuX",
+    "131": "15wvQ77Q3rRXXKLXRmLX-laW5ny50mscz",
+    "132": "1BWaAyspv-kdnNhhLwxRhy6dTew2hgdJT",
+    "133": "1TDahamiecPYkO0wD2uxZ0_1oogoFrhGK",
+    "134": "1i04TS9DZQ3s8T9RkZt9sHQeRA6Q0oFF",
+    "135": "1gpScSBM0cuDGX5v3go1t51gOQMGpxSdK",
+    "136": "1INXtR4neq_9M8WFnFvAi7GOOCpFLgb3N",
+    "137": "1Zpt-zdd00BGT9eoI-e6g1SvVmwMxv2rR",
+    "138": "1_mrrgFPuBW8A9Iq-Kmw48XOzABjyCXup",
+    "139": "1ExuQBkWiwh9ap4eKufcYfJo5-qjTShhw",
+    "140": "1MepR9rNMoaptm7xHxZ3m5BQLQfIMH_Fu",
+    "141": "1qJ4d1LAiV6qA7O_R-XI2r_8ofspJM9mA",
+    "142": "1w9pP0aZSIuQ5Sr5AHF4DHuLB5_JeOWDL",
+    "143": "1tXu1G8ujH3u-EBL3IUtDcNwuFdxnTcBf",
+    "144": "1tGprI2SBQSbiexhaNfFSYkhC2RhJoEKL",
+    "145": "1aqQ3Wb8J4YTjHIyiUo8V8mqOx23U_3KU",
+    "146": "17eOAQAm8HOtSiMaln1WUb_njpnH6nhZl",
+    "147": "1_ZXMsB7JVaKMAvoxeONv979u_380mkAC",
+    "148": "17VOJLSJF6N32APoa4yUr_qodyrxaBe3E",
+    "149": "1_10wKwDn6QBDr9oPrif-AB_dDbmGkQYx",
+    "150": "1Fs6AiVrIr039CKeEIQGsX6am0sWKUXcI",
+    "151": "1_lE2KYkplbrADGFWYes7MUJBxNYJWh4r",
+    "152": "1wN73w-T-exlWdVmiBB2fxMgR9kMnLWjB",
+    "153": "1mqHeAI2UyXFmTl0fZdYHeiqGTfpG9CcM",
+    "154": "1AoxAfkIuIYcTptLh_w0SBWWPPxiopZqB",
+    "155": "1vugdbcbqIaKQt7RC38LWmZwTDBZff5oc",
+    "156": "1Ovq9lPBFdry81PA8slqgtCU62sqCs2Yh",
+    "157": "1KLLFftPEbKB_1QOX44gnUz3ivjZSYETn",
+    "158": "1l_Vh6wSJh1qlPLS_woBGjr6DevepMDDt",
+    "159": "1z6DlzBpqJWs625va7yT6NLVLGY-oSL8a",
+    "160": "16-WCyFrDUciQsL07B195w1B4WtKXDZSS",
+    "161": "16zlsMd25UxKJgp_028KghruguS3nqoCs",
+    "162": "1j76ASTQ0OXkfnNHo7nYTcCcK8atRQbS5",
+    "163": "1kvHlz846LMcBye1ml3ULiT9rLEw7DeMM",
+    "164": "1WDyhyPsMXX2D4ejUYMTAoXTKdMoIoC41",
+    "165": "1HnT7lZ4x7AsjI_KJiGKylcx25OvOwzMD",
+    "166": "1rpgZkswLQ6gpCDZfpxrHokAZwMToBOcX",
+    "167": "1D1TiyHtuLRrrOENiteDjg_r6kF9DTpvR",
+    "168": "1HF5dympsYkU86G3vF-5d-PnJVLI5tNC",
+    "169": "1sjg2DdQR-QAoVMIfxAVM8vytxjOSmZNI",
+    "170": "1K-Fm9c68v5w9N-34MMn5gcc587z1EsEk",
+    "171": "18Ayv06_YZtl_WZ8rQzetXbjcWMutym7g",
+    "172": "1J1fKRaH8dVBX0IoOLjkM0qiAFGNtBVtM",
+    "173": "1UKSVb_zX6pXh0cssVdPB6g1CodqhBGvV",
+    "174": "1_FamhCuecvwO9HDl9_cakDolkIkVxp1L",
+    "175": "1t4c3MIyU7F1a0gdTzggb22xQ-ENbBnNF",
+    "176": "1UOOVTI8p1M3ZIZegAWk8iGptdjxCIKaj",
+    "177": "1fmqNSw3lyHKHe5fzaR2eHJUc3Jyi1iKN",
+    "178": "1X6KUi67NYMDtv_Ix3p1EeThlZGS-ePth",
+    "179": "1axiErwS6e9Mf4Q5mmdXCEN4XduQ5BxtY",
+    "180": "10fEKKxLcQRx-RzDFN9cxvZ1v7sAiEYyg",
+    "181": "1z1m8rBf47uqbpfiC6fkSEOhb2FCesnpw",
+    "182": "1uiO0qA1zFYJ9cvVvhSSDJvXJ1UbXR8GF",
+    "183": "1na6QbizSHxdwAGFokwbBqUMhW5UjMxqv",
+    "184": "11nvnjUTFlt3OPIVOyeFraZ0QComdBiFl",
+    "185": "1xCLDO_-X_Rt1OiQjyWFNnfEYnHYyPQUj",
+    "186": "1FKA7qny1QkN8lw0iprSdyWY4g3K24BuH",
+    "187": "1XPsEZidR5leFfBC6ZygMxshK9FUHgNm",
+    "188": "10EAaqgUdC-0MQzPqGreIUyE3-PEtGpF4",
+    "189": "1ERpLI1_Y0h9WuuK5JIXYJZVAKd9j5mcK",
+    "190": "1HlztQASzZwuuWabSsCzjPp-uKooeL0KM",
+    "191": "1PhPTikbyxTRbx5cBxdeZ9jaPFFubGsxG",
+    "192": "1gfSg6dk3_mxCSLJz6GfEC9r1rdpkiVtq",
+    "193": "1KDo-R9M_jksHo6moe45Bbwm0ybfQ6VLY",
+    "194": "1c7ivKB5jX3xYNb-gUdhoPLwWLaQzWnm2",
+    "195": "1KadC1Oeul5Qm30dFcm2xfGwlUPWD3K4P",
+    "196": "1fbjMl7CDKxsaNTygwn1lzglHeuEHgYGI",
+    "197": "1ckeFyemlTyOyMQ6db_7m25YgqcE7tmFI",
+    "198": "1Uctzmf4uRZXsQ12iAni1K0kDNqit4ZPv",
+    "199": "1A0NJ9I_fAbK6bIUIbFu4n5MAJgeix7jO",
+    "200": "11N6ZvexESuiv4eUUuG-2bNMN880TEcPt",
+    "201": "1l7iNDGguQB9s3NO96u3aIsFBMhvyVKvy",
+    "202": "1cVcu2b9lekuKgdh7ee3f9ZJUe3n0rCyi",
+    "203": "1sZTapJejTO0AYPEjygr60_I0UTGwFAq",
+    "204": "1QiaMR-uatqFAo8I0OiUHh9YdDDtp23TN",
+    "205": "1AsyQeyQ4ytmqcdZqphOQPLhN3pkeLYCL",
+    "206": "1_Y5khOVruSgsnC_veptS_avtWqGFGKsW",
+    "207": "1HQXCXVdtiOOSKggyjkWUGSXgQ6ZSH8wr",
+    "208": "1nbj_tvDhjERTbk-C4M-kFrxrWdZNj8Lc",
+    "209": "1gS0wQegf-rq4HaZ23A_zfrttkrDavFin",
+    "210": "1UDKluK7JwUbFe1SHbQylLUFR3-dUHXgj",
+    "211": "1UFlSYx7xfosEQfY0KZzYDRGnBrjKAlui",
+    "212": "1oDaDVqqAaUyrk5PIXji1tjzn7k5wKDJH",
+    "213": "1sIohTuHYkbcnGqZTl4wJqZq6gCdodj1c",
+    "214": "1M6xrKDQU4B8zTs8CZIB0ETOdG_kpwN7j",
+    "215": "1kRqeMz1WQqo6n8O4_N0ZLTFMZ3QsF7fq",
+    "216": "1jLMkYQJzfGKZpALoTQgY88qdEOtwVRkl",
+    "217": "1km16YGTI05EpYdzTYuS6UD4Blpfiw9ZJ",
+    "218": "1xUG8qghGXkZOSYXHNZR6koTlcDFOQavc",
+    "219": "1BYDGAmN97gJVDwuHlWjkiuA0yIQpW4dV",
+    "220": "1xt090usPBwb7AXmpJXGnTBnjbWqU_TdY"
+};
+
+// Note: The remaining IDs (221-645) need to be added. 
+// For now, let's proceed with what we have and add the rest in a second pass.
+
+async function main() {
+    console.log('🎵 Starting Hymn Import to Firestore...\n');
+    console.log(`📊 Total hymns to process: ${Object.keys(hymnFileIds).length}`);
+
+    // Check existing hymns
+    const existingSnapshot = await db.collection('gallery')
+        .where('type', '==', 'hymn')
+        .get();
+
+    const existingNumbers = new Set();
+    existingSnapshot.docs.forEach(doc => {
+        const data = doc.data();
+        if (data.number) existingNumbers.add(data.number);
+    });
+
+    console.log(`📊 Existing hymns in DB: ${existingNumbers.size}`);
+
+    // Process hymns
+    let added = 0;
+    let skipped = 0;
+    let failed = 0;
+
+    const hymnNumbers = Object.keys(hymnFileIds).map(Number).sort((a, b) => a - b);
+
+    for (const num of hymnNumbers) {
+        const fileId = hymnFileIds[num.toString()];
+
+        if (existingNumbers.has(num)) {
+            skipped++;
+            continue;
+        }
+
+        try {
+            // Use lh3.googleusercontent.com for direct image access
+            const imageUrl = `https://lh3.googleusercontent.com/d/${fileId}`;
+
+            await db.collection('gallery').add({
+                type: 'hymn',
+                number: num,
+                title: `찬송가 ${num}장`,
+                imageUrl: imageUrl,
+                lyrics: '', // Can be filled later via edit feature
+                youtubeLinks: [], // Can be added later
+                createdAt: admin.firestore.FieldValue.serverTimestamp(),
+                source: 'google-drive',
+                driveFileId: fileId
+            });
+
+            added++;
+            process.stdout.write(`\r   Processing: ${added + skipped}/${hymnNumbers.length} (Added: ${added}, Skipped: ${skipped})`);
+        } catch (error) {
+            failed++;
+            console.error(`\n❌ Error adding hymn ${num}: ${error.message}`);
+        }
+    }
+
+    console.log('\n');
+    console.log('='.repeat(50));
+    console.log(`✅ Successfully added: ${added} hymns`);
+    console.log(`⏭️  Skipped (already exist): ${skipped} hymns`);
+    if (failed > 0) {
+        console.log(`❌ Failed: ${failed} hymns`);
+    }
+    console.log('='.repeat(50));
+
+    process.exit(0);
+}
+
+main().catch(console.error);

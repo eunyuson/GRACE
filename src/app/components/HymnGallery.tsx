@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Search, X, Download, Music, Grid, List } from 'lucide-react';
-import { collection, query, orderBy, onSnapshot, where, getDocs, limit } from 'firebase/firestore';
+import { X, Download, Music, Grid, List, Edit3, Save, Youtube, Plus, Trash2, ExternalLink } from 'lucide-react';
+import { collection, query, orderBy, onSnapshot, where, getDocs, limit, doc, updateDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 
 interface Hymn {
@@ -11,14 +11,100 @@ interface Hymn {
     imageUrl: string;
     pptUrl?: string;
     lyrics?: string;
+    youtubeLinks?: { url: string; title: string }[];
 }
 
-export const HymnGallery: React.FC = () => {
+interface HymnGalleryProps {
+    isAdmin?: boolean;
+}
+
+export const HymnGallery: React.FC<HymnGalleryProps> = ({ isAdmin = false }) => {
     const [hymns, setHymns] = useState<Hymn[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedHymn, setSelectedHymn] = useState<Hymn | null>(null);
     const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+
+    // Editing states
+    const [isEditing, setIsEditing] = useState(false);
+    const [editLyrics, setEditLyrics] = useState('');
+    const [editYoutubeLinks, setEditYoutubeLinks] = useState<{ url: string; title: string }[]>([]);
+    const [newYoutubeUrl, setNewYoutubeUrl] = useState('');
+    const [newYoutubeTitle, setNewYoutubeTitle] = useState('');
+    const [saving, setSaving] = useState(false);
+
+    // Start editing mode
+    const startEditing = () => {
+        if (selectedHymn) {
+            setEditLyrics(selectedHymn.lyrics || '');
+            setEditYoutubeLinks(selectedHymn.youtubeLinks || []);
+            setNewYoutubeUrl('');
+            setNewYoutubeTitle('');
+            setIsEditing(true);
+        }
+    };
+
+    // Save changes
+    const saveChanges = async () => {
+        if (!selectedHymn) return;
+
+        setSaving(true);
+        try {
+            const hymnRef = doc(db, 'gallery', selectedHymn.id);
+            await updateDoc(hymnRef, {
+                lyrics: editLyrics,
+                youtubeLinks: editYoutubeLinks
+            });
+
+            // Update local state
+            setSelectedHymn({
+                ...selectedHymn,
+                lyrics: editLyrics,
+                youtubeLinks: editYoutubeLinks
+            });
+            setIsEditing(false);
+        } catch (error) {
+            console.error('Error saving hymn:', error);
+            alert('저장 중 오류가 발생했습니다.');
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    // Add YouTube link
+    const addYoutubeLink = () => {
+        if (!newYoutubeUrl.trim()) return;
+
+        // Extract video ID and create embed-friendly URL
+        let videoId = '';
+        const urlMatch = newYoutubeUrl.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([^&\n?#]+)/);
+        if (urlMatch) {
+            videoId = urlMatch[1];
+        }
+
+        const title = newYoutubeTitle.trim() || `영상 ${editYoutubeLinks.length + 1}`;
+
+        setEditYoutubeLinks([...editYoutubeLinks, {
+            url: videoId ? `https://www.youtube.com/embed/${videoId}` : newYoutubeUrl,
+            title
+        }]);
+        setNewYoutubeUrl('');
+        setNewYoutubeTitle('');
+    };
+
+    // Remove YouTube link
+    const removeYoutubeLink = (index: number) => {
+        setEditYoutubeLinks(editYoutubeLinks.filter((_, i) => i !== index));
+    };
+
+    // Cancel editing
+    const cancelEditing = () => {
+        setIsEditing(false);
+        setEditLyrics('');
+        setEditYoutubeLinks([]);
+        setNewYoutubeUrl('');
+        setNewYoutubeTitle('');
+    };
 
     useEffect(() => {
         // Fetch hymns from 'gallery' collection where type == 'hymn'
@@ -45,49 +131,94 @@ export const HymnGallery: React.FC = () => {
         return () => unsubscribe();
     }, []);
 
-    const filteredHymns = hymns.filter(h =>
-        h.number.toString().includes(searchQuery) ||
-        h.title.includes(searchQuery) ||
-        (h.lyrics && h.lyrics.includes(searchQuery))
-    );
+    // Progressive number filtering
+    // "1" -> matches 1, 10-19, 100-199
+    // "12" -> matches 12, 120-129
+    // "123" -> matches exactly 123
+    const filteredHymns = hymns.filter(h => {
+        if (!searchQuery) return true;
+        const numStr = h.number.toString();
+        return numStr.startsWith(searchQuery);
+    });
 
     return (
         <div className="w-full h-full overflow-hidden flex flex-col pt-32 px-4 md:px-10 pb-10">
-            {/* Header & Search */}
-            <div className="flex flex-col md:flex-row justify-between items-end mb-8 gap-4">
-                <div>
-                    <h1 className="text-4xl md:text-6xl font-['Anton'] text-white mb-2">HYMNS</h1>
-                    <p className="text-white/40 font-['Inter'] tracking-wider text-sm">새찬송가 (1-645)</p>
-                </div>
-
-                <div className="flex items-center gap-4 w-full md:w-auto">
-                    <div className="relative flex-1 md:w-80">
-                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-white/30" size={18} />
-                        <input
-                            type="text"
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                            placeholder="장수, 제목, 가사 검색..."
-                            className="w-full pl-12 pr-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-white/30 focus:outline-none focus:border-white/30 transition-all"
-                        />
+            {/* Header & Smart Number Keypad */}
+            <div className="flex flex-col lg:flex-row justify-between items-start lg:items-end mb-6 gap-6">
+                <div className="flex items-end gap-6">
+                    <div>
+                        <h1 className="text-4xl md:text-5xl font-['Anton'] text-white mb-1">HYMNS</h1>
+                        <p className="text-white/40 font-['Inter'] tracking-wider text-xs">새찬송가 1-645장</p>
                     </div>
 
-                    <div className="flex bg-white/5 rounded-lg p-1 border border-white/10">
+                    {/* Number Display */}
+                    <div className="flex items-center gap-3">
+                        <div className="bg-gradient-to-br from-emerald-500/20 to-teal-500/10 border border-emerald-500/30 rounded-2xl px-6 py-3 min-w-[120px] text-center backdrop-blur-sm">
+                            <span className="text-3xl md:text-4xl font-bold text-white font-mono tracking-wider">
+                                {searchQuery || '___'}
+                            </span>
+                            <span className="text-emerald-400 text-lg ml-1">장</span>
+                        </div>
+                        {searchQuery && (
+                            <button
+                                onClick={() => setSearchQuery('')}
+                                className="p-2 bg-white/5 hover:bg-red-500/20 border border-white/10 hover:border-red-500/30 rounded-xl text-white/50 hover:text-red-400 transition-all"
+                            >
+                                <X size={20} />
+                            </button>
+                        )}
+                    </div>
+                </div>
+
+                <div className="flex items-center gap-4">
+                    {/* Number Keypad */}
+                    <div className="grid grid-cols-5 gap-1.5 bg-white/5 p-2 rounded-2xl border border-white/10 backdrop-blur-sm">
+                        {[1, 2, 3, 4, 5, 6, 7, 8, 9, 0].map((num) => (
+                            <button
+                                key={num}
+                                onClick={() => {
+                                    if (searchQuery.length < 3) {
+                                        setSearchQuery(prev => prev + num.toString());
+                                    }
+                                }}
+                                className="w-10 h-10 md:w-11 md:h-11 rounded-xl bg-gradient-to-br from-white/10 to-white/5 hover:from-emerald-500/30 hover:to-teal-500/20 border border-white/10 hover:border-emerald-500/40 text-white font-bold text-lg transition-all hover:scale-105 active:scale-95 shadow-lg"
+                            >
+                                {num}
+                            </button>
+                        ))}
+                    </div>
+
+                    {/* View Mode Toggle */}
+                    <div className="flex flex-col bg-white/5 rounded-xl p-1 border border-white/10">
                         <button
                             onClick={() => setViewMode('grid')}
-                            className={`p-2 rounded-md transition-all ${viewMode === 'grid' ? 'bg-white/10 text-white' : 'text-white/40 hover:text-white/70'}`}
+                            className={`p-2 rounded-lg transition-all ${viewMode === 'grid' ? 'bg-emerald-500/20 text-emerald-400' : 'text-white/40 hover:text-white/70'}`}
                         >
                             <Grid size={18} />
                         </button>
                         <button
                             onClick={() => setViewMode('list')}
-                            className={`p-2 rounded-md transition-all ${viewMode === 'list' ? 'bg-white/10 text-white' : 'text-white/40 hover:text-white/70'}`}
+                            className={`p-2 rounded-lg transition-all ${viewMode === 'list' ? 'bg-emerald-500/20 text-emerald-400' : 'text-white/40 hover:text-white/70'}`}
                         >
                             <List size={18} />
                         </button>
                     </div>
                 </div>
             </div>
+
+            {/* Matching Results Info */}
+            {searchQuery && (
+                <div className="mb-4 flex items-center gap-2 text-sm">
+                    <span className="text-white/40">검색 결과:</span>
+                    <span className="text-emerald-400 font-bold">{filteredHymns.length}개</span>
+                    <span className="text-white/30">|</span>
+                    <span className="text-white/50">
+                        {searchQuery.length === 1 && `${searchQuery}장, ${searchQuery}0~${searchQuery}9장, ${searchQuery}00~${searchQuery}99장`}
+                        {searchQuery.length === 2 && `${searchQuery}장, ${searchQuery}0~${searchQuery}9장`}
+                        {searchQuery.length === 3 && `${searchQuery}장`}
+                    </span>
+                </div>
+            )}
 
             {/* Content */}
             <div className="flex-1 overflow-y-auto custom-scrollbar -mr-4 pr-4">
@@ -172,22 +303,32 @@ export const HymnGallery: React.FC = () => {
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
                         className="fixed inset-0 z-[3000] bg-black/95 backdrop-blur-md flex items-center justify-center p-4"
-                        onClick={() => setSelectedHymn(null)}
+                        onClick={() => { setSelectedHymn(null); cancelEditing(); }}
                     >
                         <motion.div
                             layoutId={`hymn-${selectedHymn.id}`}
-                            className="w-full h-full max-w-5xl bg-[#111] rounded-2xl overflow-hidden flex flex-col md:flex-row border border-white/10 shadow-2xl relative"
+                            className="w-full h-full max-w-6xl bg-[#111] rounded-2xl overflow-hidden flex flex-col md:flex-row border border-white/10 shadow-2xl relative"
                             onClick={e => e.stopPropagation()}
                         >
                             <button
-                                onClick={() => setSelectedHymn(null)}
+                                onClick={() => { setSelectedHymn(null); cancelEditing(); }}
                                 className="absolute top-4 right-4 z-10 p-2 bg-black/50 rounded-full text-white/70 hover:text-white hover:bg-black/80 transition-all border border-white/10"
                             >
                                 <X size={20} />
                             </button>
 
+                            {/* Admin Edit Button */}
+                            {isAdmin && !isEditing && (
+                                <button
+                                    onClick={startEditing}
+                                    className="absolute top-4 right-16 z-10 p-2 bg-indigo-500/20 rounded-full text-indigo-300 hover:bg-indigo-500/40 transition-all border border-indigo-500/30 flex items-center gap-2"
+                                >
+                                    <Edit3 size={18} />
+                                </button>
+                            )}
+
                             {/* Left: Image */}
-                            <div className="flex-1 bg-black flex items-center justify-center p-4 md:p-8 overflow-hidden relative group">
+                            <div className="flex-[1.2] bg-black flex items-center justify-center p-4 md:p-8 overflow-hidden relative group">
                                 {selectedHymn.imageUrl ? (
                                     <img
                                         src={selectedHymn.imageUrl}
@@ -211,8 +352,9 @@ export const HymnGallery: React.FC = () => {
                                 </a>
                             </div>
 
-                            {/* Right: Info */}
-                            <div className="w-full md:w-80 bg-[#1a1a1a] p-6 border-l border-white/10 flex flex-col overflow-y-auto">
+                            {/* Right: Info Panel */}
+                            <div className="w-full md:w-[400px] bg-[#1a1a1a] p-6 border-l border-white/10 flex flex-col overflow-y-auto">
+                                {/* Header */}
                                 <div className="mb-6">
                                     <div className="inline-block px-3 py-1 bg-indigo-500/20 text-indigo-300 rounded text-xs font-bold mb-2 border border-indigo-500/20">
                                         {selectedHymn.number}장
@@ -220,12 +362,153 @@ export const HymnGallery: React.FC = () => {
                                     <h2 className="text-2xl font-bold text-white leading-tight">{selectedHymn.title}</h2>
                                 </div>
 
-                                {selectedHymn.lyrics && (
-                                    <div className="flex-1 overflow-y-auto min-h-[200px]">
-                                        <h3 className="text-xs uppercase tracking-wider text-white/40 mb-3 font-bold">가사</h3>
-                                        <p className="text-white/80 whitespace-pre-wrap leading-relaxed text-sm font-light">
-                                            {selectedHymn.lyrics}
-                                        </p>
+                                {/* Editing Mode */}
+                                {isEditing ? (
+                                    <div className="flex-1 flex flex-col gap-6 overflow-y-auto">
+                                        {/* Lyrics Editor */}
+                                        <div>
+                                            <h3 className="text-xs uppercase tracking-wider text-white/40 mb-3 font-bold flex items-center gap-2">
+                                                <Edit3 size={14} /> 가사 편집
+                                            </h3>
+                                            <textarea
+                                                value={editLyrics}
+                                                onChange={(e) => setEditLyrics(e.target.value)}
+                                                className="w-full h-48 bg-black/40 border border-white/10 rounded-xl p-4 text-white/90 text-sm resize-none focus:outline-none focus:border-indigo-500/50 placeholder-white/30"
+                                                placeholder="가사를 입력하세요..."
+                                            />
+                                        </div>
+
+                                        {/* YouTube Links Editor */}
+                                        <div>
+                                            <h3 className="text-xs uppercase tracking-wider text-white/40 mb-3 font-bold flex items-center gap-2">
+                                                <Youtube size={14} /> 유튜브 영상
+                                            </h3>
+
+                                            {/* Existing Links */}
+                                            <div className="space-y-2 mb-4">
+                                                {editYoutubeLinks.map((link, index) => (
+                                                    <div key={index} className="flex items-center gap-2 bg-black/40 border border-white/10 rounded-lg p-2">
+                                                        <Youtube size={16} className="text-red-400 flex-shrink-0" />
+                                                        <span className="flex-1 text-white/80 text-sm truncate">{link.title}</span>
+                                                        <button
+                                                            onClick={() => removeYoutubeLink(index)}
+                                                            className="p-1 text-red-400 hover:bg-red-500/20 rounded"
+                                                        >
+                                                            <Trash2 size={14} />
+                                                        </button>
+                                                    </div>
+                                                ))}
+                                            </div>
+
+                                            {/* Add New Link */}
+                                            <div className="space-y-2">
+                                                <input
+                                                    type="text"
+                                                    value={newYoutubeUrl}
+                                                    onChange={(e) => setNewYoutubeUrl(e.target.value)}
+                                                    placeholder="YouTube URL 붙여넣기..."
+                                                    className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-white/90 text-sm focus:outline-none focus:border-indigo-500/50 placeholder-white/30"
+                                                />
+                                                <div className="flex gap-2">
+                                                    <input
+                                                        type="text"
+                                                        value={newYoutubeTitle}
+                                                        onChange={(e) => setNewYoutubeTitle(e.target.value)}
+                                                        placeholder="영상 제목 (선택)"
+                                                        className="flex-1 bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-white/90 text-sm focus:outline-none focus:border-indigo-500/50 placeholder-white/30"
+                                                    />
+                                                    <button
+                                                        onClick={addYoutubeLink}
+                                                        disabled={!newYoutubeUrl.trim()}
+                                                        className="px-3 py-2 bg-red-500/20 text-red-300 rounded-lg hover:bg-red-500/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
+                                                    >
+                                                        <Plus size={16} />
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {/* Action Buttons */}
+                                        <div className="flex gap-3 mt-auto pt-4 border-t border-white/10">
+                                            <button
+                                                onClick={cancelEditing}
+                                                className="flex-1 py-3 bg-white/5 text-white/60 rounded-xl hover:bg-white/10 transition-colors"
+                                            >
+                                                취소
+                                            </button>
+                                            <button
+                                                onClick={saveChanges}
+                                                disabled={saving}
+                                                className="flex-1 py-3 bg-indigo-500 text-white rounded-xl hover:bg-indigo-600 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                                            >
+                                                {saving ? (
+                                                    <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                                ) : (
+                                                    <>
+                                                        <Save size={18} />
+                                                        저장
+                                                    </>
+                                                )}
+                                            </button>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    /* View Mode */
+                                    <div className="flex-1 flex flex-col gap-6 overflow-y-auto">
+                                        {/* YouTube Videos */}
+                                        {selectedHymn.youtubeLinks && selectedHymn.youtubeLinks.length > 0 && (
+                                            <div>
+                                                <h3 className="text-xs uppercase tracking-wider text-white/40 mb-3 font-bold flex items-center gap-2">
+                                                    <Youtube size={14} className="text-red-400" /> 영상
+                                                </h3>
+                                                <div className="space-y-3">
+                                                    {selectedHymn.youtubeLinks.map((link, index) => (
+                                                        <div key={index} className="rounded-xl overflow-hidden border border-white/10">
+                                                            <iframe
+                                                                src={link.url}
+                                                                title={link.title}
+                                                                className="w-full aspect-video"
+                                                                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                                                allowFullScreen
+                                                            />
+                                                            <div className="bg-black/40 px-3 py-2 flex items-center justify-between">
+                                                                <span className="text-white/70 text-sm truncate">{link.title}</span>
+                                                                <a
+                                                                    href={link.url.replace('/embed/', '/watch?v=')}
+                                                                    target="_blank"
+                                                                    rel="noopener noreferrer"
+                                                                    className="text-white/40 hover:text-white/80 transition-colors"
+                                                                >
+                                                                    <ExternalLink size={14} />
+                                                                </a>
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {/* Lyrics */}
+                                        {selectedHymn.lyrics ? (
+                                            <div className="flex-1">
+                                                <h3 className="text-xs uppercase tracking-wider text-white/40 mb-3 font-bold">가사</h3>
+                                                <p className="text-white/80 whitespace-pre-wrap leading-relaxed text-sm font-light">
+                                                    {selectedHymn.lyrics}
+                                                </p>
+                                            </div>
+                                        ) : (
+                                            <div className="flex-1 flex items-center justify-center text-white/30 text-sm">
+                                                가사가 아직 등록되지 않았습니다.
+                                                {isAdmin && (
+                                                    <button
+                                                        onClick={startEditing}
+                                                        className="ml-2 text-indigo-400 hover:text-indigo-300 underline"
+                                                    >
+                                                        추가하기
+                                                    </button>
+                                                )}
+                                            </div>
+                                        )}
                                     </div>
                                 )}
                             </div>

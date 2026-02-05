@@ -90,7 +90,7 @@ const Home = () => {
       ) : activeTab === 'concepts' ? (
         <ConceptCards />
       ) : activeTab === 'hymns' ? (
-        <HymnGallery />
+        <HymnGallery isAdmin={isAdmin} />
       ) : (
         <MyReflections
           onSelectCallback={(parentId) => {
