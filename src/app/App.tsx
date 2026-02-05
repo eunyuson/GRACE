@@ -12,9 +12,10 @@ import { MyReflections } from './components/MyReflections';
 import { ConceptCards } from './components/ConceptCards';
 
 import { HymnTabs } from './components/HymnTabs';
+import { SetlistPlanner } from './components/SetlistPlanner';
 
 const Home = () => {
-  const [activeTab, setActiveTab] = useState<'gallery' | 'updates' | 'concepts' | 'reflections' | 'hymns'>('gallery');
+  const [activeTab, setActiveTab] = useState<'gallery' | 'updates' | 'concepts' | 'reflections' | 'hymns' | 'setlist'>('gallery');
   const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
@@ -26,7 +27,7 @@ const Home = () => {
 
   return (
     <>
-      <nav className="fixed top-6 left-4 md:top-10 md:left-10 z-[2100] text-white mix-blend-difference">
+      <nav className="fixed top-6 left-4 md:top-10 md:left-10 z-[2100] text-white mix-blend-difference print-hide">
         <Link to="/" className="pointer-events-auto cursor-pointer hover:opacity-100 transition-opacity">
           <h1 className="font-bold text-[10px] md:text-xs tracking-[0.2em] md:tracking-[0.3em] opacity-80 font-['Inter'] hover:opacity-100">GRACE SURF DAILY</h1>
           <p className="text-[8px] md:text-[9px] tracking-[0.3em] md:tracking-[0.4em] opacity-40 mt-1 uppercase font-['Inter']">매일 은혜 서핑</p>
@@ -79,6 +80,15 @@ const Home = () => {
           >
             🎵 찬송가
           </button>
+          <button
+            onClick={() => setActiveTab('setlist')}
+            className={`px-3 md:px-4 py-1.5 text-[8px] md:text-[10px] tracking-[0.1em] md:tracking-[0.15em] uppercase transition-all duration-300 rounded-full ${activeTab === 'setlist'
+              ? 'bg-gradient-to-r from-emerald-500/30 to-green-500/30 text-white'
+              : 'text-white/50 hover:text-white/80'
+              }`}
+          >
+            📝 콘티
+          </button>
         </div>
       </nav>
 
@@ -91,6 +101,8 @@ const Home = () => {
         <ConceptCards />
       ) : activeTab === 'hymns' ? (
         <HymnTabs isAdmin={isAdmin} />
+      ) : activeTab === 'setlist' ? (
+        <SetlistPlanner />
       ) : (
         <MyReflections
           onSelectCallback={(parentId) => {
@@ -137,5 +149,4 @@ export default function App() {
     </div>
   );
 }
-
 
