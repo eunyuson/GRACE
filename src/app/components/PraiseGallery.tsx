@@ -2,7 +2,8 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { X, Download, Music, Grid, List, Edit3, Save, Youtube, Plus, Trash2, ExternalLink, ChevronLeft, ChevronRight, ArrowUp, ArrowDown } from 'lucide-react';
 import { collection, query, onSnapshot, where, doc, updateDoc, deleteDoc, writeBatch } from 'firebase/firestore';
-import { db } from '../firebase';
+import { getDownloadURL, ref as storageRef, uploadBytes } from 'firebase/storage';
+import { db, storage } from '../firebase';
 
 interface Hymn {
     id: string;
@@ -38,6 +39,8 @@ export const PraiseGallery: React.FC<PraiseGalleryProps> = ({ isAdmin = false })
     const [editYoutubeLinks, setEditYoutubeLinks] = useState<{ url: string; title: string }[]>([]);
     const [editImageUrls, setEditImageUrls] = useState<string[]>([]);
     const [newImageUrl, setNewImageUrl] = useState('');
+    const [uploading, setUploading] = useState(false);
+    const [uploadError, setUploadError] = useState('');
     const [newYoutubeUrl, setNewYoutubeUrl] = useState('');
     const [newYoutubeTitle, setNewYoutubeTitle] = useState('');
     const [saving, setSaving] = useState(false);
@@ -137,6 +140,33 @@ export const PraiseGallery: React.FC<PraiseGalleryProps> = ({ isAdmin = false })
             next.splice(to, 0, item);
             return next;
         });
+    };
+
+    const handleImageUpload = async (files: FileList | null) => {
+        if (!files || files.length === 0) return;
+        if (!selectedHymn) return;
+
+        setUploading(true);
+        setUploadError('');
+        try {
+            const uploadedUrls: string[] = [];
+            for (const file of Array.from(files)) {
+                const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+                const path = `praise/${selectedHymn.number}/${Date.now()}-${safeName}`;
+                const fileRef = storageRef(storage, path);
+                await uploadBytes(fileRef, file);
+                const url = await getDownloadURL(fileRef);
+                uploadedUrls.push(url);
+            }
+            if (uploadedUrls.length > 0) {
+                setEditImageUrls(prev => [...prev, ...uploadedUrls]);
+            }
+        } catch (error) {
+            console.error('Image upload failed:', error);
+            setUploadError('업로드에 실패했습니다. 잠시 후 다시 시도해주세요.');
+        } finally {
+            setUploading(false);
+        }
     };
 
     useEffect(() => {
@@ -606,6 +636,23 @@ export const PraiseGallery: React.FC<PraiseGalleryProps> = ({ isAdmin = false })
                                             <h3 className="text-xs uppercase tracking-wider text-white/40 mb-3 font-bold flex items-center gap-2">
                                                 <Music size={14} /> 악보 이미지
                                             </h3>
+                                            <div className="flex flex-wrap items-center gap-2 mb-3">
+                                                <label className="px-3 py-2 bg-white/10 text-white/80 rounded-lg border border-white/10 hover:bg-white/15 cursor-pointer text-xs">
+                                                    {uploading ? '업로드 중...' : '이미지 업로드'}
+                                                    <input
+                                                        type="file"
+                                                        accept="image/*"
+                                                        multiple
+                                                        className="hidden"
+                                                        onChange={(e) => handleImageUpload(e.target.files)}
+                                                        disabled={uploading}
+                                                    />
+                                                </label>
+                                                {uploadError && (
+                                                    <span className="text-xs text-red-400">{uploadError}</span>
+                                                )}
+                                                <span className="text-[10px] text-white/30">업로드 후 저장을 눌러야 반영됩니다.</span>
+                                            </div>
                                             <div className="space-y-2">
                                                 {editImageUrls.length === 0 && (
                                                     <div className="text-white/30 text-sm">등록된 이미지가 없습니다.</div>
