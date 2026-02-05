@@ -1,4 +1,5 @@
-import { useMotionValue, useSpring, useTransform } from 'motion/react';
+import React, { useState, useEffect } from 'react';
+import { motion, AnimatePresence, useMotionValue, useSpring, useTransform } from 'motion/react';
 
 // 3D Tilt & Spotlight Card Component
 const TiltCard = ({ children, onClick, index }: { children: React.ReactNode, onClick: () => void, index: number }) => {
