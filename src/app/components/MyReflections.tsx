@@ -425,7 +425,6 @@ export const MyReflections: React.FC<MyReflectionsProps> = ({ onSelectCallback }
                             {filteredMemos.map((memo, index) => (
                                 <motion.div
                                     key={memo.id}
-                                    layout
                                     initial={{ opacity: 0, scale: 0.95 }}
                                     animate={{ opacity: 1, scale: 1 }}
                                     exit={{ opacity: 0, scale: 0.95 }}
