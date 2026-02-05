@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, Download, Music, Grid, List, Edit3, Save, Youtube, Plus, Trash2, ExternalLink } from 'lucide-react';
-import { collection, query, onSnapshot, where, doc, updateDoc } from 'firebase/firestore';
+import { X, Download, Music, Grid, List, Edit3, Save, Youtube, Plus, Trash2, ExternalLink, ChevronLeft, ChevronRight, ArrowUp, ArrowDown } from 'lucide-react';
+import { collection, query, onSnapshot, where, doc, updateDoc, deleteDoc, writeBatch } from 'firebase/firestore';
 import { db } from '../firebase';
 
 interface Hymn {
@@ -9,6 +9,7 @@ interface Hymn {
     number: number;
     title: string;
     imageUrl: string;
+    imageUrls?: string[];
     pptUrl?: string;
     lyrics?: string;
     youtubeLinks?: { url: string; title: string }[];
@@ -27,19 +28,31 @@ export const PraiseGallery: React.FC<PraiseGalleryProps> = ({ isAdmin = false })
     const [selectedHymn, setSelectedHymn] = useState<Hymn | null>(null);
     const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
 
+    const MAX_QUERY_LENGTH = 3;
+    const [activeImageIndex, setActiveImageIndex] = useState(0);
+    const [isMerging, setIsMerging] = useState(false);
+
     // Editing states
     const [isEditing, setIsEditing] = useState(false);
     const [editLyrics, setEditLyrics] = useState('');
     const [editYoutubeLinks, setEditYoutubeLinks] = useState<{ url: string; title: string }[]>([]);
+    const [editImageUrls, setEditImageUrls] = useState<string[]>([]);
+    const [newImageUrl, setNewImageUrl] = useState('');
     const [newYoutubeUrl, setNewYoutubeUrl] = useState('');
     const [newYoutubeTitle, setNewYoutubeTitle] = useState('');
     const [saving, setSaving] = useState(false);
+
+    useEffect(() => {
+        setActiveImageIndex(0);
+    }, [selectedHymn?.id]);
 
     // Start editing mode
     const startEditing = () => {
         if (selectedHymn) {
             setEditLyrics(selectedHymn.lyrics || '');
             setEditYoutubeLinks(selectedHymn.youtubeLinks || []);
+            setEditImageUrls(getImagesForHymn(selectedHymn));
+            setNewImageUrl('');
             setNewYoutubeUrl('');
             setNewYoutubeTitle('');
             setIsEditing(true);
@@ -52,17 +65,23 @@ export const PraiseGallery: React.FC<PraiseGalleryProps> = ({ isAdmin = false })
 
         setSaving(true);
         try {
+            const cleanedImageUrls = editImageUrls.map(u => u.trim()).filter(Boolean);
+            const primaryImageUrl = cleanedImageUrls[0] || selectedHymn.imageUrl || '';
             const hymnRef = doc(db, 'gallery', selectedHymn.id);
             await updateDoc(hymnRef, {
                 lyrics: editLyrics,
-                youtubeLinks: editYoutubeLinks
+                youtubeLinks: editYoutubeLinks,
+                imageUrls: cleanedImageUrls,
+                imageUrl: primaryImageUrl
             });
 
             // Update local state
             setSelectedHymn({
                 ...selectedHymn,
                 lyrics: editLyrics,
-                youtubeLinks: editYoutubeLinks
+                youtubeLinks: editYoutubeLinks,
+                imageUrls: cleanedImageUrls,
+                imageUrl: primaryImageUrl
             });
             setIsEditing(false);
         } catch (error) {
@@ -104,8 +123,20 @@ export const PraiseGallery: React.FC<PraiseGalleryProps> = ({ isAdmin = false })
         setIsEditing(false);
         setEditLyrics('');
         setEditYoutubeLinks([]);
+        setEditImageUrls([]);
+        setNewImageUrl('');
         setNewYoutubeUrl('');
         setNewYoutubeTitle('');
+    };
+
+    const moveImage = (from: number, to: number) => {
+        setEditImageUrls(prev => {
+            if (to < 0 || to >= prev.length) return prev;
+            const next = [...prev];
+            const [item] = next.splice(from, 1);
+            next.splice(to, 0, item);
+            return next;
+        });
     };
 
     useEffect(() => {
@@ -133,6 +164,97 @@ export const PraiseGallery: React.FC<PraiseGalleryProps> = ({ isAdmin = false })
         return () => unsubscribe();
     }, []);
 
+    const getImagesForHymn = (hymn: Hymn): string[] => {
+        if (hymn.imageUrls && Array.isArray(hymn.imageUrls) && hymn.imageUrls.length > 0) {
+            return hymn.imageUrls.filter(Boolean);
+        }
+        return hymn.imageUrl ? [hymn.imageUrl] : [];
+    };
+
+    const mergeWithNext = async () => {
+        if (!selectedHymn) return;
+        if (isMerging) return;
+
+        const nextNumber = selectedHymn.number + 1;
+        const nextItem = hymns.find(h => h.number === nextNumber);
+        if (!nextItem) {
+            alert('다음 곡이 없습니다.');
+            return;
+        }
+
+        const ok = window.confirm(`찬양곡 ${selectedHymn.number}과 ${nextNumber}을 합칠까요?
+합치면 ${nextNumber}부터 이후 번호가 자동으로 당겨집니다.`);
+        if (!ok) return;
+
+        setIsMerging(true);
+        try {
+            const currentImages = getImagesForHymn(selectedHymn);
+            const nextImages = getImagesForHymn(nextItem);
+            const mergedImages = [...currentImages, ...nextImages].filter(Boolean);
+            if (mergedImages.length === 0) {
+                alert('합칠 이미지가 없습니다.');
+                return;
+            }
+
+            const currentRef = doc(db, 'gallery', selectedHymn.id);
+            const nextRef = doc(db, 'gallery', nextItem.id);
+
+            await updateDoc(currentRef, {
+                imageUrls: mergedImages,
+                imageUrl: mergedImages[0]
+            });
+
+            await deleteDoc(nextRef);
+
+            const toShift = hymns.filter(h => h.number > nextNumber);
+            let batch = writeBatch(db);
+            let count = 0;
+            for (const item of toShift) {
+                batch.update(doc(db, 'gallery', item.id), { number: item.number - 1 });
+                count += 1;
+                if (count >= 450) {
+                    await batch.commit();
+                    batch = writeBatch(db);
+                    count = 0;
+                }
+            }
+            if (count > 0) {
+                await batch.commit();
+            }
+
+            setSelectedHymn(prev => prev ? { ...prev, imageUrls: mergedImages, imageUrl: mergedImages[0] } : prev);
+            setActiveImageIndex(0);
+            alert('합치기가 완료되었습니다.');
+        } catch (error) {
+            console.error('Merge failed:', error);
+            alert('합치기 중 오류가 발생했습니다.');
+        } finally {
+            setIsMerging(false);
+        }
+    };
+
+    const orderedHymns = useMemo(() => {
+        return [...hymns].sort((a, b) => (a.number || 0) - (b.number || 0));
+    }, [hymns]);
+
+    const currentIndex = selectedHymn
+        ? orderedHymns.findIndex(h => h.id === selectedHymn.id)
+        : -1;
+    const prevHymn = currentIndex > 0 ? orderedHymns[currentIndex - 1] : null;
+    const nextHymn = currentIndex >= 0 && currentIndex < orderedHymns.length - 1
+        ? orderedHymns[currentIndex + 1]
+        : null;
+
+    const navigateToHymn = (target: Hymn | null) => {
+        if (!target) return;
+        if (isEditing) {
+            const ok = window.confirm('편집 중입니다. 이동하면 저장되지 않은 내용이 사라질 수 있습니다. 이동할까요?');
+            if (!ok) return;
+        }
+        cancelEditing();
+        setSelectedHymn(target);
+    };
+
     // Filtering: number prefix + title contains
     const filteredHymns = useMemo(() => {
         if (!searchQuery) return hymns;
@@ -144,6 +266,9 @@ export const PraiseGallery: React.FC<PraiseGalleryProps> = ({ isAdmin = false })
             return h.title.toLowerCase().includes(q);
         });
     }, [hymns, searchQuery]);
+
+    const selectedImages = selectedHymn ? getImagesForHymn(selectedHymn) : [];
+    const activeImage = selectedImages[activeImageIndex] || selectedImages[0] || '';
 
     return (
         <div className="w-full h-full overflow-hidden flex flex-col pt-32 px-4 md:px-10 pb-10">
@@ -182,7 +307,7 @@ export const PraiseGallery: React.FC<PraiseGalleryProps> = ({ isAdmin = false })
                                 <button
                                     key={num}
                                     onClick={() => {
-                                        if (searchQuery.length < 3) {
+                                        if (searchQuery.length < MAX_QUERY_LENGTH) {
                                             setSearchQuery(prev => prev + num.toString());
                                         }
                                     }}
@@ -254,9 +379,9 @@ export const PraiseGallery: React.FC<PraiseGalleryProps> = ({ isAdmin = false })
                                         className="group cursor-pointer bg-white/5 border border-white/10 rounded-xl overflow-hidden hover:border-white/30 transition-all hover:-translate-y-1"
                                     >
                                         <div className="aspect-[3/4] bg-black/40 relative">
-                                            {hymn.imageUrl ? (
+                                            {(hymn.imageUrl || (hymn.imageUrls && hymn.imageUrls[0])) ? (
                                                 <img
-                                                    src={hymn.imageUrl}
+                                                    src={(hymn.imageUrl || (hymn.imageUrls && hymn.imageUrls[0]) || "")}
                                                     alt={hymn.title}
                                                     className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity"
                                                     loading="lazy"
@@ -324,6 +449,36 @@ export const PraiseGallery: React.FC<PraiseGalleryProps> = ({ isAdmin = false })
                                 <X size={20} />
                             </button>
 
+                            {prevHymn && (
+                                <button
+                                    onClick={(e) => { e.stopPropagation(); navigateToHymn(prevHymn); }}
+                                    className="absolute left-2 md:left-4 top-1/2 -translate-y-1/2 z-20 p-3 md:p-4 bg-black/20 hover:bg-black/50 rounded-full text-white/60 hover:text-white border border-white/10 backdrop-blur-sm transition-all"
+                                    aria-label="이전 찬양곡"
+                                >
+                                    <ChevronLeft size={22} />
+                                </button>
+                            )}
+                            {nextHymn && (
+                                <button
+                                    onClick={(e) => { e.stopPropagation(); navigateToHymn(nextHymn); }}
+                                    className="absolute right-2 md:right-4 top-1/2 -translate-y-1/2 z-20 p-3 md:p-4 bg-black/20 hover:bg-black/50 rounded-full text-white/60 hover:text-white border border-white/10 backdrop-blur-sm transition-all"
+                                    aria-label="다음 찬양곡"
+                                >
+                                    <ChevronRight size={22} />
+                                </button>
+                            )}
+
+                            {/* Admin Merge Button */}
+                            {isAdmin && !isEditing && (
+                                <button
+                                    onClick={mergeWithNext}
+                                    disabled={isMerging}
+                                    className="absolute top-2 right-20 md:top-4 md:right-24 z-20 px-2 py-1.5 bg-amber-500/20 rounded-full text-amber-300 hover:bg-amber-500/40 transition-all border border-amber-500/30 text-[10px] md:text-xs disabled:opacity-60"
+                                >
+                                    {isMerging ? '합치는 중...' : '다음과 합치기'}
+                                </button>
+                            )}
+
                             {/* Admin Edit Button */}
                             {isAdmin && !isEditing && (
                                 <button
@@ -339,9 +494,9 @@ export const PraiseGallery: React.FC<PraiseGalleryProps> = ({ isAdmin = false })
 
                             {/* Image Section - fills available height on mobile */}
                             <div className="flex-1 md:flex-[1.2] bg-black flex items-center justify-center p-2 md:p-8 overflow-hidden relative group min-h-0">
-                                {selectedHymn.imageUrl ? (
+                                {activeImage ? (
                                     <img
-                                        src={selectedHymn.imageUrl}
+                                        src={activeImage}
                                         alt={selectedHymn.title}
                                         className="w-auto h-full max-w-full object-contain shadow-2xl"
                                     />
@@ -351,8 +506,34 @@ export const PraiseGallery: React.FC<PraiseGalleryProps> = ({ isAdmin = false })
                                         <p>악보 이미지가 없습니다</p>
                                     </div>
                                 )}
+                                {selectedImages.length > 1 && (
+                                    <div className="absolute bottom-4 left-4 flex items-center gap-2 text-xs text-white/70">
+                                        <button
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                setActiveImageIndex(prev => (prev - 1 + selectedImages.length) % selectedImages.length);
+                                            }}
+                                            className="px-2 py-1 rounded bg-white/10 hover:bg-white/20 border border-white/10"
+                                        >
+                                            이전
+                                        </button>
+                                        <span className="px-2 py-1 rounded bg-black/50 border border-white/10">
+                                            {activeImageIndex + 1} / {selectedImages.length}
+                                        </span>
+                                        <button
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                setActiveImageIndex(prev => (prev + 1) % selectedImages.length);
+                                            }}
+                                            className="px-2 py-1 rounded bg-white/10 hover:bg-white/20 border border-white/10"
+                                        >
+                                            다음
+                                        </button>
+                                    </div>
+                                )}
+
                                 <a
-                                    href={selectedHymn.imageUrl}
+                                    href={activeImage}
                                     download
                                     target="_blank"
                                     rel="noopener noreferrer"
@@ -418,6 +599,77 @@ export const PraiseGallery: React.FC<PraiseGalleryProps> = ({ isAdmin = false })
                                                 className="w-full h-48 bg-black/40 border border-white/10 rounded-xl p-4 text-white/90 text-sm resize-none focus:outline-none focus:border-indigo-500/50 placeholder-white/30"
                                                 placeholder="가사를 입력하세요..."
                                             />
+                                        </div>
+
+                                        {/* Image URLs Editor */}
+                                        <div>
+                                            <h3 className="text-xs uppercase tracking-wider text-white/40 mb-3 font-bold flex items-center gap-2">
+                                                <Music size={14} /> 악보 이미지
+                                            </h3>
+                                            <div className="space-y-2">
+                                                {editImageUrls.length === 0 && (
+                                                    <div className="text-white/30 text-sm">등록된 이미지가 없습니다.</div>
+                                                )}
+                                                {editImageUrls.map((url, index) => (
+                                                    <div key={`${url}-${index}`} className="flex items-center gap-2 bg-black/40 border border-white/10 rounded-lg p-2">
+                                                        <input
+                                                            type="text"
+                                                            value={url}
+                                                            onChange={(e) => {
+                                                                const value = e.target.value;
+                                                                setEditImageUrls(prev => prev.map((u, i) => (i === index ? value : u)));
+                                                            }}
+                                                            className="flex-1 bg-black/20 border border-white/10 rounded px-2 py-1 text-white/90 text-xs focus:outline-none focus:border-indigo-500/50"
+                                                            placeholder="이미지 URL"
+                                                        />
+                                                        <button
+                                                            onClick={() => moveImage(index, index - 1)}
+                                                            disabled={index === 0}
+                                                            className="p-1 text-white/50 hover:text-white disabled:opacity-30"
+                                                            title="위로"
+                                                        >
+                                                            <ArrowUp size={14} />
+                                                        </button>
+                                                        <button
+                                                            onClick={() => moveImage(index, index + 1)}
+                                                            disabled={index === editImageUrls.length - 1}
+                                                            className="p-1 text-white/50 hover:text-white disabled:opacity-30"
+                                                            title="아래로"
+                                                        >
+                                                            <ArrowDown size={14} />
+                                                        </button>
+                                                        <button
+                                                            onClick={() => setEditImageUrls(prev => prev.filter((_, i) => i !== index))}
+                                                            className="p-1 text-red-400 hover:bg-red-500/20 rounded"
+                                                            title="삭제"
+                                                        >
+                                                            <Trash2 size={14} />
+                                                        </button>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                            <div className="mt-3 flex gap-2">
+                                                <input
+                                                    type="text"
+                                                    value={newImageUrl}
+                                                    onChange={(e) => setNewImageUrl(e.target.value)}
+                                                    placeholder="이미지 URL 추가..."
+                                                    className="flex-1 bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-white/90 text-sm focus:outline-none focus:border-indigo-500/50 placeholder-white/30"
+                                                />
+                                                <button
+                                                    onClick={() => {
+                                                        const next = newImageUrl.trim();
+                                                        if (!next) return;
+                                                        setEditImageUrls(prev => [...prev, next]);
+                                                        setNewImageUrl('');
+                                                    }}
+                                                    disabled={!newImageUrl.trim()}
+                                                    className="px-3 py-2 bg-emerald-500/20 text-emerald-300 rounded-lg hover:bg-emerald-500/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                                >
+                                                    추가
+                                                </button>
+                                            </div>
+                                            <p className="text-[10px] text-white/30 mt-2">첫 번째 이미지가 대표 이미지로 사용됩니다.</p>
                                         </div>
 
                                         {/* YouTube Links Editor */}

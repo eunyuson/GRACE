@@ -28,6 +28,8 @@ export const HymnGallery: React.FC<HymnGalleryProps> = ({ isAdmin = false }) => 
     const [selectedHymn, setSelectedHymn] = useState<Hymn | null>(null);
     const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
 
+    const MAX_QUERY_LENGTH = 3;
+
     // Category/Tag filter
     const [selectedCategory, setSelectedCategory] = useState<string>('');
     const [showCategoryPicker, setShowCategoryPicker] = useState(false);
@@ -150,41 +152,56 @@ export const HymnGallery: React.FC<HymnGalleryProps> = ({ isAdmin = false }) => 
     }, []);
 
     useEffect(() => {
-        // Keydown listener for quick number entry
-        const handleKeyDown = (e: KeyboardEvent) => {
-            // Ignore if focus is on an input or textarea
-            const target = e.target as HTMLElement;
-            if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) {
+        const handleKeyDown = (event: KeyboardEvent) => {
+            const target = event.target as HTMLElement | null;
+            if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) {
+                return;
+            }
+            if (isEditing || selectedHymn) return;
+
+            if (/^\d$/.test(event.key)) {
+                event.preventDefault();
+                setSearchQuery(prev => (prev.length >= MAX_QUERY_LENGTH ? event.key : prev + event.key));
                 return;
             }
 
-            // Handle number keys
-            if (/^[0-9]$/.test(e.key)) {
-                setSearchQuery(prev => {
-                    // If length is already 3, restart
-                    if (prev.length >= 3 && !isNaN(parseInt(prev))) return e.key;
-
-                    // If previous query was not numeric (e.g. title search), start new number
-                    if (prev && isNaN(parseInt(prev))) return e.key;
-
-                    return prev + e.key;
-                });
-            }
-
-            // Handle Backspace
-            if (e.key === 'Backspace') {
+            if (event.key === 'Backspace') {
+                event.preventDefault();
                 setSearchQuery(prev => prev.slice(0, -1));
+                return;
             }
 
-            // Handle Escape to clear
-            if (e.key === 'Escape') {
+            if (event.key === 'Escape') {
                 setSearchQuery('');
             }
         };
 
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
-    }, []);
+    }, [isEditing, selectedHymn]);
+
+    const orderedHymns = useMemo(() => {
+        return [...hymns].sort((a, b) => (a.number || 0) - (b.number || 0));
+    }, [hymns]);
+
+    const currentIndex = selectedHymn
+        ? orderedHymns.findIndex(h => h.id === selectedHymn.id)
+        : -1;
+    const prevHymn = currentIndex > 0 ? orderedHymns[currentIndex - 1] : null;
+    const nextHymn = currentIndex >= 0 && currentIndex < orderedHymns.length - 1
+        ? orderedHymns[currentIndex + 1]
+        : null;
+
+    const navigateToHymn = (target: Hymn | null) => {
+        if (!target) return;
+        if (isEditing) {
+            const ok = window.confirm('편집 중입니다. 이동하면 저장되지 않은 내용이 사라질 수 있습니다. 이동할까요?');
+            if (!ok) return;
+        }
+        cancelEditing();
+        setSelectedHymn(target);
+    };
+
 
     // Enhanced filtering: number, title, code, category + tag filter
     const filteredHymns = useMemo(() => {
@@ -252,7 +269,7 @@ export const HymnGallery: React.FC<HymnGalleryProps> = ({ isAdmin = false }) => 
                                 <button
                                     key={num}
                                     onClick={() => {
-                                        if (searchQuery.length < 3) {
+                                        if (searchQuery.length < MAX_QUERY_LENGTH) {
                                             setSearchQuery(prev => prev + num.toString());
                                         }
                                     }}
@@ -431,6 +448,25 @@ export const HymnGallery: React.FC<HymnGalleryProps> = ({ isAdmin = false }) => 
                             >
                                 <X size={22} />
                             </button>
+
+                            {prevHymn && (
+                                <button
+                                    onClick={(e) => { e.stopPropagation(); navigateToHymn(prevHymn); }}
+                                    className="absolute left-2 md:left-4 top-1/2 -translate-y-1/2 z-30 p-3 md:p-4 bg-black/20 hover:bg-black/50 rounded-full text-white/60 hover:text-white border border-white/10 backdrop-blur-sm transition-all"
+                                    aria-label="이전 찬송가"
+                                >
+                                    <ChevronLeft size={22} />
+                                </button>
+                            )}
+                            {nextHymn && (
+                                <button
+                                    onClick={(e) => { e.stopPropagation(); navigateToHymn(nextHymn); }}
+                                    className="absolute right-2 md:right-4 top-1/2 -translate-y-1/2 z-30 p-3 md:p-4 bg-black/20 hover:bg-black/50 rounded-full text-white/60 hover:text-white border border-white/10 backdrop-blur-sm transition-all"
+                                    aria-label="다음 찬송가"
+                                >
+                                    <ChevronRight size={22} />
+                                </button>
+                            )}
 
                             {/* Admin Edit Button */}
                             {isAdmin && !isEditing && (
