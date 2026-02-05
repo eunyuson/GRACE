@@ -10,6 +10,7 @@ interface Hymn {
     number: number;
     title: string;
     imageUrl: string;
+    imageUrls?: string[];
     pptUrl?: string;
     lyrics?: string;
     youtubeLinks?: { url: string; title: string }[];
@@ -202,6 +203,13 @@ export const HymnGallery: React.FC<HymnGalleryProps> = ({ isAdmin = false }) => 
         setSelectedHymn(target);
     };
 
+    const getImagesForHymn = (hymn: Hymn): string[] => {
+        if (hymn.imageUrls && Array.isArray(hymn.imageUrls) && hymn.imageUrls.length > 0) {
+            return hymn.imageUrls.filter(Boolean);
+        }
+        return hymn.imageUrl ? [hymn.imageUrl] : [];
+    };
+
 
     // Enhanced filtering: number, title, code, category + tag filter
     const filteredHymns = useMemo(() => {
@@ -231,6 +239,9 @@ export const HymnGallery: React.FC<HymnGalleryProps> = ({ isAdmin = false }) => 
 
         return results;
     }, [hymns, searchQuery, selectedCategory]);
+
+    const selectedImages = selectedHymn ? getImagesForHymn(selectedHymn) : [];
+    const primaryImage = selectedImages[0] || '';
 
     return (
         <div className="w-full h-full overflow-hidden flex flex-col pt-44 md:pt-32 px-4 md:px-10 pb-10">
@@ -479,15 +490,20 @@ export const HymnGallery: React.FC<HymnGalleryProps> = ({ isAdmin = false }) => 
                             )}
 
                             {/* Image Section - Full screen on mobile */}
-                            <div className="w-full h-full md:flex-[1.2] bg-black flex items-center justify-center overflow-auto relative">
-                                {selectedHymn.imageUrl ? (
-                                    <img
-                                        src={selectedHymn.imageUrl}
-                                        alt={selectedHymn.title}
-                                        className="w-full h-auto md:w-auto md:h-full md:max-w-full object-contain"
-                                    />
+                            <div className="w-full h-full md:flex-[1.2] bg-black flex flex-col items-center justify-start overflow-auto relative">
+                                {selectedImages.length > 0 ? (
+                                    <div className="w-full h-full flex flex-col items-center gap-4 py-4">
+                                        {selectedImages.map((url, index) => (
+                                            <img
+                                                key={`${url}-${index}`}
+                                                src={url}
+                                                alt={selectedHymn.title}
+                                                className="w-full h-auto md:w-auto md:max-w-full object-contain"
+                                            />
+                                        ))}
+                                    </div>
                                 ) : (
-                                    <div className="text-white/20 flex flex-col items-center gap-4">
+                                    <div className="text-white/20 flex flex-col items-center gap-4 py-10">
                                         <Music size={64} />
                                         <p>악보 이미지가 없습니다</p>
                                     </div>
@@ -509,15 +525,17 @@ export const HymnGallery: React.FC<HymnGalleryProps> = ({ isAdmin = false }) => 
                                 </div>
 
                                 {/* Mobile: View original button */}
-                                <a
-                                    href={selectedHymn.imageUrl}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="absolute bottom-4 right-4 md:bottom-6 md:right-6 bg-white/90 text-black px-3 py-1.5 rounded-full font-bold shadow-lg flex items-center gap-1.5 text-sm md:opacity-0 md:group-hover:opacity-100 transition-opacity"
-                                    onClick={e => e.stopPropagation()}
-                                >
-                                    <Download size={14} /> 원본
-                                </a>
+                                {primaryImage && (
+                                    <a
+                                        href={primaryImage}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="absolute bottom-4 right-4 md:bottom-6 md:right-6 bg-white/90 text-black px-3 py-1.5 rounded-full font-bold shadow-lg flex items-center gap-1.5 text-sm md:opacity-0 md:group-hover:opacity-100 transition-opacity"
+                                        onClick={e => e.stopPropagation()}
+                                    >
+                                        <Download size={14} /> 원본
+                                    </a>
+                                )}
                             </div>
 
                             {/* Right: Info Panel - Desktop only */}

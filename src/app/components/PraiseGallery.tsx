@@ -30,7 +30,6 @@ export const PraiseGallery: React.FC<PraiseGalleryProps> = ({ isAdmin = false })
     const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
 
     const MAX_QUERY_LENGTH = 3;
-    const [activeImageIndex, setActiveImageIndex] = useState(0);
     const [isMerging, setIsMerging] = useState(false);
 
     // Editing states
@@ -44,10 +43,6 @@ export const PraiseGallery: React.FC<PraiseGalleryProps> = ({ isAdmin = false })
     const [newYoutubeUrl, setNewYoutubeUrl] = useState('');
     const [newYoutubeTitle, setNewYoutubeTitle] = useState('');
     const [saving, setSaving] = useState(false);
-
-    useEffect(() => {
-        setActiveImageIndex(0);
-    }, [selectedHymn?.id]);
 
     // Start editing mode
     const startEditing = () => {
@@ -253,7 +248,6 @@ export const PraiseGallery: React.FC<PraiseGalleryProps> = ({ isAdmin = false })
             }
 
             setSelectedHymn(prev => prev ? { ...prev, imageUrls: mergedImages, imageUrl: mergedImages[0] } : prev);
-            setActiveImageIndex(0);
             alert('합치기가 완료되었습니다.');
         } catch (error) {
             console.error('Merge failed:', error);
@@ -298,7 +292,7 @@ export const PraiseGallery: React.FC<PraiseGalleryProps> = ({ isAdmin = false })
     }, [hymns, searchQuery]);
 
     const selectedImages = selectedHymn ? getImagesForHymn(selectedHymn) : [];
-    const activeImage = selectedImages[activeImageIndex] || selectedImages[0] || '';
+    const primaryImage = selectedImages[0] || '';
 
     return (
         <div className="w-full h-full overflow-hidden flex flex-col pt-32 px-4 md:px-10 pb-10">
@@ -523,54 +517,36 @@ export const PraiseGallery: React.FC<PraiseGalleryProps> = ({ isAdmin = false })
                             {/* Desktop: Horizontal layout */}
 
                             {/* Image Section - fills available height on mobile */}
-                            <div className="flex-1 md:flex-[1.2] bg-black flex items-center justify-center p-2 md:p-8 overflow-hidden relative group min-h-0">
-                                {activeImage ? (
-                                    <img
-                                        src={activeImage}
-                                        alt={selectedHymn.title}
-                                        className="w-auto h-full max-w-full object-contain shadow-2xl"
-                                    />
+                            <div className="flex-1 md:flex-[1.2] bg-black flex flex-col items-center justify-start p-2 md:p-8 overflow-auto relative group min-h-0">
+                                {selectedImages.length > 0 ? (
+                                    <div className="w-full h-full flex flex-col items-center gap-4 py-4">
+                                        {selectedImages.map((url, index) => (
+                                            <img
+                                                key={`${url}-${index}`}
+                                                src={url}
+                                                alt={selectedHymn.title}
+                                                className="w-full h-auto md:w-auto md:max-w-full object-contain shadow-2xl"
+                                            />
+                                        ))}
+                                    </div>
                                 ) : (
-                                    <div className="text-white/20 flex flex-col items-center gap-4">
+                                    <div className="text-white/20 flex flex-col items-center gap-4 py-10">
                                         <Music size={64} />
                                         <p>악보 이미지가 없습니다</p>
                                     </div>
                                 )}
-                                {selectedImages.length > 1 && (
-                                    <div className="absolute bottom-4 left-4 flex items-center gap-2 text-xs text-white/70">
-                                        <button
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                setActiveImageIndex(prev => (prev - 1 + selectedImages.length) % selectedImages.length);
-                                            }}
-                                            className="px-2 py-1 rounded bg-white/10 hover:bg-white/20 border border-white/10"
-                                        >
-                                            이전
-                                        </button>
-                                        <span className="px-2 py-1 rounded bg-black/50 border border-white/10">
-                                            {activeImageIndex + 1} / {selectedImages.length}
-                                        </span>
-                                        <button
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                setActiveImageIndex(prev => (prev + 1) % selectedImages.length);
-                                            }}
-                                            className="px-2 py-1 rounded bg-white/10 hover:bg-white/20 border border-white/10"
-                                        >
-                                            다음
-                                        </button>
-                                    </div>
-                                )}
 
-                                <a
-                                    href={activeImage}
-                                    download
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="absolute bottom-4 right-4 md:bottom-6 md:right-6 bg-white text-black px-3 py-1.5 md:px-4 md:py-2 rounded-full font-bold shadow-lg opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity flex items-center gap-2 text-sm"
-                                >
-                                    <Download size={14} /> 원본
-                                </a>
+                                {primaryImage && (
+                                    <a
+                                        href={primaryImage}
+                                        download
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="absolute bottom-4 right-4 md:bottom-6 md:right-6 bg-white text-black px-3 py-1.5 md:px-4 md:py-2 rounded-full font-bold shadow-lg opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity flex items-center gap-2 text-sm"
+                                    >
+                                        <Download size={14} /> 원본
+                                    </a>
+                                )}
 
                                 {/* Mobile: Hymn info overlay at bottom */}
                                 <div className="absolute bottom-0 left-0 right-0 md:hidden bg-gradient-to-t from-black/90 via-black/70 to-transparent p-4 pt-8">
