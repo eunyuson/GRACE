@@ -1,24 +1,70 @@
-import React, { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
-import { X, Plus, Lightbulb, Link2, Edit2, Trash2, ChevronRight } from 'lucide-react';
-import { collection, query, onSnapshot, deleteDoc, doc, updateDoc, addDoc, orderBy, serverTimestamp, limit } from 'firebase/firestore';
-import { onAuthStateChanged, User } from 'firebase/auth';
-import { db, auth } from '../firebase';
-import {
-    ConceptCard,
-    QUESTION_PROMPTS,
-    QUESTION_MAX_LENGTH,
-    validateQuestion,
-    RelatedItem,
-    findSimilarQuestions
-} from '../types/questionBridge';
-import { QuestionBridgeView } from './QuestionBridgeView';
-import { InsightDrawer } from './ui/InsightDrawer';
+import { useMotionValue, useSpring, useTransform } from 'motion/react';
 
-interface ConceptCardsProps {
-    onViewRelated?: (question: string, sourceId: string, sourceType: 'concept') => void;
-    maxItems?: number;
-}
+// 3D Tilt & Spotlight Card Component
+const TiltCard = ({ children, onClick, index }: { children: React.ReactNode, onClick: () => void, index: number }) => {
+    const x = useMotionValue(0);
+    const y = useMotionValue(0);
+
+    const mouseX = useSpring(x, { stiffness: 500, damping: 100 });
+    const mouseY = useSpring(y, { stiffness: 500, damping: 100 });
+
+    function onMouseMove({ currentTarget, clientX, clientY }: React.MouseEvent) {
+        const { left, top, width, height } = currentTarget.getBoundingClientRect();
+        x.set(clientX - left - width / 2);
+        y.set(clientY - top - height / 2);
+    }
+
+    function onMouseLeave() {
+        x.set(0);
+        y.set(0);
+    }
+
+    const rotateX = useTransform(mouseY, [-200, 200], [5, -5]);
+    const rotateY = useTransform(mouseX, [-200, 200], [-5, 5]);
+    const spotlightX = useTransform(mouseX, [-200, 200], [0, 100]);
+    const spotlightY = useTransform(mouseY, [-200, 200], [0, 100]);
+
+    return (
+        <motion.div
+            initial={{ opacity: 0, y: 50 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.9 }}
+            transition={{ duration: 0.5, delay: index * 0.05 }}
+            style={{
+                perspective: 1000,
+            }}
+            className="mb-6 break-inside-avoid" // Masonry layout support
+            onClick={onClick}
+        >
+            <motion.div
+                style={{
+                    rotateX,
+                    rotateY,
+                    transformStyle: "preserve-3d",
+                }}
+                onMouseMove={onMouseMove}
+                onMouseLeave={onMouseLeave}
+                className="group relative overflow-hidden bg-gradient-to-br from-[#1a1a2e] via-[#1e1e3a] to-[#16213e] border border-white/10 rounded-3xl p-6 hover:border-indigo-500/40 hover:shadow-2xl hover:shadow-indigo-500/20 transition-all duration-300 cursor-pointer"
+            >
+                {/* Spotlight Gradient */}
+                <motion.div
+                    className="pointer-events-none absolute -inset-px opacity-0 group-hover:opacity-100 transition-opacity duration-300"
+                    style={{
+                        background: useTransform(
+                            [mouseX, mouseY],
+                            ([xVal, yVal]) => `radial-gradient(600px circle at ${xVal + 200}px ${yVal + 200}px, rgba(99, 102, 241, 0.15), transparent 40%)`
+                        ),
+                    }}
+                />
+
+                {/* Original Content Wrapper with preserve-3d */}
+                <div style={{ transform: "translateZ(20px)" }}>
+                    {children}
+                </div>
+            </motion.div>
+        </motion.div>
+    );
+};
 
 export const ConceptCards: React.FC<ConceptCardsProps> = ({ onViewRelated, maxItems }) => {
     const [concepts, setConcepts] = useState<ConceptCard[]>([]);
@@ -98,11 +144,6 @@ export const ConceptCards: React.FC<ConceptCardsProps> = ({ onViewRelated, maxIt
     useEffect(() => {
         if (selectedConceptForDrawer) {
             const updated = concepts.find(c => c.id === selectedConceptForDrawer.id);
-            // Only update if the object reference changed (Firestore snapshot returns new objects)
-            // Checks for actual data change are handled by React, but we should ensure we have the latest version.
-            // Note: This might overwrite unsaved local edits if they are not pushed to parent, 
-            // but InsightDrawer manages its own localConcept state and only syncs on ID change or View Mode.
-            // However, to see the "Link" immediately, we need to update the prop.
             if (updated && updated !== selectedConceptForDrawer) {
                 setSelectedConceptForDrawer(updated);
             }
@@ -250,55 +291,44 @@ export const ConceptCards: React.FC<ConceptCardsProps> = ({ onViewRelated, maxIt
                         <p className="text-white/20 text-sm">첫 번째 개념을 기록해보세요</p>
                     </div>
                 ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    // Masonry Layout using Columns
+                    <div className="columns-1 md:columns-2 lg:columns-3 gap-6 space-y-6">
                         <AnimatePresence>
                             {concepts.map((concept, index) => (
-                                <motion.div
+                                <TiltCard
                                     key={concept.id}
-                                    layout
-                                    initial={{ opacity: 0, scale: 0.95 }}
-                                    animate={{ opacity: 1, scale: 1 }}
-                                    exit={{ opacity: 0, scale: 0.95 }}
-                                    transition={{ duration: 0.3, delay: index * 0.05 }}
+                                    index={index}
                                     onClick={() => setSelectedConceptForDrawer(concept)}
-                                    className="group relative overflow-hidden bg-gradient-to-br from-[#1a1a2e] via-[#1e1e3a] to-[#16213e] border border-white/10 rounded-3xl p-6 hover:border-indigo-500/40 hover:shadow-xl hover:shadow-indigo-500/10 transition-all duration-500 cursor-pointer"
                                 >
-                                    {/* Animated gradient background */}
-                                    <div className="absolute inset-0 bg-gradient-to-br from-indigo-600/0 via-purple-600/0 to-pink-600/0 group-hover:from-indigo-600/5 group-hover:via-purple-600/5 group-hover:to-pink-600/5 transition-all duration-500" />
-
-                                    {/* Glow effect */}
-                                    <div className="absolute -top-24 -right-24 w-48 h-48 bg-indigo-500/20 rounded-full blur-3xl opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-
                                     {/* Type Badge */}
                                     <div className="absolute top-4 right-4 z-10">
-                                        <span className="px-3 py-1.5 bg-gradient-to-r from-indigo-500/20 to-purple-500/20 text-indigo-300 text-[10px] uppercase tracking-widest rounded-full border border-indigo-500/20 backdrop-blur-sm flex items-center gap-1.5">
+                                        <span className="px-3 py-1.5 bg-gradient-to-r from-indigo-500/20 to-purple-500/20 text-indigo-300 text-[10px] uppercase tracking-widest rounded-full border border-indigo-500/20 backdrop-blur-sm flex items-center gap-1.5 shadow-lg shadow-indigo-500/5">
                                             <Lightbulb size={10} className="text-yellow-400" />
                                             CONCEPT
                                         </span>
                                     </div>
 
                                     {/* Content */}
-                                    <div className="relative z-10 pr-16">
-                                        <h3 className="text-2xl font-bold text-white mb-3 group-hover:text-indigo-100 transition-colors">
+                                    <div className="relative z-10 pr-4">
+                                        <h3 className="text-3xl font-bold text-white mb-4 group-hover:text-indigo-100 transition-colors tracking-tight">
                                             {concept.conceptName}
                                         </h3>
 
                                         {concept.conceptPhrase && (
-                                            <p className="text-white/60 text-sm leading-relaxed mb-4 italic border-l-2 border-indigo-500/30 pl-3">
-                                                "{concept.conceptPhrase}"
+                                            <p className="text-white/60 text-sm leading-relaxed mb-6 italic border-l-2 border-indigo-500/30 pl-4 py-1">
+                                                "{concept.conceptPhrase.slice(0, 100)}{concept.conceptPhrase.length > 100 ? '...' : ''}"
                                             </p>
                                         )}
 
                                         {/* Question Section */}
-                                        {/* Question Section */}
-                                        <div className="mt-6 pt-4 border-t border-white/10">
+                                        <div className="mt-4 pt-4 border-t border-white/5">
                                             <div className="flex items-start gap-3">
-                                                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-purple-500/20 to-pink-500/20 flex items-center justify-center flex-shrink-0">
-                                                    <span className="text-base">❓</span>
+                                                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-purple-500/20 to-pink-500/20 flex items-center justify-center flex-shrink-0 shadow-inner border border-white/5">
+                                                    <span className="text-base transform -rotate-6 block">❓</span>
                                                 </div>
                                                 <div className="flex-1">
-                                                    <p className="text-[10px] uppercase tracking-widest text-white/40 mb-1">
-                                                        이 개념이 붙잡고 있는 질문
+                                                    <p className="text-[10px] uppercase tracking-widest text-white/40 mb-1.5 font-medium">
+                                                        질문
                                                     </p>
                                                     <p className="text-white/80 text-sm font-medium leading-relaxed">
                                                         {concept.question}
@@ -307,8 +337,7 @@ export const ConceptCards: React.FC<ConceptCardsProps> = ({ onViewRelated, maxIt
                                             </div>
                                         </div>
 
-                                        {/* A-B Content (Merged & Simply displayed) */}
-                                        {/* aStatement는 루트 레벨 또는 sequence 내부에 있을 수 있음 */}
+                                        {/* A-B Content Preview */}
                                         {(() => {
                                             const aText = (concept as any).aStatement || (concept as any).sequence?.aStatement || concept.bridge?.aStatement;
                                             const bText = (concept as any).conclusion || concept.bridge?.bStatement;
@@ -316,61 +345,38 @@ export const ConceptCards: React.FC<ConceptCardsProps> = ({ onViewRelated, maxIt
                                             if (!aText && !bText) return null;
 
                                             return (
-                                                <div className="mt-6 p-4 bg-white/5 rounded-2xl border border-white/5 space-y-3">
-                                                    {/* A 문장 */}
-                                                    {aText && (
-                                                        <p className="text-white/60 text-sm leading-relaxed">
-                                                            "우리는 보통 <span className="text-white/80 font-medium">{concept.conceptName}</span>를(을) <span className="text-white/90 underline decoration-white/30 decoration-1 underline-offset-4">{aText}</span>라고 생각합니다.
-                                                        </p>
-                                                    )}
-
-                                                    {/* B 문장 */}
-                                                    {bText && (
-                                                        <p className="text-white/60 text-sm leading-relaxed">
-                                                            그러나 성경에서 <span className="text-white/80 font-medium">{concept.conceptName}</span>는(은) <span className="text-emerald-400 font-bold underline decoration-emerald-500/30 decoration-1 underline-offset-4">{bText}</span>."
-                                                        </p>
+                                                <div className="mt-5 p-4 bg-black/20 rounded-xl border border-white/5 space-y-2 backdrop-blur-sm">
+                                                    {bText ? (
+                                                        <div className="flex items-start gap-2">
+                                                            <span className="text-emerald-400 text-xs mt-0.5">➔</span>
+                                                            <p className="text-emerald-300/90 text-xs leading-relaxed font-medium line-clamp-2">
+                                                                {bText}
+                                                            </p>
+                                                        </div>
+                                                    ) : (
+                                                        <div className="flex items-start gap-2">
+                                                            <span className="text-white/30 text-xs mt-0.5">Start</span>
+                                                            <p className="text-white/50 text-xs leading-relaxed line-clamp-2">
+                                                                {aText}
+                                                            </p>
+                                                        </div>
                                                     )}
                                                 </div>
                                             );
                                         })()}
 
-                                        {/* View Related Button (Moved to bottom) */}
-                                        <button
-                                            onClick={(e) => { e.stopPropagation(); handleViewRelated(concept); }}
-                                            className="mt-6 w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-white/5 text-xs text-indigo-400/80 hover:text-indigo-300 hover:bg-indigo-500/10 transition-all border border-white/5 hover:border-indigo-500/20 group/btn"
-                                        >
-                                            <Link2 size={12} />
-                                            <span>같은 질문을 품은 기록 보기</span>
-                                            <ChevronRight size={14} className="group-hover/btn:translate-x-1 transition-transform" />
-                                        </button>
+                                        {/* View Related Button */}
+                                        <div className="mt-6 flex items-center justify-between opacity-0 translate-y-2 group-hover:opacity-100 group-hover:translate-y-0 transition-all duration-300 delay-100">
+                                            <span className="text-[10px] text-white/30 font-medium tracking-wider">CLICK TO EXPLORE</span>
+                                            <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-white/70 group-hover:bg-indigo-500 group-hover:text-white transition-colors">
+                                                <ChevronRight size={14} />
+                                            </div>
+                                        </div>
                                     </div>
 
-                                    {/* Actions */}
-                                    {currentUser && (
-                                        <div className="absolute bottom-4 right-4 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity z-30">
-                                            <button
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    console.log('Edit clicked for:', concept.id);
-                                                    openEdit(concept);
-                                                }}
-                                                className="p-2 bg-white/5 hover:bg-white/10 rounded-lg transition-colors"
-                                            >
-                                                <Edit2 size={14} className="text-white/50" />
-                                            </button>
-                                            <button
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    console.log('Delete clicked for:', concept.id);
-                                                    handleDelete(concept.id);
-                                                }}
-                                                className="p-2 bg-red-500/10 hover:bg-red-500/20 rounded-lg transition-colors"
-                                            >
-                                                <Trash2 size={14} className="text-red-400/50" />
-                                            </button>
-                                        </div>
-                                    )}
-                                </motion.div>
+                                    {/* Glow bg for aesthetics */}
+                                    <div className="absolute -right-10 -bottom-10 w-40 h-40 bg-gradient-to-br from-indigo-500/10 to-purple-500/10 blur-3xl rounded-full pointer-events-none" />
+                                </TiltCard>
                             ))}
                         </AnimatePresence>
                     </div>
