@@ -379,41 +379,39 @@ export const HymnGallery: React.FC<HymnGalleryProps> = ({ isAdmin = false }) => 
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
-                        className="fixed inset-0 z-[3000] bg-black/95 backdrop-blur-md flex items-center justify-center p-2 md:p-4"
+                        className="fixed inset-0 z-[3000] bg-black flex items-center justify-center"
                         onClick={() => { setSelectedHymn(null); cancelEditing(); }}
                     >
                         <motion.div
                             layoutId={`hymn-${selectedHymn.id}`}
-                            className="w-full h-full max-w-6xl bg-[#111] rounded-2xl overflow-hidden flex flex-col md:flex-row border border-white/10 shadow-2xl relative"
+                            className="w-full h-full bg-black overflow-hidden flex flex-col md:flex-row relative"
                             onClick={e => e.stopPropagation()}
                         >
+                            {/* Close Button */}
                             <button
                                 onClick={() => { setSelectedHymn(null); cancelEditing(); }}
-                                className="absolute top-2 right-2 md:top-4 md:right-4 z-20 p-2 bg-black/50 rounded-full text-white/70 hover:text-white hover:bg-black/80 transition-all border border-white/10"
+                                className="absolute top-3 right-3 md:top-4 md:right-4 z-30 p-2 bg-black/70 rounded-full text-white/80 hover:text-white hover:bg-black transition-all border border-white/20"
                             >
-                                <X size={20} />
+                                <X size={22} />
                             </button>
 
                             {/* Admin Edit Button */}
                             {isAdmin && !isEditing && (
                                 <button
                                     onClick={startEditing}
-                                    className="absolute top-2 right-12 md:top-4 md:right-16 z-20 p-2 bg-indigo-500/20 rounded-full text-indigo-300 hover:bg-indigo-500/40 transition-all border border-indigo-500/30 flex items-center gap-2"
+                                    className="absolute top-3 right-14 md:top-4 md:right-16 z-30 p-2 bg-indigo-500/30 rounded-full text-indigo-300 hover:bg-indigo-500/50 transition-all border border-indigo-500/40"
                                 >
                                     <Edit3 size={18} />
                                 </button>
                             )}
 
-                            {/* Mobile: Vertical layout with full-height image */}
-                            {/* Desktop: Horizontal layout */}
-
-                            {/* Image Section - fills available height on mobile */}
-                            <div className="flex-1 md:flex-[1.2] bg-black flex items-center justify-center p-2 md:p-8 overflow-hidden relative group min-h-0">
+                            {/* Image Section - Full screen on mobile */}
+                            <div className="w-full h-full md:flex-[1.2] bg-black flex items-center justify-center overflow-auto relative">
                                 {selectedHymn.imageUrl ? (
                                     <img
                                         src={selectedHymn.imageUrl}
                                         alt={selectedHymn.title}
-                                        className="w-auto h-full max-w-full object-contain shadow-2xl"
+                                        className="w-full h-auto md:w-auto md:h-full md:max-w-full object-contain"
                                     />
                                 ) : (
                                     <div className="text-white/20 flex flex-col items-center gap-4">
@@ -421,39 +419,36 @@ export const HymnGallery: React.FC<HymnGalleryProps> = ({ isAdmin = false }) => 
                                         <p>악보 이미지가 없습니다</p>
                                     </div>
                                 )}
-                                <a
-                                    href={selectedHymn.imageUrl}
-                                    download
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="absolute bottom-4 right-4 md:bottom-6 md:right-6 bg-white text-black px-3 py-1.5 md:px-4 md:py-2 rounded-full font-bold shadow-lg opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity flex items-center gap-2 text-sm"
-                                >
-                                    <Download size={14} /> 원본
-                                </a>
 
-                                {/* Mobile: Hymn info overlay at bottom */}
-                                <div className="absolute bottom-0 left-0 right-0 md:hidden bg-gradient-to-t from-black/90 via-black/70 to-transparent p-4 pt-8">
+                                {/* Mobile: Hymn info overlay at top */}
+                                <div className="absolute top-0 left-0 right-0 md:hidden bg-gradient-to-b from-black/80 via-black/50 to-transparent p-3 pt-3 pb-8">
                                     <div className="flex items-center gap-2 mb-1">
-                                        <span className="px-2 py-0.5 bg-indigo-500/30 text-indigo-300 rounded text-xs font-bold">
+                                        <span className="px-2 py-0.5 bg-indigo-500/40 text-indigo-200 rounded text-xs font-bold">
                                             {selectedHymn.number}장
                                         </span>
                                         {selectedHymn.code && (
-                                            <span className="px-2 py-0.5 bg-emerald-500/30 text-emerald-300 rounded text-xs">
+                                            <span className="px-2 py-0.5 bg-emerald-500/40 text-emerald-200 rounded text-xs">
                                                 {selectedHymn.code}
                                             </span>
                                         )}
-                                        {selectedHymn.category && (
-                                            <span className="px-2 py-0.5 bg-white/10 text-white/60 rounded text-xs">
-                                                #{selectedHymn.category}
-                                            </span>
-                                        )}
                                     </div>
-                                    <h2 className="text-lg font-bold text-white">{selectedHymn.title}</h2>
+                                    <h2 className="text-base font-bold text-white truncate pr-20">{selectedHymn.title}</h2>
                                 </div>
+
+                                {/* Mobile: View original button */}
+                                <a
+                                    href={selectedHymn.imageUrl}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="absolute bottom-4 right-4 md:bottom-6 md:right-6 bg-white/90 text-black px-3 py-1.5 rounded-full font-bold shadow-lg flex items-center gap-1.5 text-sm md:opacity-0 md:group-hover:opacity-100 transition-opacity"
+                                    onClick={e => e.stopPropagation()}
+                                >
+                                    <Download size={14} /> 원본
+                                </a>
                             </div>
 
-                            {/* Right: Info Panel - Hidden on mobile by default, shown on desktop */}
-                            <div className="hidden md:flex w-full md:w-[400px] bg-[#1a1a1a] p-6 border-l border-white/10 flex-col overflow-y-auto">
+                            {/* Right: Info Panel - Desktop only */}
+                            <div className="hidden md:flex w-[400px] bg-[#1a1a1a] p-6 border-l border-white/10 flex-col overflow-y-auto">
                                 {/* Header */}
                                 <div className="mb-6">
                                     <div className="flex items-center gap-2 mb-2">
