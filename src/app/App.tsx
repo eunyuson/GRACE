@@ -11,7 +11,7 @@ import { AdminPage } from './admin/AdminPage';
 import { MyReflections } from './components/MyReflections';
 import { ConceptCards } from './components/ConceptCards';
 
-import { HymnGallery } from './components/HymnGallery';
+import { HymnTabs } from './components/HymnTabs';
 
 const Home = () => {
   const [activeTab, setActiveTab] = useState<'gallery' | 'updates' | 'concepts' | 'reflections' | 'hymns'>('gallery');
@@ -90,7 +90,7 @@ const Home = () => {
       ) : activeTab === 'concepts' ? (
         <ConceptCards />
       ) : activeTab === 'hymns' ? (
-        <HymnGallery isAdmin={isAdmin} />
+        <HymnTabs isAdmin={isAdmin} />
       ) : (
         <MyReflections
           onSelectCallback={(parentId) => {

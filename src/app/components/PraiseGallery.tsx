@@ -1,9 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, Download, Music, Grid, List, Edit3, Save, Youtube, Plus, Trash2, ExternalLink, Search, Hash, ChevronLeft, ChevronRight } from 'lucide-react';
+import { X, Download, Music, Grid, List, Edit3, Save, Youtube, Plus, Trash2, ExternalLink } from 'lucide-react';
 import { collection, query, onSnapshot, where, doc, updateDoc } from 'firebase/firestore';
 import { db } from '../firebase';
-import { allHymnData, getAllCategories, getHymnByNumber, HymnInfo } from '../data';
 
 interface Hymn {
     id: string;
@@ -17,21 +16,16 @@ interface Hymn {
     category?: string;
 }
 
-interface HymnGalleryProps {
+interface PraiseGalleryProps {
     isAdmin?: boolean;
 }
 
-export const HymnGallery: React.FC<HymnGalleryProps> = ({ isAdmin = false }) => {
+export const PraiseGallery: React.FC<PraiseGalleryProps> = ({ isAdmin = false }) => {
     const [hymns, setHymns] = useState<Hymn[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedHymn, setSelectedHymn] = useState<Hymn | null>(null);
     const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
-
-    // Category/Tag filter
-    const [selectedCategory, setSelectedCategory] = useState<string>('');
-    const [showCategoryPicker, setShowCategoryPicker] = useState(false);
-    const categories = useMemo(() => getAllCategories(), []);
 
     // Editing states
     const [isEditing, setIsEditing] = useState(false);
@@ -118,7 +112,7 @@ export const HymnGallery: React.FC<HymnGalleryProps> = ({ isAdmin = false }) => 
         // Fetch hymns from 'gallery' collection where type == 'hymn'
         // This relies on 'gallery' being public readable.
         // We do NOT use orderBy here to avoid index requirements for safe initial loading
-        const q = query(collection(db, 'gallery'), where('type', '==', 'hymn'));
+        const q = query(collection(db, 'gallery'), where('type', '==', 'praise'));
 
         const unsubscribe = onSnapshot(q, (snapshot) => {
             const items = snapshot.docs.map(doc => ({
@@ -129,17 +123,7 @@ export const HymnGallery: React.FC<HymnGalleryProps> = ({ isAdmin = false }) => 
             // Client-side sort
             items.sort((a, b) => (a.number || 0) - (b.number || 0));
 
-            // Enrich with hymn data (code, category)
-            const enrichedItems = items.map(item => {
-                const hymnInfo = getHymnByNumber(item.number);
-                return {
-                    ...item,
-                    code: hymnInfo?.code || '',
-                    category: hymnInfo?.category || ''
-                };
-            });
-
-            setHymns(enrichedItems);
+            setHymns(items);
             setLoading(false);
         }, (error) => {
             console.error("Error fetching hymns:", error);
@@ -149,34 +133,17 @@ export const HymnGallery: React.FC<HymnGalleryProps> = ({ isAdmin = false }) => 
         return () => unsubscribe();
     }, []);
 
-    // Enhanced filtering: number, title, code, category + tag filter
+    // Filtering: number prefix + title contains
     const filteredHymns = useMemo(() => {
-        let results = hymns;
+        if (!searchQuery) return hymns;
+        const q = searchQuery.toLowerCase().trim();
+        const isNumeric = /^\d+$/.test(q);
 
-        // Apply category/tag filter first
-        if (selectedCategory) {
-            results = results.filter(h => h.category === selectedCategory);
-        }
-
-        // Then apply search query
-        if (searchQuery) {
-            const q = searchQuery.toLowerCase().trim();
-            const numQuery = parseInt(q);
-            const isNumeric = !isNaN(numQuery) && q === numQuery.toString();
-
-            results = results.filter(h => {
-                // Number prefix match (progressive)
-                if (isNumeric && h.number.toString().startsWith(q)) return true;
-                // Title match
-                if (h.title.toLowerCase().includes(q)) return true;
-                // Code match
-                if (h.code?.toLowerCase() === q) return true;
-                return false;
-            });
-        }
-
-        return results;
-    }, [hymns, searchQuery, selectedCategory]);
+        return hymns.filter(h => {
+            if (isNumeric && h.number.toString().startsWith(q)) return true;
+            return h.title.toLowerCase().includes(q);
+        });
+    }, [hymns, searchQuery]);
 
     return (
         <div className="w-full h-full overflow-hidden flex flex-col pt-32 px-4 md:px-10 pb-10">
@@ -185,8 +152,8 @@ export const HymnGallery: React.FC<HymnGalleryProps> = ({ isAdmin = false }) => 
                 <div className="flex flex-col lg:flex-row justify-between items-start lg:items-end gap-4">
                     <div className="flex items-end gap-6">
                         <div>
-                            <h1 className="text-4xl md:text-5xl font-['Anton'] text-white mb-1">HYMNS</h1>
-                            <p className="text-white/40 font-['Inter'] tracking-wider text-xs">새찬송가 1-639장</p>
+                            <h1 className="text-4xl md:text-5xl font-['Anton'] text-white mb-1">PRAISE</h1>
+                            <p className="text-white/40 font-['Inter'] tracking-wider text-xs">찬양 악보 모음</p>
                         </div>
 
                         {/* Number Display */}
@@ -195,11 +162,11 @@ export const HymnGallery: React.FC<HymnGalleryProps> = ({ isAdmin = false }) => 
                                 <span className="text-3xl md:text-4xl font-bold text-white font-mono tracking-wider">
                                     {searchQuery || '___'}
                                 </span>
-                                <span className="text-emerald-400 text-lg ml-1">장</span>
+                                <span className="text-emerald-400 text-lg ml-1">곡</span>
                             </div>
-                            {(searchQuery || selectedCategory) && (
+                            {searchQuery && (
                                 <button
-                                    onClick={() => { setSearchQuery(''); setSelectedCategory(''); }}
+                                    onClick={() => setSearchQuery('') }
                                     className="p-2 bg-white/5 hover:bg-red-500/20 border border-white/10 hover:border-red-500/30 rounded-xl text-white/50 hover:text-red-400 transition-all"
                                 >
                                     <X size={20} />
@@ -243,55 +210,18 @@ export const HymnGallery: React.FC<HymnGalleryProps> = ({ isAdmin = false }) => 
                         </div>
                     </div>
                 </div>
-
-                {/* Category/Tag Filter */}
-                <div className="flex flex-wrap gap-2 items-center">
-                    <Hash size={14} className="text-white/40" />
-                    <button
-                        onClick={() => setSelectedCategory('')}
-                        className={`px-3 py-1 text-xs rounded-full transition-all ${!selectedCategory
-                            ? 'bg-emerald-500/30 text-emerald-300 border border-emerald-500/50'
-                            : 'bg-white/5 text-white/50 border border-white/10 hover:bg-white/10'}`}
-                    >
-                        전체
-                    </button>
-                    {categories.slice(0, showCategoryPicker ? categories.length : 8).map(cat => (
-                        <button
-                            key={cat}
-                            onClick={() => setSelectedCategory(cat === selectedCategory ? '' : cat)}
-                            className={`px-3 py-1 text-xs rounded-full transition-all ${selectedCategory === cat
-                                ? 'bg-emerald-500/30 text-emerald-300 border border-emerald-500/50'
-                                : 'bg-white/5 text-white/50 border border-white/10 hover:bg-white/10'}`}
-                        >
-                            #{cat}
-                        </button>
-                    ))}
-                    {categories.length > 8 && (
-                        <button
-                            onClick={() => setShowCategoryPicker(!showCategoryPicker)}
-                            className="px-3 py-1 text-xs rounded-full bg-white/5 text-white/50 border border-white/10 hover:bg-white/10 flex items-center gap-1"
-                        >
-                            {showCategoryPicker ? '접기' : `+${categories.length - 8}개 더보기`}
-                        </button>
-                    )}
-                </div>
             </div>
 
             {/* Matching Results Info */}
-            {(searchQuery || selectedCategory) && (
+            {searchQuery && (
                 <div className="mb-4 flex items-center gap-2 text-sm flex-wrap">
                     <span className="text-white/40">검색 결과:</span>
                     <span className="text-emerald-400 font-bold">{filteredHymns.length}개</span>
-                    {selectedCategory && (
-                        <span className="px-2 py-0.5 bg-emerald-500/20 text-emerald-300 rounded text-xs">
-                            #{selectedCategory}
-                        </span>
-                    )}
                     {searchQuery && (
                         <span className="text-white/50">
-                            {searchQuery.length === 1 && `${searchQuery}장, ${searchQuery}0~${searchQuery}9장, ${searchQuery}00~${searchQuery}99장`}
-                            {searchQuery.length === 2 && `${searchQuery}장, ${searchQuery}0~${searchQuery}9장`}
-                            {searchQuery.length === 3 && `${searchQuery}장`}
+                            {searchQuery.length === 1 && `${searchQuery}곡, ${searchQuery}0~${searchQuery}9곡, ${searchQuery}00~${searchQuery}99곡`}
+                            {searchQuery.length === 2 && `${searchQuery}곡, ${searchQuery}0~${searchQuery}9곡`}
+                            {searchQuery.length === 3 && `${searchQuery}곡`}
                         </span>
                     )}
                 </div>
@@ -306,7 +236,7 @@ export const HymnGallery: React.FC<HymnGalleryProps> = ({ isAdmin = false }) => 
                 ) : filteredHymns.length === 0 ? (
                     <div className="text-center py-20 border border-dashed border-white/10 rounded-2xl">
                         <p className="text-white/30">
-                            {hymns.length === 0 ? '아직 등록된 찬송가가 없습니다.' : '검색 결과가 없습니다.'}
+                            {hymns.length === 0 ? '아직 등록된 찬양곡이 없습니다.' : '검색 결과가 없습니다.'}
                         </p>
                         {hymns.length === 0 && (
                             <p className="text-white/20 text-sm mt-2">관리자에게 데이터 입력을 요청하세요.</p>
@@ -319,7 +249,7 @@ export const HymnGallery: React.FC<HymnGalleryProps> = ({ isAdmin = false }) => 
                                 {filteredHymns.map((hymn) => (
                                     <motion.div
                                         key={hymn.id}
-                                        layoutId={`hymn-${hymn.id}`}
+                                        layoutId={`praise-${hymn.id}`}
                                         onClick={() => setSelectedHymn(hymn)}
                                         className="group cursor-pointer bg-white/5 border border-white/10 rounded-xl overflow-hidden hover:border-white/30 transition-all hover:-translate-y-1"
                                     >
@@ -337,7 +267,7 @@ export const HymnGallery: React.FC<HymnGalleryProps> = ({ isAdmin = false }) => 
                                                 </div>
                                             )}
                                             <div className="absolute top-2 left-2 bg-black/60 backdrop-blur-md px-2 py-0.5 rounded text-xs font-bold text-white border border-white/10">
-                                                {hymn.number}장
+                                                {hymn.number}곡
                                             </div>
                                         </div>
                                         <div className="p-3">
@@ -383,7 +313,7 @@ export const HymnGallery: React.FC<HymnGalleryProps> = ({ isAdmin = false }) => 
                         onClick={() => { setSelectedHymn(null); cancelEditing(); }}
                     >
                         <motion.div
-                            layoutId={`hymn-${selectedHymn.id}`}
+                            layoutId={`praise-${selectedHymn.id}`}
                             className="w-full h-full max-w-6xl bg-[#111] rounded-2xl overflow-hidden flex flex-col md:flex-row border border-white/10 shadow-2xl relative"
                             onClick={e => e.stopPropagation()}
                         >
@@ -435,7 +365,7 @@ export const HymnGallery: React.FC<HymnGalleryProps> = ({ isAdmin = false }) => 
                                 <div className="absolute bottom-0 left-0 right-0 md:hidden bg-gradient-to-t from-black/90 via-black/70 to-transparent p-4 pt-8">
                                     <div className="flex items-center gap-2 mb-1">
                                         <span className="px-2 py-0.5 bg-indigo-500/30 text-indigo-300 rounded text-xs font-bold">
-                                            {selectedHymn.number}장
+                                            {selectedHymn.number}곡
                                         </span>
                                         {selectedHymn.code && (
                                             <span className="px-2 py-0.5 bg-emerald-500/30 text-emerald-300 rounded text-xs">
@@ -458,7 +388,7 @@ export const HymnGallery: React.FC<HymnGalleryProps> = ({ isAdmin = false }) => 
                                 <div className="mb-6">
                                     <div className="flex items-center gap-2 mb-2">
                                         <span className="px-3 py-1 bg-indigo-500/20 text-indigo-300 rounded text-xs font-bold border border-indigo-500/20">
-                                            {selectedHymn.number}장
+                                            {selectedHymn.number}곡
                                         </span>
                                         {selectedHymn.code && (
                                             <span className="px-3 py-1 bg-emerald-500/20 text-emerald-300 rounded text-xs border border-emerald-500/20">
