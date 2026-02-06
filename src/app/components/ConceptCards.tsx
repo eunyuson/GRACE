@@ -10,8 +10,40 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence, useMotionValue, useSpring, useTransform } from 'motion/react';
 
 
+// --------------------------------------------
+// Types & Interfaces
+// --------------------------------------------
+
+interface Connection {
+    id: string;
+    start: string;
+    end: string;
+    score: number;
+}
+
+interface Point {
+    x: number;
+    y: number;
+}
+
 // 3D Tilt & Spotlight Card Component
-const TiltCard = ({ children, onClick, index }: { children: React.ReactNode, onClick: () => void, index: number }) => {
+const TiltCard = ({
+    children,
+    onClick,
+    index,
+    id,
+    onHover,
+    isDimmed,
+    isHighlighted
+}: {
+    children: React.ReactNode,
+    onClick: () => void,
+    index: number,
+    id?: string,
+    onHover?: (isHovering: boolean) => void,
+    isDimmed?: boolean,
+    isHighlighted?: boolean
+}) => {
     const x = useMotionValue(0);
     const y = useMotionValue(0);
 
@@ -27,24 +59,30 @@ const TiltCard = ({ children, onClick, index }: { children: React.ReactNode, onC
     function onMouseLeave() {
         x.set(0);
         y.set(0);
+        onHover?.(false);
     }
 
     const rotateX = useTransform(mouseY, [-200, 200], [5, -5]);
     const rotateY = useTransform(mouseX, [-200, 200], [-5, 5]);
-    const spotlightX = useTransform(mouseX, [-200, 200], [0, 100]);
-    const spotlightY = useTransform(mouseY, [-200, 200], [0, 100]);
 
     return (
         <motion.div
+            id={id}
             initial={{ opacity: 0, y: 50 }}
-            animate={{ opacity: 1, y: 0 }}
+            animate={{
+                opacity: isDimmed ? 0.3 : 1,
+                y: 0,
+                scale: isHighlighted ? 1.05 : 1
+            }}
             exit={{ opacity: 0, scale: 0.9 }}
             transition={{ duration: 0.5, delay: index * 0.05 }}
             style={{
                 perspective: 1000,
             }}
-            className="mb-6 break-inside-avoid" // Masonry layout support
+            className="mb-6 break-inside-avoid relative z-10" // Masonry layout support
             onClick={onClick}
+            onMouseEnter={() => onHover?.(true)}
+            onMouseLeave={onMouseLeave}
         >
             <motion.div
                 style={{
@@ -53,8 +91,10 @@ const TiltCard = ({ children, onClick, index }: { children: React.ReactNode, onC
                     transformStyle: "preserve-3d",
                 }}
                 onMouseMove={onMouseMove}
-                onMouseLeave={onMouseLeave}
-                className="group relative overflow-hidden bg-gradient-to-br from-[#1a1a2e] via-[#1e1e3a] to-[#16213e] border border-white/10 rounded-3xl p-6 hover:border-indigo-500/40 hover:shadow-2xl hover:shadow-indigo-500/20 transition-all duration-300 cursor-pointer"
+                className={`group relative overflow-hidden bg-gradient-to-br from-[#1a1a2e] via-[#1e1e3a] to-[#16213e] border rounded-3xl p-6 transition-all duration-300 cursor-pointer ${isHighlighted
+                        ? 'border-indigo-400 shadow-[0_0_30px_rgba(99,102,241,0.3)]'
+                        : 'border-white/10 hover:border-indigo-500/40 hover:shadow-2xl hover:shadow-indigo-500/20'
+                    }`}
             >
                 {/* Spotlight Gradient */}
                 <motion.div
@@ -62,7 +102,7 @@ const TiltCard = ({ children, onClick, index }: { children: React.ReactNode, onC
                     style={{
                         background: useTransform(
                             [mouseX, mouseY],
-                            ([xVal, yVal]) => `radial-gradient(600px circle at ${xVal + 200}px ${yVal + 200}px, rgba(99, 102, 241, 0.15), transparent 40%)`
+                            ([xVal, yVal]) => `radial-gradient(600px circle at ${Number(xVal) + 200}px ${Number(yVal) + 200}px, rgba(99, 102, 241, 0.15), transparent 40%)`
                         ),
                     }}
                 />
@@ -86,13 +126,8 @@ export const ConceptCards: React.FC<ConceptCardsProps> = ({ onViewRelated, maxIt
     const [loading, setLoading] = useState(true);
     const [currentUser, setCurrentUser] = useState<User | null>(null);
 
-    // Create/Edit Modal (Legacy - Removed unused state)
-
-    // Form State (Legacy - Removed unused state)
-
     // Question Bridge View
     const [viewingQuestion, setViewingQuestion] = useState<string | null>(null);
-    const [relatedItems, setRelatedItems] = useState<RelatedItem[]>([]);
 
     // InsightDrawer (Sequence Card) 상태
     const [selectedConceptForDrawer, setSelectedConceptForDrawer] = useState<ConceptCard | null>(null);
@@ -102,6 +137,88 @@ export const ConceptCards: React.FC<ConceptCardsProps> = ({ onViewRelated, maxIt
 
     // 편집 모드: 기존 카드를 편집 모드로 열기
     const [isEditMode, setIsEditMode] = useState(false);
+
+    // Graph Visualization State
+    const [hoveredCardId, setHoveredCardId] = useState<string | null>(null);
+    const [cardPositions, setCardPositions] = useState<Record<string, Point>>({});
+    const containerRef = React.useRef<HTMLDivElement>(null);
+    const [connections, setConnections] = useState<Connection[]>([]);
+
+    // Calculate connections between concepts based on question similarity
+    useEffect(() => {
+        if (concepts.length < 2) return;
+
+        const newConnections: Connection[] = [];
+
+        for (let i = 0; i < concepts.length; i++) {
+            for (let j = i + 1; j < concepts.length; j++) {
+                const c1 = concepts[i];
+                const c2 = concepts[j];
+
+                // Use the imported similarity function directly
+                // Logic mostly duplicated here to avoid complex imports if needed, 
+                // but utilizing the logic from types/questionBridge works best if available.
+                // Assuming simple Jaccard check for performance here or use imported function
+
+                // Simple implementation to avoid import issues for now (or improve robustness)
+                const q1 = c1.question?.toLowerCase().trim() || "";
+                const q2 = c2.question?.toLowerCase().trim() || "";
+
+                if (!q1 || !q2) continue;
+
+                // Simple keyword overlap
+                const keywords1 = new Set(q1.split(/\s+/).filter(w => w.length > 1));
+                const keywords2 = new Set(q2.split(/\s+/).filter(w => w.length > 1));
+                const intersection = new Set([...keywords1].filter(x => keywords2.has(x)));
+                const union = new Set([...keywords1, ...keywords2]);
+                const score = union.size > 0 ? intersection.size / union.size : 0;
+
+                // Threshold for connection (loose to show more lines for "effect")
+                if (score > 0.1) {
+                    newConnections.push({
+                        id: `${c1.id}-${c2.id}`,
+                        start: c1.id,
+                        end: c2.id,
+                        score
+                    });
+                }
+            }
+        }
+        setConnections(newConnections);
+    }, [concepts]);
+
+    // Update positions
+    const updatePositions = React.useCallback(() => {
+        if (!containerRef.current) return;
+
+        const positions: Record<string, Point> = {};
+        const containerRect = containerRef.current.getBoundingClientRect();
+
+        concepts.forEach(concept => {
+            const el = document.getElementById(`concept-card-${concept.id}`);
+            if (el) {
+                const rect = el.getBoundingClientRect();
+                // Store center position relative to container
+                positions[concept.id] = {
+                    x: rect.left - containerRect.left + rect.width / 2,
+                    y: rect.top - containerRect.top + rect.height / 2
+                };
+            }
+        });
+
+        setCardPositions(positions);
+    }, [concepts]);
+
+    // Listen for resize/scroll to update positions
+    useEffect(() => {
+        // Initial update with delay to allow layout
+        setTimeout(updatePositions, 500);
+
+        window.addEventListener('resize', updatePositions);
+        // We only need resize, because scroll moves the SVG *with* the content (it's absolute in relative container)
+
+        return () => window.removeEventListener('resize', updatePositions);
+    }, [updatePositions]);
 
     // Auth listener
     useEffect(() => {
@@ -128,13 +245,15 @@ export const ConceptCards: React.FC<ConceptCardsProps> = ({ onViewRelated, maxIt
             } as ConceptCard));
             setConcepts(items);
             setLoading(false);
+            // Trigger position update after data load
+            setTimeout(updatePositions, 500);
         }, err => {
             console.error('Concepts fetch error:', err);
             setLoading(false);
         });
 
         return () => unsubscribe();
-    }, []);
+    }, [maxItems, updatePositions]);
 
     // Check URL query params for deep linking
     useEffect(() => {
@@ -158,8 +277,6 @@ export const ConceptCards: React.FC<ConceptCardsProps> = ({ onViewRelated, maxIt
         }
     }, [concepts]);
 
-    // Old functions (resetForm, handleSave, handleDelete) removed as they were dead code relying on legacy modal.
-
     // View related questions
     const handleViewRelated = (concept: ConceptCard) => {
         setViewingQuestion(concept.question);
@@ -176,6 +293,17 @@ export const ConceptCards: React.FC<ConceptCardsProps> = ({ onViewRelated, maxIt
         );
     };
 
+    // Determine derived states for visualization
+    const connectedCardIds = React.useMemo(() => {
+        if (!hoveredCardId) return new Set<string>();
+        const ids = new Set<string>();
+        connections.forEach(conn => {
+            if (conn.start === hoveredCardId) ids.add(conn.end);
+            if (conn.end === hoveredCardId) ids.add(conn.start);
+        });
+        return ids;
+    }, [hoveredCardId, connections]);
+
     if (loading) {
         return (
             <div className="flex items-center justify-center min-h-[50vh] text-white/50">
@@ -185,24 +313,70 @@ export const ConceptCards: React.FC<ConceptCardsProps> = ({ onViewRelated, maxIt
     }
 
     return (
-        <div className="w-full h-full overflow-y-auto bg-[#050505]">
-            <div className="w-full max-w-[1600px] mx-auto px-4 md:px-10 py-20 md:py-32 min-h-screen">
+        <div className="w-full h-full overflow-y-auto bg-[#050505] relative">
+            <div
+                ref={containerRef}
+                className="w-full max-w-[1600px] mx-auto px-4 md:px-10 py-20 md:py-32 min-h-screen relative"
+            >
+                {/* Connection Lines Layer */}
+                <svg className="absolute inset-0 w-full h-full pointer-events-none z-0 overflow-visible">
+                    <defs>
+                        <linearGradient id="lineGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                            <stop offset="0%" stopColor="#6366f1" stopOpacity="0.5" />
+                            <stop offset="100%" stopColor="#a855f7" stopOpacity="0.5" />
+                        </linearGradient>
+                    </defs>
+                    {connections.map(conn => {
+                        const start = cardPositions[conn.start];
+                        const end = cardPositions[conn.end];
+                        if (!start || !end) return null;
+
+                        const isConnectedToHover = hoveredCardId === conn.start || hoveredCardId === conn.end;
+                        // Show all lines faintly, highlight connected ones
+                        const opacity = isConnectedToHover ? 0.6 : 0.03;
+                        const width = isConnectedToHover ? 2 : 1;
+
+                        return (
+                            <motion.line
+                                key={conn.id}
+                                x1={start.x}
+                                y1={start.y}
+                                x2={end.x}
+                                y2={end.y}
+                                stroke={isConnectedToHover ? "url(#lineGradient)" : "white"}
+                                strokeWidth={width}
+                                initial={false}
+                                animate={{
+                                    opacity,
+                                    strokeWidth: width
+                                }}
+                                transition={{ duration: 0.3 }}
+                            />
+                        );
+                    })}
+                </svg>
+
                 {/* Header */}
                 <motion.div
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.6 }}
-                    className="mb-12"
+                    className="mb-12 relative z-10"
                 >
                     <h1 className="font-['Anton'] text-[clamp(2.5rem,6vw,5rem)] leading-[0.9] text-white overflow-hidden">
                         CONCEPT CARDS
                     </h1>
-                    <p className="font-['Inter'] text-sm md:text-base text-white/50 mt-4 tracking-wide">
-                        사고가 이동하는 지점을 기록합니다 ({concepts.length})
-                    </p>
-                    <p className="font-['Inter'] text-xs text-white/30 mt-2">
-                        정의 ❌ · 결론 ❌ · 사고가 이동하는 지점만 ⭕
-                    </p>
+                    <div className="flex items-center gap-4 mt-4">
+                        <p className="font-['Inter'] text-sm md:text-base text-white/50 tracking-wide">
+                            사고가 이동하는 지점을 기록합니다 ({concepts.length})
+                        </p>
+                        {connections.length > 0 && (
+                            <span className="text-xs px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 flex items-center gap-1">
+                                <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-pulse"></span>
+                                {connections.length} Connections
+                            </span>
+                        )}
+                    </div>
                 </motion.div>
 
                 {/* Loading */}
@@ -213,99 +387,125 @@ export const ConceptCards: React.FC<ConceptCardsProps> = ({ onViewRelated, maxIt
                         ))}
                     </div>
                 ) : concepts.length === 0 ? (
-                    <div className="text-center py-20 border border-dashed border-white/10 rounded-3xl">
+                    <div className="text-center py-20 border border-dashed border-white/10 rounded-3xl relative z-10">
                         <Lightbulb className="w-12 h-12 mx-auto mb-4 text-yellow-500/50" />
                         <p className="text-white/30 text-lg mb-2">아직 개념 카드가 없습니다</p>
                         <p className="text-white/20 text-sm">첫 번째 개념을 기록해보세요</p>
                     </div>
                 ) : (
                     // Masonry Layout using Columns
-                    <div className="columns-1 md:columns-2 lg:columns-3 gap-6 space-y-6">
+                    <div className="columns-1 md:columns-2 lg:columns-3 gap-6 space-y-6 relative z-10">
                         <AnimatePresence>
-                            {concepts.map((concept, index) => (
-                                <TiltCard
-                                    key={concept.id}
-                                    index={index}
-                                    onClick={() => setSelectedConceptForDrawer(concept)}
-                                >
-                                    {/* Type Badge */}
-                                    <div className="absolute top-4 right-4 z-10">
-                                        <span className="px-3 py-1.5 bg-gradient-to-r from-indigo-500/20 to-purple-500/20 text-indigo-300 text-[10px] uppercase tracking-widest rounded-full border border-indigo-500/20 backdrop-blur-sm flex items-center gap-1.5 shadow-lg shadow-indigo-500/5">
-                                            <Lightbulb size={10} className="text-yellow-400" />
-                                            CONCEPT
-                                        </span>
-                                    </div>
+                            {concepts.map((concept, index) => {
+                                const isHovered = hoveredCardId === concept.id;
+                                const isConnected = connectedCardIds.has(concept.id);
+                                const isDimmed = hoveredCardId !== null && !isHovered && !isConnected;
+                                const isHighlighted = isHovered || isConnected;
 
-                                    {/* Content */}
-                                    <div className="relative z-10 pr-4">
-                                        <h3 className="text-3xl font-bold text-white mb-4 group-hover:text-indigo-100 transition-colors tracking-tight">
-                                            {concept.conceptName}
-                                        </h3>
+                                return (
+                                    <TiltCard
+                                        key={concept.id}
+                                        id={`concept-card-${concept.id}`}
+                                        index={index}
+                                        onClick={() => setSelectedConceptForDrawer(concept)}
+                                        onHover={(isHovering) => setHoveredCardId(isHovering ? concept.id : null)}
+                                        isDimmed={isDimmed}
+                                        isHighlighted={isHighlighted}
+                                    >
+                                        {/* Type Badge */}
+                                        <div className="absolute top-4 right-4 z-10">
+                                            <span
+                                                className={`px-3 py-1.5 text-[10px] uppercase tracking-widest rounded-full border backdrop-blur-sm flex items-center gap-1.5 shadow-lg transition-all duration-300 ${isHighlighted
+                                                        ? 'bg-indigo-500/30 text-white border-indigo-500/50 shadow-indigo-500/20'
+                                                        : 'bg-gradient-to-r from-indigo-500/20 to-purple-500/20 text-indigo-300 border-indigo-500/20 shadow-indigo-500/5'
+                                                    }`}
+                                            >
+                                                <Lightbulb size={10} className={isHighlighted ? "text-white" : "text-yellow-400"} />
+                                                CONCEPT
+                                            </span>
+                                        </div>
 
-                                        {concept.conceptPhrase && (
-                                            <p className="text-white/60 text-sm leading-relaxed mb-6 italic border-l-2 border-indigo-500/30 pl-4 py-1">
-                                                "{concept.conceptPhrase.slice(0, 100)}{concept.conceptPhrase.length > 100 ? '...' : ''}"
-                                            </p>
-                                        )}
+                                        {/* Content */}
+                                        <div className="relative z-10 pr-4">
+                                            <h3 className={`text-3xl font-bold mb-4 transition-colors tracking-tight ${isHighlighted ? "text-white scale-[1.02] origin-left" : "text-white group-hover:text-indigo-100"
+                                                }`}>
+                                                {concept.conceptName}
+                                            </h3>
 
-                                        {/* Question Section */}
-                                        <div className="mt-4 pt-4 border-t border-white/5">
-                                            <div className="flex items-start gap-3">
-                                                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-purple-500/20 to-pink-500/20 flex items-center justify-center flex-shrink-0 shadow-inner border border-white/5">
-                                                    <span className="text-base transform -rotate-6 block">❓</span>
+                                            {concept.conceptPhrase && (
+                                                <p className="text-white/60 text-sm leading-relaxed mb-6 italic border-l-2 border-indigo-500/30 pl-4 py-1">
+                                                    "{concept.conceptPhrase.slice(0, 100)}{concept.conceptPhrase.length > 100 ? '...' : ''}"
+                                                </p>
+                                            )}
+
+                                            {/* Question Section */}
+                                            <div className={`mt-4 pt-4 border-t transition-colors ${isHighlighted ? "border-indigo-500/30" : "border-white/5"}`}>
+                                                <div className="flex items-start gap-3">
+                                                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 shadow-inner border transition-colors ${isHighlighted
+                                                            ? "bg-indigo-500 text-white border-indigo-400"
+                                                            : "bg-gradient-to-br from-purple-500/20 to-pink-500/20 border-white/5 text-transparent"
+                                                        }`}>
+                                                        <span className={`text-base transform -rotate-6 block ${isHighlighted ? "text-white" : ""}`}>
+                                                            {isHighlighted ? "!" : "❓"}
+                                                        </span>
+                                                    </div>
+                                                    <div className="flex-1">
+                                                        <p className="text-[10px] uppercase tracking-widest text-white/40 mb-1.5 font-medium">
+                                                            질문
+                                                        </p>
+                                                        <p className={`text-sm font-medium leading-relaxed transition-colors ${isHighlighted ? "text-white" : "text-white/80"
+                                                            }`}>
+                                                            {concept.question}
+                                                        </p>
+                                                    </div>
                                                 </div>
-                                                <div className="flex-1">
-                                                    <p className="text-[10px] uppercase tracking-widest text-white/40 mb-1.5 font-medium">
-                                                        질문
-                                                    </p>
-                                                    <p className="text-white/80 text-sm font-medium leading-relaxed">
-                                                        {concept.question}
-                                                    </p>
+                                            </div>
+
+                                            {/* A-B Content Preview */}
+                                            {(() => {
+                                                const aText = (concept as any).aStatement || (concept as any).sequence?.aStatement || concept.bridge?.aStatement;
+                                                const bText = (concept as any).conclusion || concept.bridge?.bStatement;
+
+                                                if (!aText && !bText) return null;
+
+                                                return (
+                                                    <div className={`mt-5 p-4 rounded-xl border space-y-2 backdrop-blur-sm transition-colors ${isHighlighted
+                                                            ? "bg-indigo-900/40 border-indigo-500/40"
+                                                            : "bg-black/20 border-white/5"
+                                                        }`}>
+                                                        {bText ? (
+                                                            <div className="flex items-start gap-2">
+                                                                <span className="text-emerald-400 text-xs mt-0.5">➔</span>
+                                                                <p className="text-emerald-300/90 text-xs leading-relaxed font-medium line-clamp-2">
+                                                                    {bText}
+                                                                </p>
+                                                            </div>
+                                                        ) : (
+                                                            <div className="flex items-start gap-2">
+                                                                <span className="text-white/30 text-xs mt-0.5">Start</span>
+                                                                <p className="text-white/50 text-xs leading-relaxed line-clamp-2">
+                                                                    {aText}
+                                                                </p>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                );
+                                            })()}
+
+                                            {/* View Related Button */}
+                                            <div className="mt-6 flex items-center justify-between opacity-0 translate-y-2 group-hover:opacity-100 group-hover:translate-y-0 transition-all duration-300 delay-100">
+                                                <span className="text-[10px] text-white/30 font-medium tracking-wider">CLICK TO EXPLORE</span>
+                                                <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-white/70 group-hover:bg-indigo-500 group-hover:text-white transition-colors">
+                                                    <ChevronRight size={14} />
                                                 </div>
                                             </div>
                                         </div>
 
-                                        {/* A-B Content Preview */}
-                                        {(() => {
-                                            const aText = (concept as any).aStatement || (concept as any).sequence?.aStatement || concept.bridge?.aStatement;
-                                            const bText = (concept as any).conclusion || concept.bridge?.bStatement;
-
-                                            if (!aText && !bText) return null;
-
-                                            return (
-                                                <div className="mt-5 p-4 bg-black/20 rounded-xl border border-white/5 space-y-2 backdrop-blur-sm">
-                                                    {bText ? (
-                                                        <div className="flex items-start gap-2">
-                                                            <span className="text-emerald-400 text-xs mt-0.5">➔</span>
-                                                            <p className="text-emerald-300/90 text-xs leading-relaxed font-medium line-clamp-2">
-                                                                {bText}
-                                                            </p>
-                                                        </div>
-                                                    ) : (
-                                                        <div className="flex items-start gap-2">
-                                                            <span className="text-white/30 text-xs mt-0.5">Start</span>
-                                                            <p className="text-white/50 text-xs leading-relaxed line-clamp-2">
-                                                                {aText}
-                                                            </p>
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            );
-                                        })()}
-
-                                        {/* View Related Button */}
-                                        <div className="mt-6 flex items-center justify-between opacity-0 translate-y-2 group-hover:opacity-100 group-hover:translate-y-0 transition-all duration-300 delay-100">
-                                            <span className="text-[10px] text-white/30 font-medium tracking-wider">CLICK TO EXPLORE</span>
-                                            <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-white/70 group-hover:bg-indigo-500 group-hover:text-white transition-colors">
-                                                <ChevronRight size={14} />
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    {/* Glow bg for aesthetics */}
-                                    <div className="absolute -right-10 -bottom-10 w-40 h-40 bg-gradient-to-br from-indigo-500/10 to-purple-500/10 blur-3xl rounded-full pointer-events-none" />
-                                </TiltCard>
-                            ))}
+                                        {/* Glow bg for aesthetics */}
+                                        <div className="absolute -right-10 -bottom-10 w-40 h-40 bg-gradient-to-br from-indigo-500/10 to-purple-500/10 blur-3xl rounded-full pointer-events-none" />
+                                    </TiltCard>
+                                );
+                            })}
                         </AnimatePresence>
                     </div>
                 )}
