@@ -57,6 +57,9 @@ export const InsightDrawer: React.FC<InsightDrawerProps> = ({
     // 로컬 상태
     const [localConcept, setLocalConcept] = useState<ConceptCard>(concept);
 
+    // 읽기/편집 모드: 새 카드 모드 또는 편집 모드면 편집 모드로 시작, 아니면 읽기 모드로 시작
+    const [isViewMode, setIsViewMode] = useState(!isNewMode && !isEditMode);
+
     // Concept prop이 변경되면 localConcept 동기화 (저장 후 확실한 상태 반영)
     useEffect(() => {
         // 편집 중이 아닐 때만 동기화하여 덮어쓰기 방지
@@ -77,7 +80,7 @@ export const InsightDrawer: React.FC<InsightDrawerProps> = ({
     const [loading, setLoading] = useState(true);
 
     // 읽기/편집 모드: 새 카드 모드 또는 편집 모드면 편집 모드로 시작, 아니면 읽기 모드로 시작
-    const [isViewMode, setIsViewMode] = useState(!isNewMode && !isEditMode);
+    // isNewMode, isEditMode, isOpen이 변경되면 isViewMode 업데이트
 
     // isNewMode, isEditMode, isOpen이 변경되면 isViewMode 업데이트
     useEffect(() => {
@@ -107,15 +110,17 @@ export const InsightDrawer: React.FC<InsightDrawerProps> = ({
     // 시퀀스 초기화 (데이터 무결성 보장)
     const getSequence = (): SequenceData => {
         const s = localConcept.sequence;
+        // Firestore 데이터 무결성 체크: 배열이 아니면 빈 배열로 대체
         return {
-            ...(s || {}), // 기존 데이터 유지 (undefined 인 경우 빈 객체)
-            recent: s?.recent || [],
-            responses: s?.responses || [],
+            ...(s || {}),
+            recent: Array.isArray(s?.recent) ? s.recent : [],
+            responses: Array.isArray(s?.responses) ? s.responses : [],
             aStatement: s?.aStatement || '',
-            scriptureSupport: s?.scriptureSupport || [],
-            aiReactionSuggestions: s?.aiReactionSuggestions || [],
-            aiConclusionSuggestions: s?.aiConclusionSuggestions || [],
-            aiScriptureSuggestions: s?.aiScriptureSuggestions || []
+            scriptureSupport: Array.isArray(s?.scriptureSupport) ? s.scriptureSupport : [],
+            // AI 제안 필드 안전하게 처리
+            aiReactionSuggestions: Array.isArray(s?.aiReactionSuggestions) ? s.aiReactionSuggestions : [],
+            aiConclusionSuggestions: Array.isArray(s?.aiConclusionSuggestions) ? s.aiConclusionSuggestions : [],
+            aiScriptureSuggestions: Array.isArray(s?.aiScriptureSuggestions) ? s.aiScriptureSuggestions : []
         } as SequenceData;
     };
 
@@ -123,89 +128,94 @@ export const InsightDrawer: React.FC<InsightDrawerProps> = ({
     useEffect(() => {
         const loadLinkedItems = async (loadedReflections: ReflectionItem[] = []) => {
             setLoading(true);
-            const sequence = getSequence();
+            try {
+                const sequence = getSequence();
 
-            // 연결된 뉴스 로드
-            const newsMap = new Map<string, NewsItem>();
-            for (const item of sequence.recent) {
-                if (item.sourceType === 'news') {
-                    try {
-                        const docRef = doc(db, 'updates', item.sourceId);
-                        const docSnap = await getDoc(docRef);
-                        if (docSnap.exists()) {
-                            const data = docSnap.data();
-                            // RecentUpdates의 데이터 구조(image, additionalImages)를 NewsItem의 images 배열로 매핑
-                            const images = [data.image, ...(data.additionalImages || [])].filter(Boolean);
+                // 연결된 뉴스 로드
+                const newsMap = new Map<string, NewsItem>();
+                if (sequence.recent && Array.isArray(sequence.recent)) {
+                    for (const item of sequence.recent) {
+                        try {
+                            if (!item || !item.sourceId) continue;
+                            if (item.sourceType === 'news') {
+                                const docRef = doc(db, 'updates', item.sourceId);
+                                const docSnap = await getDoc(docRef);
+                                if (docSnap.exists()) {
+                                    const data = docSnap.data();
+                                    const images = [data.image, ...(data.additionalImages || [])].filter(Boolean);
 
-                            newsMap.set(item.sourceId, {
-                                id: item.sourceId,
-                                ...data,
-                                images: images.length > 0 ? images : undefined,
-                                content: typeof data.content === 'string' ? data.content : JSON.stringify(data.content || '')
-                            } as NewsItem);
+                                    newsMap.set(item.sourceId, {
+                                        id: item.sourceId,
+                                        ...data,
+                                        images: images.length > 0 ? images : undefined,
+                                        content: typeof data.content === 'string' ? data.content : JSON.stringify(data.content || '')
+                                    } as NewsItem);
+                                }
+                            }
+                        } catch (itemError) {
+                            console.error('Error loading specific news item:', itemError);
                         }
-                    } catch (e) {
-                        console.error('Error loading news:', e);
                     }
                 }
-            }
-            setNewsItems(newsMap);
+                setNewsItems(newsMap);
 
-            // 연결된 묵상 로드
-            const reflectionMap = new Map<string, ReflectionItem>();
-            for (const item of sequence.scriptureSupport) {
-                if (item.sourceType === 'reflection') {
-                    try {
-                        let docRef;
-                        let docSnap = null;
-                        let foundDoc = false;
+                // 연결된 묵상 로드
+                const reflectionMap = new Map<string, ReflectionItem>();
+                if (sequence.scriptureSupport && Array.isArray(sequence.scriptureSupport)) {
+                    for (const item of sequence.scriptureSupport) {
+                        try {
+                            if (!item || !item.sourceId) continue;
+                            if (item.sourceType === 'reflection') {
+                                let docRef;
+                                let docSnap = null;
+                                let foundDoc = false;
 
-                        // 1. sourcePath가 있으면 해당 경로 사용 (서브컬렉션 지원)
-                        if (item.sourcePath) {
-                            docRef = doc(db, item.sourcePath);
-                            docSnap = await getDoc(docRef);
-                            foundDoc = docSnap.exists();
-                        }
+                                // 1. sourcePath가 있으면 해당 경로 사용
+                                if (item.sourcePath) {
+                                    docRef = doc(db, item.sourcePath);
+                                    docSnap = await getDoc(docRef);
+                                    foundDoc = docSnap.exists();
+                                }
 
-                        // 2. 경로로 못 찾으면 loadedReflections에서 찾기 (서브컬렉션 데이터 사용)
-                        if (!foundDoc) {
+                                // 2. 경로로 못 찾으면 loadedReflections에서 찾기
+                                if (!foundDoc) {
+                                    const foundInLoaded = loadedReflections.find(r => r.id === item.sourceId);
+                                    if (foundInLoaded) {
+                                        reflectionMap.set(item.sourceId, foundInLoaded);
+                                        continue;
+                                    }
+                                }
+
+                                // 3. 문서를 찾았으면 데이터 추출
+                                if (foundDoc && docSnap) {
+                                    const data = docSnap.data();
+                                    if (data) {
+                                        const content = typeof data.content === 'string' ? data.content :
+                                            typeof data.text === 'string' ? data.text :
+                                                JSON.stringify(data.content || data.text || '');
+
+                                        reflectionMap.set(item.sourceId, {
+                                            id: item.sourceId,
+                                            ...data,
+                                            content,
+                                            _path: item.sourcePath
+                                        } as ReflectionItem);
+                                    }
+                                }
+                            }
+                        } catch (e: any) {
+                            console.error('Error loading reflection:', e);
                             const foundInLoaded = loadedReflections.find(r => r.id === item.sourceId);
-                            if (foundInLoaded) {
-                                reflectionMap.set(item.sourceId, foundInLoaded);
-                                console.log(`[InsightDrawer] Found reflection ${item.sourceId} in loaded list`);
-                                continue; // 다음 항목으로
-                            }
+                            if (foundInLoaded) reflectionMap.set(item.sourceId, foundInLoaded);
                         }
-
-                        // 3. 문서를 찾았으면 데이터 추출
-                        if (foundDoc && docSnap) {
-                            const data = docSnap.data();
-                            if (data) {
-                                const content = typeof data.content === 'string' ? data.content :
-                                    typeof data.text === 'string' ? data.text :
-                                        JSON.stringify(data.content || data.text || '');
-
-                                reflectionMap.set(item.sourceId, {
-                                    id: item.sourceId,
-                                    ...data,
-                                    content,
-                                    _path: item.sourcePath
-                                } as ReflectionItem);
-                            }
-                        } else {
-                            console.warn(`Reflection not found: ${item.sourceId}, path: ${item.sourcePath}`);
-                        }
-                    } catch (e: any) {
-                        console.error('Error loading reflection:', e);
-                        // 에러 발생 시 loadedReflections에서라도 찾기
-                        const foundInLoaded = loadedReflections.find(r => r.id === item.sourceId);
-                        if (foundInLoaded) reflectionMap.set(item.sourceId, foundInLoaded);
                     }
                 }
+                setReflectionItems(reflectionMap);
+            } catch (err) {
+                console.error('Critical error loading linked items:', err);
+            } finally {
+                setLoading(false);
             }
-            setReflectionItems(reflectionMap);
-
-            setLoading(false);
         };
 
         // 전체 뉴스 목록 로드
