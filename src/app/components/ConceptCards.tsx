@@ -4,6 +4,7 @@ import { addDoc, collection, limit, onSnapshot, orderBy, query, serverTimestamp 
 import { auth, db } from '../firebase';
 import { ConceptCard, RelatedItem, QUESTION_MAX_LENGTH } from '../types/questionBridge';
 import { InsightDrawer } from './ui/InsightDrawer';
+import { ConceptDetailDrawer } from './ConceptDetailDrawer';
 import { QuestionBridgeView } from './QuestionBridgeView';
 import { ChevronRight, Lightbulb, Plus } from 'lucide-react';
 import React, { useState, useEffect } from 'react';
@@ -92,8 +93,8 @@ const TiltCard = ({
                 }}
                 onMouseMove={onMouseMove}
                 className={`group relative overflow-hidden bg-gradient-to-br from-[#1a1a2e] via-[#1e1e3a] to-[#16213e] border rounded-3xl p-6 transition-all duration-300 cursor-pointer ${isHighlighted
-                        ? 'border-indigo-400 shadow-[0_0_30px_rgba(99,102,241,0.3)]'
-                        : 'border-white/10 hover:border-indigo-500/40 hover:shadow-2xl hover:shadow-indigo-500/20'
+                    ? 'border-indigo-400 shadow-[0_0_30px_rgba(99,102,241,0.3)]'
+                    : 'border-white/10 hover:border-indigo-500/40 hover:shadow-2xl hover:shadow-indigo-500/20'
                     }`}
             >
                 {/* Spotlight Gradient */}
@@ -293,7 +294,18 @@ export const ConceptCards: React.FC<ConceptCardsProps> = ({ onViewRelated, maxIt
         );
     };
 
-    // Determine derived states for visualization
+    // Drawers connected concepts (for DetailDrawer navigation)
+    const drawerConnectedConcepts = React.useMemo(() => {
+        if (!selectedConceptForDrawer) return [];
+        const relatedIds = new Set<string>();
+        connections.forEach(conn => {
+            if (conn.start === selectedConceptForDrawer.id) relatedIds.add(conn.end);
+            if (conn.end === selectedConceptForDrawer.id) relatedIds.add(conn.start);
+        });
+        return concepts.filter(c => relatedIds.has(c.id));
+    }, [selectedConceptForDrawer, connections, concepts]);
+
+    // Graph Visualization State
     const connectedCardIds = React.useMemo(() => {
         if (!hoveredCardId) return new Set<string>();
         const ids = new Set<string>();
@@ -407,7 +419,11 @@ export const ConceptCards: React.FC<ConceptCardsProps> = ({ onViewRelated, maxIt
                                         key={concept.id}
                                         id={`concept-card-${concept.id}`}
                                         index={index}
-                                        onClick={() => setSelectedConceptForDrawer(concept)}
+                                        onClick={() => {
+                                            setSelectedConceptForDrawer(concept);
+                                            setIsEditMode(false); // Open in view mode
+                                            setIsNewCardMode(false);
+                                        }}
                                         onHover={(isHovering) => setHoveredCardId(isHovering ? concept.id : null)}
                                         isDimmed={isDimmed}
                                         isHighlighted={isHighlighted}
@@ -416,8 +432,8 @@ export const ConceptCards: React.FC<ConceptCardsProps> = ({ onViewRelated, maxIt
                                         <div className="absolute top-4 right-4 z-10">
                                             <span
                                                 className={`px-3 py-1.5 text-[10px] uppercase tracking-widest rounded-full border backdrop-blur-sm flex items-center gap-1.5 shadow-lg transition-all duration-300 ${isHighlighted
-                                                        ? 'bg-indigo-500/30 text-white border-indigo-500/50 shadow-indigo-500/20'
-                                                        : 'bg-gradient-to-r from-indigo-500/20 to-purple-500/20 text-indigo-300 border-indigo-500/20 shadow-indigo-500/5'
+                                                    ? 'bg-indigo-500/30 text-white border-indigo-500/50 shadow-indigo-500/20'
+                                                    : 'bg-gradient-to-r from-indigo-500/20 to-purple-500/20 text-indigo-300 border-indigo-500/20 shadow-indigo-500/5'
                                                     }`}
                                             >
                                                 <Lightbulb size={10} className={isHighlighted ? "text-white" : "text-yellow-400"} />
@@ -442,8 +458,8 @@ export const ConceptCards: React.FC<ConceptCardsProps> = ({ onViewRelated, maxIt
                                             <div className={`mt-4 pt-4 border-t transition-colors ${isHighlighted ? "border-indigo-500/30" : "border-white/5"}`}>
                                                 <div className="flex items-start gap-3">
                                                     <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 shadow-inner border transition-colors ${isHighlighted
-                                                            ? "bg-indigo-500 text-white border-indigo-400"
-                                                            : "bg-gradient-to-br from-purple-500/20 to-pink-500/20 border-white/5 text-transparent"
+                                                        ? "bg-indigo-500 text-white border-indigo-400"
+                                                        : "bg-gradient-to-br from-purple-500/20 to-pink-500/20 border-white/5 text-transparent"
                                                         }`}>
                                                         <span className={`text-base transform -rotate-6 block ${isHighlighted ? "text-white" : ""}`}>
                                                             {isHighlighted ? "!" : "❓"}
@@ -470,8 +486,8 @@ export const ConceptCards: React.FC<ConceptCardsProps> = ({ onViewRelated, maxIt
 
                                                 return (
                                                     <div className={`mt-5 p-4 rounded-xl border space-y-2 backdrop-blur-sm transition-colors ${isHighlighted
-                                                            ? "bg-indigo-900/40 border-indigo-500/40"
-                                                            : "bg-black/20 border-white/5"
+                                                        ? "bg-indigo-900/40 border-indigo-500/40"
+                                                        : "bg-black/20 border-white/5"
                                                         }`}>
                                                         {bText ? (
                                                             <div className="flex items-start gap-2">
@@ -559,22 +575,37 @@ export const ConceptCards: React.FC<ConceptCardsProps> = ({ onViewRelated, maxIt
             )}
 
             {/* InsightDrawer (Sequence Card) */}
-            {selectedConceptForDrawer && (
+            {/* 1. View Mode: ConceptDetailDrawer */}
+            {selectedConceptForDrawer && !isEditMode && !isNewCardMode && (
+                <ConceptDetailDrawer
+                    concept={selectedConceptForDrawer}
+                    isOpen={true}
+                    onClose={() => setSelectedConceptForDrawer(null)}
+                    connectedConcepts={drawerConnectedConcepts}
+                    onNavigate={(nextConcept) => setSelectedConceptForDrawer(nextConcept)}
+                    onEdit={() => setIsEditMode(true)}
+                />
+            )}
+
+            {/* 2. Edit/New Mode: InsightDrawer */}
+            {selectedConceptForDrawer && (isEditMode || isNewCardMode) && (
                 <InsightDrawer
                     concept={selectedConceptForDrawer}
-                    isOpen={!!selectedConceptForDrawer}
+                    isOpen={true}
                     onClose={() => {
-                        setSelectedConceptForDrawer(null);
-                        setIsNewCardMode(false);
-                        setIsEditMode(false);
+                        if (isNewCardMode) {
+                            setSelectedConceptForDrawer(null);
+                        } else {
+                            setIsEditMode(false); // Return to view mode
+                        }
                     }}
                     onUpdate={(updated) => {
                         handleConceptUpdate(updated);
                         setSelectedConceptForDrawer(updated);
                     }}
-                    currentUser={currentUser}
                     isNewMode={isNewCardMode}
-                    isEditMode={isEditMode}
+                    isEditMode={true}
+                    currentUser={currentUser}
                     onCreateNew={async (newConcept) => {
                         // 새 카드를 Firestore에 저장
                         try {
@@ -601,8 +632,6 @@ export const ConceptCards: React.FC<ConceptCardsProps> = ({ onViewRelated, maxIt
                             // 임시 ID 제외하고 저장
                             const { id: tempId, ...conceptData } = newConcept;
                             const sanitizedData = sanitizeData(conceptData);
-
-                            console.log('[ConceptCards] creating doc with:', sanitizedData);
 
                             const docRef = await addDoc(collection(db, 'concepts'), {
                                 ...sanitizedData,
