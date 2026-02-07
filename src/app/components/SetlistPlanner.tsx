@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState, useRef } from 'react';
 import { motion } from 'motion/react';
 import { onAuthStateChanged, signInAnonymously, User } from 'firebase/auth';
-import { addDoc, collection, doc, onSnapshot, query, serverTimestamp, updateDoc, where } from 'firebase/firestore';
+import { addDoc, collection, doc, onSnapshot, query, serverTimestamp, updateDoc, where, deleteDoc } from 'firebase/firestore';
 import { db, auth } from '../firebase';
 import { getAllCategories, getHymnByNumber } from '../data';
 import { Plus, Trash2, ArrowUp, ArrowDown, Save, Printer, X, Cloud, Search, Hash, Music } from 'lucide-react';
@@ -362,6 +362,23 @@ export const SetlistPlanner: React.FC = () => {
         }
     };
 
+    const handleDeleteSetlist = async () => {
+        if (!activeSetlistId) return;
+        if (!window.confirm('이 콘티를 정말 삭제하시겠습니까?')) return;
+
+        setSaving(true);
+        try {
+            await deleteDoc(doc(db, 'gallery', activeSetlistId));
+            handleNewSetlist();
+            alert('삭제되었습니다.');
+        } catch (err: any) {
+            console.error('Setlist delete failed:', err);
+            alert(`삭제에 실패했습니다: ${err.message || '알 수 없는 오류'}`);
+        } finally {
+            setSaving(false);
+        }
+    };
+
     const handleNewSetlist = () => {
         setActiveSetlistId('');
         setSetlistTitle('');
@@ -592,6 +609,15 @@ export const SetlistPlanner: React.FC = () => {
                             >
                                 초기화
                             </button>
+                            {activeSetlistId && (
+                                <button
+                                    onClick={handleDeleteSetlist}
+                                    disabled={saving}
+                                    className="px-3 py-2 text-xs bg-red-500/10 text-red-400 rounded-lg border border-red-500/20 hover:bg-red-500/20 transition-colors"
+                                >
+                                    삭제
+                                </button>
+                            )}
                         </div>
                     </div>
 
