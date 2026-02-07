@@ -591,19 +591,19 @@ export const SetlistPlanner: React.FC = () => {
                             <button
                                 onClick={handleSave}
                                 disabled={saving}
-                                className="px-3 py-2 bg-emerald-500/20 text-emerald-300 rounded-lg border border-emerald-500/30 hover:bg-emerald-500/30 transition-colors flex items-center gap-1"
+                                className="flex-1 lg:flex-none px-3 py-2 bg-emerald-500/20 text-emerald-300 rounded-lg border border-emerald-500/30 hover:bg-emerald-500/30 transition-colors flex items-center justify-center gap-1.5"
                                 title="서버에 저장"
                             >
                                 <Cloud size={16} />
-                                <span className="text-xs hidden lg:inline">서버 저장</span>
+                                <span className="text-xs font-bold">저장</span>
                             </button>
                             <button
                                 onClick={() => window.print()}
-                                className="px-3 py-2 bg-white/10 text-white/80 rounded-lg border border-white/10 hover:bg-white/20 transition-colors flex items-center gap-1"
+                                className="flex-1 lg:flex-none px-3 py-2 bg-white/10 text-white/80 rounded-lg border border-white/10 hover:bg-white/20 transition-colors flex items-center justify-center gap-1.5"
                                 title="인쇄"
                             >
                                 <Printer size={16} />
-                                <span className="text-xs hidden lg:inline">인쇄</span>
+                                <span className="text-xs font-bold">인쇄</span>
                             </button>
                         </div>
                         <div className="flex items-center gap-2">
