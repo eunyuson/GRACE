@@ -4,7 +4,7 @@ import { onAuthStateChanged, signInAnonymously, User } from 'firebase/auth';
 import { addDoc, collection, doc, onSnapshot, query, serverTimestamp, updateDoc, where, deleteDoc } from 'firebase/firestore';
 import { db, auth } from '../firebase';
 import { getAllCategories, getHymnByNumber } from '../data';
-import { Plus, Trash2, ArrowUp, ArrowDown, Save, Printer, X, Cloud, Search, Hash, Music } from 'lucide-react';
+import { Plus, Trash2, ArrowUp, ArrowDown, Save, Printer, X, Cloud, Search, Hash, Music, Image as ImageIcon } from 'lucide-react';
 
 interface LibraryItem {
     id: string;
@@ -27,6 +27,7 @@ interface SetlistItem {
     imageUrl: string;
     imageUrls?: string[];
     code?: string;
+    fullPage?: boolean;
 }
 
 interface SetlistDoc {
@@ -302,6 +303,14 @@ export const SetlistPlanner: React.FC = () => {
         setSetlistItems(prev => prev.filter((_, i) => i !== index));
     };
 
+    const toggleFullPage = (index: number) => {
+        setSetlistItems(prev => {
+            const next = [...prev];
+            next[index] = { ...next[index], fullPage: !next[index].fullPage };
+            return next;
+        });
+    };
+
     const handleSave = async () => {
         if (!currentUser) {
             alert('로그인이 필요합니다.');
@@ -323,7 +332,8 @@ export const SetlistPlanner: React.FC = () => {
                 title: item.title || '',
                 imageUrl: item.imageUrl || '',
                 imageUrls: (item.imageUrls || []).filter(Boolean),
-                code: item.code || ''
+                code: item.code || '',
+                fullPage: item.fullPage || false
             }));
 
             if (activeSetlistId) {
@@ -661,6 +671,13 @@ export const SetlistPlanner: React.FC = () => {
                                             <ArrowDown size={14} />
                                         </button>
                                         <button
+                                            onClick={() => toggleFullPage(index)}
+                                            className={`p-1 transition-colors ${item.fullPage ? 'text-emerald-400' : 'text-white/30 hover:text-white/60'}`}
+                                            title={item.fullPage ? "1페이지 크게 보기 해제" : "1페이지 크게 보기 설정"}
+                                        >
+                                            <ImageIcon size={14} />
+                                        </button>
+                                        <button
                                             onClick={() => removeSetlistItem(index)}
                                             className="p-1 text-red-400 hover:text-red-300"
                                         >
@@ -682,16 +699,18 @@ export const SetlistPlanner: React.FC = () => {
                         )}
                         {setlistItems.map((item, idx) => {
                             const images = (item.imageUrls && item.imageUrls.length > 0 ? item.imageUrls : item.imageUrl ? [item.imageUrl] : []);
-                            const hasMultipleImages = images.length > 1;
+                            // If has multiple images OR fullPage is requested, span 2 columns
+                            const isFullWidth = images.length > 1 || item.fullPage;
+                            const useGrid2 = images.length > 1 && !item.fullPage;
 
                             return (
-                                <div key={item.id} className={`print-page mb-6 ${hasMultipleImages ? 'span-2' : ''}`}>
+                                <div key={item.id} className={`print-page mb-6 ${isFullWidth ? 'span-2' : ''} ${item.fullPage ? 'full-page' : ''}`}>
                                     <div className="text-sm font-semibold mb-2 print-hide">
                                         {idx + 1}. {item.title}
                                         {item.code && <span className="ml-2 text-emerald-600">[{item.code}]</span>}
                                         <span className="ml-2 text-black/40 text-xs">({item.type === 'hymn' ? '찬송가' : '찬양곡'} {item.number})</span>
                                     </div>
-                                    <div className={`flex flex-col gap-4 w-full ${hasMultipleImages ? 'print-images-grid-2' : ''}`}>
+                                    <div className={`flex flex-col gap-4 w-full ${useGrid2 ? 'print-images-grid-2' : ''}`}>
                                         {images.map((url, index) => (
                                             <img
                                                 key={`${item.id}-${index}`}

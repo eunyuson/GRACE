@@ -245,6 +245,23 @@
     grid-column: span 2;
   }
 
+  .print-page.full-page {
+    grid-column: span 2;
+    page-break-after: always;
+    /* Ensure it stays on its own page if needed */
+    break-after: page;
+    min-height: 95vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+
+  .print-page.full-page img {
+    max-height: 90vh;
+    width: 100%;
+    object-fit: contain;
+  }
+
   .print-images-grid-2 {
     display: grid !important;
     grid-template-columns: 1fr 1fr;
