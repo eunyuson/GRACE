@@ -162,7 +162,11 @@ export const SetlistPlanner: React.FC = () => {
 
     useEffect(() => {
         if (!currentUser) return;
-        const q = query(collection(db, 'setlists'), where('ownerId', '==', currentUser.uid));
+        const q = query(
+            collection(db, 'gallery'),
+            where('type', '==', 'setlist'),
+            where('ownerId', '==', currentUser.uid)
+        );
         const unsub = onSnapshot(q, (snapshot) => {
             const items = snapshot.docs.map(docSnap => ({
                 id: docSnap.id,
@@ -319,13 +323,14 @@ export const SetlistPlanner: React.FC = () => {
             }));
 
             if (activeSetlistId) {
-                await updateDoc(doc(db, 'setlists', activeSetlistId), {
+                await updateDoc(doc(db, 'gallery', activeSetlistId), {
                     title,
                     items: sanitizedItems,
                     updatedAt: serverTimestamp()
                 });
             } else {
-                const docRef = await addDoc(collection(db, 'setlists'), {
+                const docRef = await addDoc(collection(db, 'gallery'), {
+                    type: 'setlist',
                     ownerId: currentUser.uid,
                     title,
                     items: sanitizedItems,
