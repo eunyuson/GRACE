@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState, useRef } from 'react';
 import { motion } from 'motion/react';
 import { onAuthStateChanged, signInAnonymously, User } from 'firebase/auth';
 import { addDoc, collection, doc, onSnapshot, query, serverTimestamp, updateDoc, where } from 'firebase/firestore';
@@ -54,6 +54,14 @@ export const SetlistPlanner: React.FC = () => {
     const [savedSetlists, setSavedSetlists] = useState<SetlistDoc[]>([]);
     const [activeSetlistId, setActiveSetlistId] = useState<string>('');
     const [saving, setSaving] = useState(false);
+    const setlistContainerRef = useRef<HTMLDivElement>(null);
+
+    // Auto-scroll to bottom of setlist when items are added
+    useEffect(() => {
+        if (setlistContainerRef.current) {
+            setlistContainerRef.current.scrollTop = setlistContainerRef.current.scrollHeight;
+        }
+    }, [setlistItems.length]);
 
     // Multi-selection state
     const [selectedLibraryIds, setSelectedLibraryIds] = useState<Set<string>>(new Set());
@@ -438,8 +446,8 @@ export const SetlistPlanner: React.FC = () => {
                                     layoutId={`lib-${item.id}`}
                                     onClick={() => toggleSelection(item.id)}
                                     className={`group relative bg-white rounded-xl overflow-hidden border shadow-md cursor-pointer transition-all ${isSelected
-                                            ? 'border-indigo-500 ring-2 ring-indigo-500/50 transform scale-[0.98]'
-                                            : 'border-white/10 hover:border-indigo-500/30'
+                                        ? 'border-indigo-500 ring-2 ring-indigo-500/50 transform scale-[0.98]'
+                                        : 'border-white/10 hover:border-indigo-500/30'
                                         }`}
                                     whileHover={{ y: -4 }}
                                 >
@@ -527,8 +535,11 @@ export const SetlistPlanner: React.FC = () => {
                     </div>
 
                     <div className="bg-white/5 border border-white/10 rounded-2xl p-4 flex-1 overflow-hidden flex flex-col print-hide">
-                        <div className="text-xs uppercase tracking-[0.3em] text-white/40 mb-3">Setlist</div>
-                        <div className="flex-1 overflow-y-auto pr-2 space-y-2">
+                        <div className="text-xs uppercase tracking-[0.3em] text-white/40 mb-3">Setlist ({setlistItems.length})</div>
+                        <div
+                            ref={setlistContainerRef}
+                            className="flex-1 overflow-y-auto pr-2 space-y-2 custom-scrollbar"
+                        >
                             {setlistItems.map((item, index) => (
                                 <div key={item.id} className="flex items-center gap-3 bg-black/30 border border-white/10 rounded-xl p-2">
                                     <div className="w-10 h-10 rounded-lg bg-black/60 text-white flex items-center justify-center text-sm font-bold">

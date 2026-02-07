@@ -180,6 +180,10 @@
   }
 }
 
+.print-area {
+  display: none;
+}
+
 @media print {
   @page {
     size: letter;
@@ -196,6 +200,7 @@
   }
 
   .print-area {
+    display: block !important;
     background: #ffffff !important;
     color: #000000 !important;
     box-shadow: none !important;
@@ -203,14 +208,26 @@
   }
 
   .print-page {
-    break-after: page;
+    break-inside: avoid;
+    break-after: auto;
+    margin-bottom: 1.5rem;
+    padding-bottom: 1.5rem;
+    border-bottom: 1px dashed #ccc;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
   }
 
   .print-page:last-child {
-    break-after: auto;
+    border-bottom: none;
+    margin-bottom: 0;
   }
 
-  img {
+  .print-page img {
+    max-height: 42vh;
+    width: auto;
+    max-width: 100%;
+    object-fit: contain;
     break-inside: avoid;
   }
 }
