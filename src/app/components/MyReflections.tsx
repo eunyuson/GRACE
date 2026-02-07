@@ -269,17 +269,31 @@ export const MyReflections: React.FC<MyReflectionsProps> = ({ onSelectCallback }
         );
     };
 
-    // Filter memos
+    // Filter memos with hierarchical tag logic
     const filteredMemos = memos.filter(memo => {
         if (selectedTags.length === 0) return true;
-        if (!memo.tags) return false;
-        // Check if memo has ALL selected tags (AND logic)
-        // or ANY selected tag (OR logic)? "Recent Updates" usually uses OR or AND.
-        // Let's use OR for broader discovery, or AND for specific drill-down.
-        // Common tag filtering often implies "contains any of these" effectively filtering down.
-        // Let's stick to: Show items that have AT LEAST ONE of the selected tags.
-        // Wait, typical multi-select filter means "Show items related to Tag A OR Tag B".
-        return selectedTags.some(tag => memo.tags?.includes(tag));
+        if (!memo.tags || !Array.isArray(memo.tags)) return false;
+
+        // Group selected tags by hierarchy level
+        const level1Selected = selectedTags.filter(t => t.startsWith('#') && !t.startsWith('##'));
+        const level2Selected = selectedTags.filter(t => t.startsWith('##') && !t.startsWith('###'));
+        const level3Selected = selectedTags.filter(t => t.startsWith('###'));
+
+        // Logic: OR within level, AND between levels
+
+        // 1. Level 1 check (Single hash)
+        const passLevel1 = level1Selected.length === 0 ||
+            level1Selected.some(t => memo.tags?.includes(t));
+
+        // 2. Level 2 check (Double hash)
+        const passLevel2 = level2Selected.length === 0 ||
+            level2Selected.some(t => memo.tags?.includes(t));
+
+        // 3. Level 3 check (Triple hash)
+        const passLevel3 = level3Selected.length === 0 ||
+            level3Selected.some(t => memo.tags?.includes(t));
+
+        return passLevel1 && passLevel2 && passLevel3;
     });
 
     // if (!currentUser) {
