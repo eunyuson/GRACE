@@ -454,30 +454,17 @@ export const ConceptCards: React.FC<ConceptCardsProps> = ({ onViewRelated, maxIt
                                                 </p>
                                             )}
 
-                                            {/* Question Section */}
-                                            <div className={`mt-4 pt-4 border-t transition-colors ${isHighlighted ? "border-indigo-500/30" : "border-white/5"}`}>
-                                                <div className="flex items-start gap-3">
-                                                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 shadow-inner border transition-colors ${isHighlighted
-                                                        ? "bg-indigo-500 text-white border-indigo-400"
-                                                        : "bg-gradient-to-br from-purple-500/20 to-pink-500/20 border-white/5 text-transparent"
-                                                        }`}>
-                                                        <span className={`text-base transform -rotate-6 block ${isHighlighted ? "text-white" : ""}`}>
-                                                            {isHighlighted ? "!" : "❓"}
-                                                        </span>
-                                                    </div>
-                                                    <div className="flex-1">
-                                                        <p className="text-[10px] uppercase tracking-widest text-white/40 mb-1.5 font-medium">
-                                                            질문
-                                                        </p>
-                                                        <p className={`text-sm font-medium leading-relaxed transition-colors ${isHighlighted ? "text-white" : "text-white/80"
-                                                            }`}>
-                                                            {concept.question}
-                                                        </p>
-                                                    </div>
-                                                </div>
+                                            {/* Question Section - Compact */}
+                                            <div className={`mt-3 pt-3 border-t transition-colors ${isHighlighted ? "border-indigo-500/30" : "border-white/5"}`}>
+                                                <p className="text-[10px] uppercase tracking-widest text-white/30 mb-1 font-medium flex items-center gap-1.5">
+                                                    <span className="text-indigo-400">Q.</span> 질문
+                                                </p>
+                                                <p className={`text-xs leading-relaxed transition-colors ${isHighlighted ? "text-white/70" : "text-white/50"}`}>
+                                                    {concept.question}
+                                                </p>
                                             </div>
 
-                                            {/* A-B Content Preview */}
+                                            {/* A-B Content - Main Highlight */}
                                             {(() => {
                                                 const aText = (concept as any).aStatement || (concept as any).sequence?.aStatement || concept.bridge?.aStatement;
                                                 const bText = (concept as any).conclusion || concept.bridge?.bStatement;
@@ -485,25 +472,25 @@ export const ConceptCards: React.FC<ConceptCardsProps> = ({ onViewRelated, maxIt
                                                 if (!aText && !bText) return null;
 
                                                 return (
-                                                    <div className={`mt-5 p-4 rounded-xl border space-y-2 backdrop-blur-sm transition-colors ${isHighlighted
-                                                        ? "bg-indigo-900/40 border-indigo-500/40"
-                                                        : "bg-black/20 border-white/5"
+                                                    <div className={`mt-4 rounded-xl border overflow-hidden transition-colors ${isHighlighted
+                                                        ? "bg-indigo-900/30 border-indigo-500/30"
+                                                        : "bg-black/30 border-white/5"
                                                         }`}>
-                                                        {bText ? (
-                                                            <div className="flex items-start gap-2">
-                                                                <span className="text-emerald-400 text-xs mt-0.5">➔</span>
-                                                                <p className="text-emerald-300/90 text-xs leading-relaxed font-medium line-clamp-2">
-                                                                    {bText}
-                                                                </p>
-                                                            </div>
-                                                        ) : (
-                                                            <div className="flex items-start gap-2">
-                                                                <span className="text-white/30 text-xs mt-0.5">Start</span>
-                                                                <p className="text-white/50 text-xs leading-relaxed line-clamp-2">
-                                                                    {aText}
-                                                                </p>
-                                                            </div>
-                                                        )}
+                                                        <p className="text-sm leading-relaxed p-4">
+                                                            {aText && (
+                                                                <span className="text-white/50 block mb-2">
+                                                                    "우리는 보통 <span className="text-white/80">{concept.conceptName}</span>을(를) <span className="text-white/80">{aText}</span>라고 생각합니다.
+                                                                </span>
+                                                            )}
+
+                                                            {aText && bText && <span className="text-indigo-400 font-bold mr-2">그러나</span>}
+
+                                                            {bText && (
+                                                                <span className={`font-medium ${isHighlighted ? "text-white" : "text-emerald-300/90"}`}>
+                                                                    성경은 <span className="text-indigo-200">{concept.conceptName}</span>은(는) {aText && <span className="opacity-60 line-through decoration-white/30 mr-1">{aText}가 아니라</span>} <span className="font-bold border-b border-white/20 pb-0.5">{bText}</span>라고 말합니다."
+                                                                </span>
+                                                            )}
+                                                        </p>
                                                     </div>
                                                 );
                                             })()}

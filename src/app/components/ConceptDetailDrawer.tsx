@@ -325,49 +325,51 @@ export const ConceptDetailDrawer: React.FC<ConceptDetailDrawerProps> = ({
                         {/* 2. Scrollable Content */}
                         <div className="flex-1 overflow-y-auto overflow-x-hidden p-6 md:p-10 scrollbar-thin scrollbar-thumb-white/10 hover:scrollbar-thumb-white/20">
 
-                            {/* Hero Section: Question & Conclusion */}
                             {/* Hero Section: Question & Flow */}
-                            <div className="mb-12">
-                                <motion.h2
-                                    initial={{ opacity: 0, y: 20 }}
+                            <div className="mb-10">
+                                {/* Question - Compact */}
+                                <motion.div
+                                    initial={{ opacity: 0, y: 10 }}
                                     animate={{ opacity: 1, y: 0 }}
                                     transition={{ delay: 0.1 }}
-                                    className="text-2xl md:text-4xl font-light text-white leading-tight mb-8"
+                                    className="mb-6"
                                 >
-                                    <span className="text-indigo-400">Q.</span> {concept.question}
-                                </motion.h2>
+                                    <span className="text-xs font-mono text-white/30 uppercase tracking-widest mb-2 block">Question</span>
+                                    <h2 className="text-lg md:text-xl text-white/70 font-light leading-relaxed">
+                                        <span className="text-indigo-400 font-medium">Q.</span> {concept.question}
+                                    </h2>
+                                </motion.div>
 
-                                {/* Combined Flow: A -> B */}
+                                {/* Main Content: A → B Flow */}
                                 <motion.div
                                     initial={{ opacity: 0, y: 20 }}
                                     animate={{ opacity: 1, y: 0 }}
                                     transition={{ delay: 0.2 }}
-                                    className="space-y-6"
+                                    className="space-y-5"
                                 >
-                                    {/* A Statement (Common View) */}
-                                    {concept.sequence?.aStatement && (
-                                        <div className="pl-6 border-l-2 border-white/10">
-                                            <h3 className="text-xs font-bold text-white/40 mb-2 uppercase tracking-wide">Common View</h3>
-                                            <p className="text-lg text-white/60 font-medium leading-relaxed">
-                                                "우리는 보통 <span className="text-white/80 border-b border-white/20 pb-0.5">{concept.sequence.aStatement}</span>라고 생각합니다."
-                                            </p>
-                                        </div>
-                                    )}
+                                    {/* Combined Statement Flow */}
+                                    {(concept.sequence?.aStatement || concept.conclusion) && (
+                                        <div className="relative">
+                                            <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-white/20 via-indigo-500 to-purple-500 rounded-full" />
+                                            <div className="pl-6 py-2">
+                                                <p className="text-xl md:text-2xl text-white/80 font-medium leading-relaxed">
+                                                    {concept.sequence?.aStatement && (
+                                                        <span className="text-white/60">
+                                                            "우리는 보통 <span className="text-white/90 border-b border-white/20 pb-0.5">{concept.conceptName}</span>을(를) <span className="text-white/90 border-b border-white/20 pb-0.5">{concept.sequence.aStatement}</span>라고 생각합니다.
+                                                        </span>
+                                                    )}
 
-                                    {/* Arrow linking A to B */}
-                                    {concept.sequence?.aStatement && concept.conclusion && (
-                                        <div className="pl-6 text-indigo-500/50">
-                                            <ArrowRight size={20} className="transform rotate-90 md:rotate-0" />
-                                        </div>
-                                    )}
+                                                    {concept.sequence?.aStatement && concept.conclusion && (
+                                                        <span className="text-indigo-400 font-bold mx-2">그러나</span>
+                                                    )}
 
-                                    {/* B Statement (Biblical Insight) */}
-                                    {concept.conclusion && (
-                                        <div className="pl-6 border-l-2 border-indigo-500/50">
-                                            <h3 className="text-xs font-bold text-indigo-400 mb-2 uppercase tracking-wide">Biblical Insight</h3>
-                                            <p className="text-xl md:text-2xl text-white/95 font-medium leading-relaxed">
-                                                "그러나 성경은 <span className="text-indigo-300 border-b border-indigo-500/30 pb-0.5">{concept.conclusion}</span>라고 말합니다."
-                                            </p>
+                                                    {concept.conclusion && (
+                                                        <span className="text-white/95 font-semibold">
+                                                            성경은 <span className="text-indigo-300 border-b border-indigo-500/30 pb-0.5">{concept.conceptName}</span>은(는) {concept.sequence?.aStatement && <span className="opacity-60 decoration-slice line-through decoration-white/30 mr-2">{concept.sequence.aStatement}가 아니라</span>} <span className="text-indigo-300 border-b border-indigo-500/30 pb-0.5">{concept.conclusion}</span>라고 말합니다."
+                                                        </span>
+                                                    )}
+                                                </p>
+                                            </div>
                                         </div>
                                     )}
                                 </motion.div>
