@@ -1617,8 +1617,14 @@ export const RecentUpdates: React.FC<RecentUpdatesProps> = ({ isAdmin = false })
                                         try {
                                             // Call the new Vercel API endpoint
                                             const response = await fetch('/api/sync', {
-                                                method: 'GET', // Vercel functions usually handle GET or POST
+                                                method: 'GET',
                                             });
+
+                                            const contentType = response.headers.get('content-type');
+                                            if (!contentType || !contentType.includes('application/json')) {
+                                                throw new Error('로컬 환경에서는 동기화 기능을 사용할 수 없습니다.\n(배포된 사이트에서 실행하거나 vercel dev를 사용하세요)');
+                                            }
+
                                             if (response.ok) {
                                                 const result = await response.json();
                                                 alert(`업데이트 완료! ${result.added}개의 새 항목을 가져왔습니다.`);
