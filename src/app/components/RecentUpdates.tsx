@@ -148,6 +148,7 @@ export const RecentUpdates: React.FC<RecentUpdatesProps> = ({ isAdmin = false })
                     .map(doc => {
                         const data = doc.data();
                         return {
+                            id: doc.id, // <-- CRITICAL: Include document ID
                             // 데이터 필드 타입 안전성 확보
                             title: typeof data.title === 'string' ? data.title : '',
                             subtitle: typeof data.subtitle === 'string' ? data.subtitle : '',
@@ -1209,6 +1210,7 @@ export const RecentUpdates: React.FC<RecentUpdatesProps> = ({ isAdmin = false })
                                                 <img
                                                     src={selectedItem.image}
                                                     alt={selectedItem.title}
+                                                    referrerPolicy="no-referrer"
                                                     className="w-full h-auto max-h-[85vh] md:max-h-[90vh] object-contain cursor-pointer hover:scale-[1.02] transition-transform duration-300"
                                                     onClick={() => window.open(selectedItem.image, '_blank')}
                                                     onError={(e) => {
@@ -1913,6 +1915,7 @@ export const RecentUpdates: React.FC<RecentUpdatesProps> = ({ isAdmin = false })
                                             <img
                                                 src={item.image}
                                                 alt={item.title}
+                                                referrerPolicy="no-referrer"
                                                 className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
                                                 onError={(e) => {
                                                     (e.target as HTMLImageElement).style.display = 'none';

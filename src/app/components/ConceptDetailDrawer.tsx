@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence, useAnimation } from 'motion/react';
-import { X, ChevronDown, ChevronRight, Minimize2, ExternalLink, ArrowRight, Share2, FileText, Newspaper } from 'lucide-react';
+import { X, ChevronDown, ChevronRight, Minimize2, ExternalLink, ArrowRight, Share2, FileText, Newspaper, Pin, PinOff, Trash2 } from 'lucide-react';
 import { ConceptCard, SequenceItem } from '../types/questionBridge';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../firebase';
 
 // ----------------------------------------------------------------------
@@ -16,15 +16,18 @@ interface ConceptDetailDrawerProps {
     connectedConcepts: ConceptCard[]; // Connectable concepts passed from parent
     onNavigate: (concept: ConceptCard) => void; // Smooth transition handler
     onEdit: () => void; // Switch to edit mode
+    onUpdate?: (updatedConcept: ConceptCard) => void; // Update parent state directly
 }
 
 interface LoadedReference {
-    id: string;
+    id: string; // Document ID (e.g. news ID)
+    sourceId: string; // ID used in the sequence array (often same as Doc ID)
     type: 'news' | 'reflection';
     title: string;
     content: string;
     image?: string;
     url?: string;
+    pinned?: boolean;
 }
 
 // ----------------------------------------------------------------------
@@ -32,8 +35,8 @@ interface LoadedReference {
 // ----------------------------------------------------------------------
 
 // 1. Reference Accordion Item
-const ReferenceAccordion = ({ title, items, icon: Icon }: { title: string, items: LoadedReference[], icon: any }) => {
-    const [isExpanded, setIsExpanded] = useState(false);
+const ReferenceAccordion = ({ title, items, icon: Icon, defaultExpanded = false }: { title: string, items: LoadedReference[], icon: any, defaultExpanded?: boolean }) => {
+    const [isExpanded, setIsExpanded] = useState(defaultExpanded);
 
     if (items.length === 0) return null;
 
@@ -111,13 +114,82 @@ export const ConceptDetailDrawer: React.FC<ConceptDetailDrawerProps> = ({
     onClose,
     connectedConcepts,
     onNavigate,
-    onEdit
+    onEdit,
+    onUpdate
 }) => {
     // ----------------------------------
     // Local State
     // ----------------------------------
     const [references, setReferences] = useState<{ news: LoadedReference[], reflections: LoadedReference[] }>({ news: [], reflections: [] });
     const [loadingRefs, setLoadingRefs] = useState(false);
+
+    // ----------------------------------
+    // Handlers (Inline Editing)
+    // ----------------------------------
+
+    const handleTogglePin = async (type: 'recent' | 'scriptureSupport', sourceId: string) => {
+        if (!concept.sequence) return;
+
+        const list = concept.sequence[type] || [];
+        const updatedList = list.map(item =>
+            item.sourceId === sourceId ? { ...item, pinned: !item.pinned } : item
+        );
+
+        // Sort: Pinned first
+        updatedList.sort((a, b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0));
+
+        const updatedConcept = {
+            ...concept,
+            sequence: {
+                ...concept.sequence,
+                [type]: updatedList
+            },
+            updatedAt: serverTimestamp()
+        };
+
+        // Optimistic Update
+        if (onUpdate) onUpdate(updatedConcept as ConceptCard);
+
+        // Persist
+        try {
+            await updateDoc(doc(db, 'concepts', concept.id), {
+                [`sequence.${type}`]: updatedList,
+                updatedAt: serverTimestamp()
+            });
+        } catch (e) {
+            console.error("Failed to update pin:", e);
+        }
+    };
+
+    const handleRemoveLink = async (type: 'recent' | 'scriptureSupport', sourceId: string) => {
+        if (!confirm("이 연결을 삭제하시겠습니까? (원본 글은 삭제되지 않습니다)")) return;
+        if (!concept.sequence) return;
+
+        const list = concept.sequence[type] || [];
+        const updatedList = list.filter(item => item.sourceId !== sourceId);
+
+        const updatedConcept = {
+            ...concept,
+            sequence: {
+                ...concept.sequence,
+                [type]: updatedList
+            },
+            updatedAt: serverTimestamp()
+        };
+
+        // Optimistic Update
+        if (onUpdate) onUpdate(updatedConcept as ConceptCard);
+
+        // Persist
+        try {
+            await updateDoc(doc(db, 'concepts', concept.id), {
+                [`sequence.${type}`]: updatedList,
+                updatedAt: serverTimestamp()
+            });
+        } catch (e) {
+            console.error("Failed to remove link:", e);
+        }
+    };
 
     // ----------------------------------
     // Effects
@@ -141,11 +213,28 @@ export const ConceptDetailDrawer: React.FC<ConceptDetailDrawerProps> = ({
                             const data = snap.data();
                             news.push({
                                 id: snap.id,
+                                sourceId: item.sourceId,
                                 type: 'news',
                                 title: data.title,
-                                content: typeof data.content === 'string' ? data.content : '내용 없음',
-                                image: data.image || data.additionalImages?.[0],
-                                url: data.link // assuming link exists or constructs from ID
+                                content: (() => {
+                                    // 1. Try 'desc' (Description/Summary) first as it's often cleaner for previews
+                                    if (data.desc) return data.desc;
+
+                                    // 2. Try 'content' array (New Structure)
+                                    if (Array.isArray(data.content)) {
+                                        const mainItem = data.content.find((c: any) => c.keyword === 'CONTENT' || c.id === 'main');
+                                        return mainItem?.text || data.content[0]?.text || '내용 없음';
+                                    }
+
+                                    // 3. Try 'content' string (Legacy)
+                                    if (typeof data.content === 'string') return data.content;
+
+                                    return '내용 없음';
+                                })(),
+                                // Robust image check: try 'images' array first (std), then 'image' string, then 'additionalImages'
+                                image: data.images?.[0] || data.image || data.additionalImages?.[0],
+                                url: data.link, // assuming link exists or constructs from ID
+                                pinned: item.pinned
                             });
                         }
                     } catch (e) { console.error(e); }
@@ -167,10 +256,12 @@ export const ConceptDetailDrawer: React.FC<ConceptDetailDrawerProps> = ({
                                 const data = snap.data();
                                 reflections.push({
                                     id: snap.id,
+                                    sourceId: item.sourceId,
                                     type: 'reflection',
                                     title: data.parentTitle || '무제 묵상',
                                     content: data.text || data.content,
-                                    image: data.imageUrl || data.parentImage
+                                    image: data.imageUrl || data.parentImage,
+                                    pinned: item.pinned
                                 });
                             }
                         }
@@ -209,7 +300,7 @@ export const ConceptDetailDrawer: React.FC<ConceptDetailDrawerProps> = ({
                         animate={{ x: 0, opacity: 1 }}
                         exit={{ x: '100%', opacity: 0 }}
                         transition={{ type: "spring", damping: 30, stiffness: 300 }}
-                        className="fixed top-0 right-0 w-full md:w-[65vw] max-w-[800px] h-full bg-[#0a0a0a] border-l border-white/10 shadow-2xl z-[70] flex flex-col overflow-hidden"
+                        className="fixed top-0 right-0 w-full md:w-[75vw] max-w-[1000px] h-full bg-[#0a0a0a] border-l border-white/10 shadow-2xl z-[70] flex flex-col overflow-hidden"
                     >
                         {/* 1. Header Actions */}
                         <div className="flex items-center justify-between p-6 border-b border-white/5 relative z-10 bg-[#0a0a0a]/80 backdrop-blur-md">
@@ -235,6 +326,7 @@ export const ConceptDetailDrawer: React.FC<ConceptDetailDrawerProps> = ({
                         <div className="flex-1 overflow-y-auto overflow-x-hidden p-6 md:p-10 scrollbar-thin scrollbar-thumb-white/10 hover:scrollbar-thumb-white/20">
 
                             {/* Hero Section: Question & Conclusion */}
+                            {/* Hero Section: Question & Flow */}
                             <div className="mb-12">
                                 <motion.h2
                                     initial={{ opacity: 0, y: 20 }}
@@ -245,19 +337,40 @@ export const ConceptDetailDrawer: React.FC<ConceptDetailDrawerProps> = ({
                                     <span className="text-indigo-400">Q.</span> {concept.question}
                                 </motion.h2>
 
-                                {concept.conclusion && (
-                                    <motion.div
-                                        initial={{ opacity: 0, y: 20 }}
-                                        animate={{ opacity: 1, y: 0 }}
-                                        transition={{ delay: 0.2 }}
-                                        className="pl-6 border-l-2 border-indigo-500/50"
-                                    >
-                                        <h3 className="text-sm font-bold text-indigo-400 mb-2 uppercase tracking-wide">Insight</h3>
-                                        <p className="text-lg md:text-xl text-white/90 font-medium leading-relaxed">
-                                            {concept.conclusion}
-                                        </p>
-                                    </motion.div>
-                                )}
+                                {/* Combined Flow: A -> B */}
+                                <motion.div
+                                    initial={{ opacity: 0, y: 20 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    transition={{ delay: 0.2 }}
+                                    className="space-y-6"
+                                >
+                                    {/* A Statement (Common View) */}
+                                    {concept.sequence?.aStatement && (
+                                        <div className="pl-6 border-l-2 border-white/10">
+                                            <h3 className="text-xs font-bold text-white/40 mb-2 uppercase tracking-wide">Common View</h3>
+                                            <p className="text-lg text-white/60 font-medium leading-relaxed">
+                                                "우리는 보통 <span className="text-white/80 border-b border-white/20 pb-0.5">{concept.sequence.aStatement}</span>라고 생각합니다."
+                                            </p>
+                                        </div>
+                                    )}
+
+                                    {/* Arrow linking A to B */}
+                                    {concept.sequence?.aStatement && concept.conclusion && (
+                                        <div className="pl-6 text-indigo-500/50">
+                                            <ArrowRight size={20} className="transform rotate-90 md:rotate-0" />
+                                        </div>
+                                    )}
+
+                                    {/* B Statement (Biblical Insight) */}
+                                    {concept.conclusion && (
+                                        <div className="pl-6 border-l-2 border-indigo-500/50">
+                                            <h3 className="text-xs font-bold text-indigo-400 mb-2 uppercase tracking-wide">Biblical Insight</h3>
+                                            <p className="text-xl md:text-2xl text-white/95 font-medium leading-relaxed">
+                                                "그러나 성경은 <span className="text-indigo-300 border-b border-indigo-500/30 pb-0.5">{concept.conclusion}</span>라고 말합니다."
+                                            </p>
+                                        </div>
+                                    )}
+                                </motion.div>
                             </div>
 
                             {/* Reference Data (Progressive Disclosure) */}
@@ -265,21 +378,173 @@ export const ConceptDetailDrawer: React.FC<ConceptDetailDrawerProps> = ({
                                 initial={{ opacity: 0 }}
                                 animate={{ opacity: 1 }}
                                 transition={{ delay: 0.3 }}
-                                className="space-y-2"
+                                className="space-y-6"
                             >
                                 <h3 className="text-xs font-mono text-white/30 mb-4 uppercase tracking-widest">References & Support</h3>
 
-                                <ReferenceAccordion
-                                    title="Linked News"
-                                    items={references.news}
-                                    icon={Newspaper}
-                                />
+                                {/* Linked News - Custom Card Style */}
+                                {references.news.length > 0 && (
+                                    <div className="space-y-4">
+                                        <div className="flex items-center gap-2 text-indigo-300 mb-2">
+                                            <Newspaper size={16} />
+                                            <span className="text-sm font-bold uppercase tracking-wide">Linked News</span>
+                                        </div>
 
-                                <ReferenceAccordion
-                                    title="Scripture & Reflections"
-                                    items={references.reflections}
-                                    icon={FileText}
-                                />
+                                        <div className="grid gap-4">
+                                            {references.news.map((item) => (
+                                                <div
+                                                    key={item.id}
+                                                    className="relative overflow-hidden rounded-2xl border border-white/10 bg-white/5 p-4 hover:border-indigo-500/30 transition-all group"
+                                                >
+                                                    <div className="flex flex-col md:flex-row gap-5">
+                                                        {/* Text Content */}
+                                                        <div className="flex-1 min-w-0 order-2 md:order-1">
+                                                            {item.pinned && (
+                                                                <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-yellow-500/20 text-yellow-300 text-[10px] font-medium mb-2">
+                                                                    <Pin className="w-3 h-3" /> 고정됨
+                                                                </div>
+                                                            )}
+                                                            <h4 className="text-lg font-bold text-white mb-2 leading-tight group-hover:text-indigo-200 transition-colors">
+                                                                {item.title}
+                                                            </h4>
+                                                            <div className="text-sm text-white/60 line-clamp-3 mb-3 leading-relaxed">
+                                                                {item.content}
+                                                            </div>
+                                                            {item.url && (
+                                                                <a
+                                                                    href={item.url}
+                                                                    target="_blank"
+                                                                    rel="noopener noreferrer"
+                                                                    className="inline-flex items-center gap-1.5 text-xs font-medium text-indigo-400 hover:text-indigo-300 transition-colors py-1 px-2 rounded-md hover:bg-indigo-500/10 -ml-2"
+                                                                    onClick={(e) => e.stopPropagation()}
+                                                                >
+                                                                    원본 기사 보기 <ExternalLink size={12} />
+                                                                </a>
+                                                            )}
+                                                        </div>
+
+                                                        {/* Image - Portrait Aspect Ratio (9/16) - Larger Size */}
+                                                        {item.image && (
+                                                            <div className="flex-shrink-0 w-full md:w-[300px] order-1 md:order-2">
+                                                                <div className="relative aspect-[9/16] rounded-xl overflow-hidden border border-white/10 bg-black/50 shadow-lg group-hover:shadow-indigo-500/20 transition-all">
+                                                                    <img
+                                                                        src={item.image}
+                                                                        alt=""
+                                                                        referrerPolicy="no-referrer"
+                                                                        className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                                                                        onError={(e) => {
+                                                                            (e.target as HTMLImageElement).style.opacity = '0.3';
+                                                                        }}
+                                                                    />
+                                                                </div>
+                                                            </div>
+                                                        )}
+                                                    </div>
+
+                                                    {/* Edit Actions (Pin/Delete) - Top Right Overlay */}
+                                                    <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+                                                        <button
+                                                            onClick={(e) => { e.stopPropagation(); handleTogglePin('recent', item.sourceId); }}
+                                                            className="p-1.5 rounded-full bg-black/60 backdrop-blur-sm hover:bg-black/80 transition-colors"
+                                                            title={item.pinned ? "고정 해제" : "상단 고정"}
+                                                        >
+                                                            {item.pinned ? <PinOff size={14} className="text-yellow-400" /> : <Pin size={14} className="text-white/70" />}
+                                                        </button>
+                                                        <button
+                                                            onClick={(e) => { e.stopPropagation(); handleRemoveLink('recent', item.sourceId); }}
+                                                            className="p-1.5 rounded-full bg-red-500/40 backdrop-blur-sm hover:bg-red-500/60 transition-colors"
+                                                            title="삭제"
+                                                        >
+                                                            <Trash2 size={14} className="text-white" />
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Reflections - Custom Card Style (No longer Accordion) */}
+                                {references.reflections.length > 0 && (
+                                    <div className="space-y-4 pt-4 border-t border-white/5">
+                                        <div className="flex items-center gap-2 text-purple-300 mb-2">
+                                            <FileText size={16} />
+                                            <span className="text-sm font-bold uppercase tracking-wide">Reflections & Scripture</span>
+                                        </div>
+
+                                        <div className="grid gap-4">
+                                            {references.reflections.map((item) => (
+                                                <div
+                                                    key={item.id}
+                                                    className="relative overflow-hidden rounded-2xl border border-white/10 bg-white/5 p-4 hover:border-purple-500/30 transition-all group"
+                                                >
+                                                    <div className="flex flex-col md:flex-row gap-5">
+                                                        {/* Text Content */}
+                                                        <div className="flex-1 min-w-0 order-2 md:order-1">
+                                                            {item.pinned && (
+                                                                <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-yellow-500/20 text-yellow-300 text-[10px] font-medium mb-2">
+                                                                    <Pin className="w-3 h-3" /> 고정됨
+                                                                </div>
+                                                            )}
+                                                            <h4 className="text-lg font-bold text-white mb-2 leading-tight group-hover:text-purple-200 transition-colors">
+                                                                {item.title}
+                                                            </h4>
+                                                            <div className="text-sm text-white/60 line-clamp-4 mb-3 leading-relaxed whitespace-pre-wrap">
+                                                                {item.content}
+                                                            </div>
+                                                            {item.url && (
+                                                                <a
+                                                                    href={item.url}
+                                                                    target="_blank"
+                                                                    rel="noopener noreferrer"
+                                                                    className="inline-flex items-center gap-1.5 text-xs font-medium text-purple-400 hover:text-purple-300 transition-colors py-1 px-2 rounded-md hover:bg-purple-500/10 -ml-2"
+                                                                    onClick={(e) => e.stopPropagation()}
+                                                                >
+                                                                    원본 보기 <ExternalLink size={12} />
+                                                                </a>
+                                                            )}
+                                                        </div>
+
+                                                        {/* Image - Portrait Aspect Ratio (9/16) - Larger Size */}
+                                                        {item.image && (
+                                                            <div className="flex-shrink-0 w-full md:w-[300px] order-1 md:order-2">
+                                                                <div className="relative aspect-[9/16] rounded-xl overflow-hidden border border-white/10 bg-black/50 shadow-lg group-hover:shadow-purple-500/20 transition-all">
+                                                                    <img
+                                                                        src={item.image}
+                                                                        alt=""
+                                                                        referrerPolicy="no-referrer"
+                                                                        className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                                                                        onError={(e) => {
+                                                                            (e.target as HTMLImageElement).style.opacity = '0.3';
+                                                                        }}
+                                                                    />
+                                                                </div>
+                                                            </div>
+                                                        )}
+                                                    </div>
+
+                                                    {/* Edit Actions (Pin/Delete) - Top Right Overlay */}
+                                                    <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+                                                        <button
+                                                            onClick={(e) => { e.stopPropagation(); handleTogglePin('scriptureSupport', item.sourceId); }}
+                                                            className="p-1.5 rounded-full bg-black/60 backdrop-blur-sm hover:bg-black/80 transition-colors"
+                                                            title={item.pinned ? "고정 해제" : "상단 고정"}
+                                                        >
+                                                            {item.pinned ? <PinOff size={14} className="text-yellow-400" /> : <Pin size={14} className="text-white/70" />}
+                                                        </button>
+                                                        <button
+                                                            onClick={(e) => { e.stopPropagation(); handleRemoveLink('scriptureSupport', item.sourceId); }}
+                                                            className="p-1.5 rounded-full bg-red-500/40 backdrop-blur-sm hover:bg-red-500/60 transition-colors"
+                                                            title="삭제"
+                                                        >
+                                                            <Trash2 size={14} className="text-white" />
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
 
                                 {(!references.news.length && !references.reflections.length) && (
                                     <div className="p-4 border border-dashed border-white/10 rounded-xl text-center text-white/20 text-sm">
