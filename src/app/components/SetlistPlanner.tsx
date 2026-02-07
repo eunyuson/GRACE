@@ -433,46 +433,47 @@ export const SetlistPlanner: React.FC = () => {
                 </div>
             </div>
 
+            {/* Library Tab Selector - Below Search Bar */}
+            <div className="relative mb-4 md:mb-0 md:absolute md:top-48 md:left-10 z-20 pointer-events-auto w-full md:w-[300px] print-hide">
+                <div className="flex flex-wrap items-center gap-2">
+                    <button
+                        onClick={() => { setLibraryTab('hymn'); setSelectedTags([]); }}
+                        className={`px-3 py-1.5 text-[10px] tracking-[0.15em] uppercase rounded-full transition-all ${libraryTab === 'hymn'
+                            ? 'bg-gradient-to-r from-green-500/30 to-teal-500/30 text-white'
+                            : 'text-white/50 hover:text-white/80'}`}
+                    >
+                        🎵 찬송가
+                    </button>
+                    <button
+                        onClick={() => { setLibraryTab('praise'); setSelectedTags([]); }}
+                        className={`px-3 py-1.5 text-[10px] tracking-[0.15em] uppercase rounded-full transition-all ${libraryTab === 'praise'
+                            ? 'bg-gradient-to-r from-emerald-500/30 to-green-500/30 text-white'
+                            : 'text-white/50 hover:text-white/80'}`}
+                    >
+                        🎶 찬양곡
+                    </button>
+                    <button
+                        onClick={() => { setLibraryTab('all'); setSelectedTags([]); }}
+                        className={`px-3 py-1.5 text-[10px] tracking-[0.15em] uppercase rounded-full transition-all ${libraryTab === 'all'
+                            ? 'bg-gradient-to-r from-indigo-500/30 to-purple-500/30 text-white'
+                            : 'text-white/50 hover:text-white/80'}`}
+                    >
+                        ♾️ 전체
+                    </button>
+                    {selectedLibraryIds.size > 0 && (
+                        <button
+                            onClick={addSelectedToSetlist}
+                            className="px-3 py-1.5 bg-indigo-500 text-white text-xs font-bold rounded-lg hover:bg-indigo-600 transition-colors shadow-lg animate-pulse"
+                        >
+                            {selectedLibraryIds.size}곡 추가하기
+                        </button>
+                    )}
+                </div>
+            </div>
+
             <div className="flex flex-col lg:flex-row gap-6 h-full">
                 {/* Library */}
                 <div className="flex-1 min-h-0 print-hide">
-                    <div className="flex flex-wrap items-center gap-2 mb-4">
-                        <button
-                            onClick={() => { setLibraryTab('hymn'); setSelectedTags([]); }}
-                            className={`px-3 py-1.5 text-[10px] tracking-[0.15em] uppercase rounded-full transition-all ${libraryTab === 'hymn'
-                                ? 'bg-gradient-to-r from-green-500/30 to-teal-500/30 text-white'
-                                : 'text-white/50 hover:text-white/80'}`}
-                        >
-                            🎵 찬송가
-                        </button>
-                        <button
-                            onClick={() => { setLibraryTab('praise'); setSelectedTags([]); }}
-                            className={`px-3 py-1.5 text-[10px] tracking-[0.15em] uppercase rounded-full transition-all ${libraryTab === 'praise'
-                                ? 'bg-gradient-to-r from-emerald-500/30 to-green-500/30 text-white'
-                                : 'text-white/50 hover:text-white/80'}`}
-                        >
-                            🎶 찬양곡
-                        </button>
-                        <button
-                            onClick={() => { setLibraryTab('all'); setSelectedTags([]); }}
-                            className={`px-3 py-1.5 text-[10px] tracking-[0.15em] uppercase rounded-full transition-all ${libraryTab === 'all'
-                                ? 'bg-gradient-to-r from-indigo-500/30 to-purple-500/30 text-white'
-                                : 'text-white/50 hover:text-white/80'}`}
-                        >
-                            ♾️ 전체
-                        </button>
-                        <div className="ml-auto flex items-center gap-2">
-                            {selectedLibraryIds.size > 0 && (
-                                <button
-                                    onClick={addSelectedToSetlist}
-                                    className="px-3 py-1.5 bg-indigo-500 text-white text-xs font-bold rounded-lg hover:bg-indigo-600 transition-colors shadow-lg animate-pulse"
-                                >
-                                    {selectedLibraryIds.size}곡 추가하기
-                                </button>
-                            )}
-
-                        </div>
-                    </div>
 
                     <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 overflow-y-auto pr-2 max-h-[60vh]">
                         {filteredLibrary.map(item => {
