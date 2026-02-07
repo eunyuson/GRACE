@@ -34,7 +34,7 @@ export const HymnGallery: React.FC<HymnGalleryProps> = ({ isAdmin = false }) => 
 
     // Category/Tag filter
     const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
-    const [selectedCode, setSelectedCode] = useState<string>('');
+    const [selectedCodes, setSelectedCodes] = useState<string[]>([]);
     const [showCategoryPicker, setShowCategoryPicker] = useState(false);
 
     const codes = useMemo(() => Array.from(new Set(hymns.map(h => h.code).filter((c): c is string => !!c))).sort(), [hymns]);
@@ -280,8 +280,8 @@ export const HymnGallery: React.FC<HymnGalleryProps> = ({ isAdmin = false }) => 
                 return selectedCategories.some(cat => tags.includes(cat));
             });
         }
-        if (selectedCode) {
-            results = results.filter(h => h.code === selectedCode);
+        if (selectedCodes.length > 0) {
+            results = results.filter(h => h.code && selectedCodes.includes(h.code));
         }
 
         // Then apply search query
@@ -305,7 +305,7 @@ export const HymnGallery: React.FC<HymnGalleryProps> = ({ isAdmin = false }) => 
 
         return results;
         return results;
-    }, [hymns, searchQuery, selectedCategories, selectedCode]);
+    }, [hymns, searchQuery, selectedCategories, selectedCodes]);
 
     const selectedImages = selectedHymn ? getImagesForHymn(selectedHymn) : [];
     const primaryImage = selectedImages[0] || '';
@@ -317,19 +317,19 @@ export const HymnGallery: React.FC<HymnGalleryProps> = ({ isAdmin = false }) => 
                 <div className="flex items-center gap-4">
                     {/* Filters */}
                     <div className="flex flex-col gap-2 items-end mr-4">
-                        {/* Code Filter */}
+                        {/* Code Filter (Multi-select) */}
                         <div className="flex flex-wrap gap-1.5 items-center justify-end max-w-none">
                             <button
-                                onClick={() => setSelectedCode('')}
-                                className={`px-2.5 py-1 text-[10px] rounded-full transition-all border ${!selectedCode ? 'bg-emerald-500/30 text-emerald-300 border-emerald-500/50' : 'bg-white/5 text-white/50 border-white/10 hover:bg-white/10'}`}
+                                onClick={() => setSelectedCodes([])}
+                                className={`px-2.5 py-1 text-[10px] rounded-full transition-all border ${selectedCodes.length === 0 ? 'bg-emerald-500/30 text-emerald-300 border-emerald-500/50' : 'bg-white/5 text-white/50 border-white/10 hover:bg-white/10'}`}
                             >
                                 All Key
                             </button>
                             {codes.map(code => (
                                 <button
                                     key={code}
-                                    onClick={() => setSelectedCode(code === selectedCode ? '' : code)}
-                                    className={`px-2.5 py-1 text-[10px] rounded-full transition-all border ${selectedCode === code ? 'bg-emerald-500/30 text-emerald-300 border-emerald-500/50' : 'bg-white/5 text-white/50 border-white/10 hover:bg-white/10'}`}
+                                    onClick={() => setSelectedCodes(prev => prev.includes(code) ? prev.filter(c => c !== code) : [...prev, code])}
+                                    className={`px-2.5 py-1 text-[10px] rounded-full transition-all border ${selectedCodes.includes(code) ? 'bg-emerald-500/30 text-emerald-300 border-emerald-500/50' : 'bg-white/5 text-white/50 border-white/10 hover:bg-white/10'}`}
                                 >
                                     {code}
                                 </button>

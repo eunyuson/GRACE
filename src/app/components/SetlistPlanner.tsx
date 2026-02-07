@@ -46,7 +46,7 @@ export const SetlistPlanner: React.FC = () => {
     const [libraryTab, setLibraryTab] = useState<'hymn' | 'praise' | 'all'>('hymn');
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedTags, setSelectedTags] = useState<string[]>([]);
-    const [selectedCode, setSelectedCode] = useState('');
+    const [selectedCodes, setSelectedCodes] = useState<string[]>([]);
     const [showCategoryPicker, setShowCategoryPicker] = useState(false);
 
     const [hymnItems, setHymnItems] = useState<LibraryItem[]>([]);
@@ -244,8 +244,8 @@ export const SetlistPlanner: React.FC = () => {
             });
         }
 
-        if (selectedCode) {
-            results = results.filter(item => item.code === selectedCode);
+        if (selectedCodes.length > 0) {
+            results = results.filter(item => item.code && selectedCodes.includes(item.code));
         }
 
         if (!searchQuery) return results;
@@ -260,7 +260,7 @@ export const SetlistPlanner: React.FC = () => {
             if (item.code?.toLowerCase() === q) return true;
             return false;
         });
-    }, [libraryItems, searchQuery, selectedTags, selectedCode]);
+    }, [libraryItems, searchQuery, selectedTags, selectedCodes]);
 
     const addToSetlist = (item: LibraryItem) => {
         const images = item.imageUrls && item.imageUrls.length > 0
@@ -360,19 +360,19 @@ export const SetlistPlanner: React.FC = () => {
                 <div className="flex items-center gap-4">
                     {/* Filters */}
                     <div className="flex flex-col gap-2 items-end mr-4">
-                        {/* Code Filter */}
+                        {/* Code Filter (Multi-select) */}
                         <div className="flex flex-wrap gap-1.5 items-center justify-end max-w-none">
                             <button
-                                onClick={() => setSelectedCode('')}
-                                className={`px-2.5 py-1 text-[10px] rounded-full transition-all border ${!selectedCode ? 'bg-emerald-500/30 text-emerald-300 border-emerald-500/50' : 'bg-white/5 text-white/50 border-white/10 hover:bg-white/10'}`}
+                                onClick={() => setSelectedCodes([])}
+                                className={`px-2.5 py-1 text-[10px] rounded-full transition-all border ${selectedCodes.length === 0 ? 'bg-emerald-500/30 text-emerald-300 border-emerald-500/50' : 'bg-white/5 text-white/50 border-white/10 hover:bg-white/10'}`}
                             >
                                 All Key
                             </button>
                             {codes.map(code => (
                                 <button
                                     key={code}
-                                    onClick={() => setSelectedCode(code === selectedCode ? '' : code)}
-                                    className={`px-2.5 py-1 text-[10px] rounded-full transition-all border ${selectedCode === code ? 'bg-emerald-500/30 text-emerald-300 border-emerald-500/50' : 'bg-white/5 text-white/50 border-white/10 hover:bg-white/10'}`}
+                                    onClick={() => setSelectedCodes(prev => prev.includes(code) ? prev.filter(c => c !== code) : [...prev, code])}
+                                    className={`px-2.5 py-1 text-[10px] rounded-full transition-all border ${selectedCodes.includes(code) ? 'bg-emerald-500/30 text-emerald-300 border-emerald-500/50' : 'bg-white/5 text-white/50 border-white/10 hover:bg-white/10'}`}
                                 >
                                     {code}
                                 </button>
@@ -424,7 +424,7 @@ export const SetlistPlanner: React.FC = () => {
                     />
                     {searchQuery && (
                         <button
-                            onClick={() => { setSearchQuery(''); setSelectedTags([]); setSelectedCode(''); }}
+                            onClick={() => { setSearchQuery(''); setSelectedTags([]); setSelectedCodes([]); }}
                             className="absolute inset-y-0 right-3 flex items-center text-white/30 hover:text-red-400 transition-colors"
                         >
                             <X size={20} />

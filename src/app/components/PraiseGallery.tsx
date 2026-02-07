@@ -34,7 +34,7 @@ export const PraiseGallery: React.FC<PraiseGalleryProps> = ({ isAdmin = false })
 
     // Category/Tag filter
     const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
-    const [selectedCode, setSelectedCode] = useState<string>('');
+    const [selectedCodes, setSelectedCodes] = useState<string[]>([]);
     const [showCategoryPicker, setShowCategoryPicker] = useState(false);
     const codes = useMemo(() => Array.from(new Set(hymns.map(h => h.code).filter((c): c is string => !!c))).sort(), [hymns]);
     const categories = useMemo(() => {
@@ -319,7 +319,7 @@ export const PraiseGallery: React.FC<PraiseGalleryProps> = ({ isAdmin = false })
                 return selectedCategories.some(cat => tags.includes(cat));
             });
         }
-        if (selectedCode) results = results.filter(h => h.code === selectedCode);
+        if (selectedCodes.length > 0) results = results.filter(h => h.code && selectedCodes.includes(h.code));
 
         if (!searchQuery) return results;
         const q = searchQuery.toLowerCase().trim();
@@ -329,7 +329,7 @@ export const PraiseGallery: React.FC<PraiseGalleryProps> = ({ isAdmin = false })
             if (isNumeric && h.number.toString().startsWith(q)) return true;
             return h.title.toLowerCase().includes(q);
         });
-    }, [hymns, searchQuery, selectedCategories, selectedCode]);
+    }, [hymns, searchQuery, selectedCategories, selectedCodes]);
 
     const selectedImages = selectedHymn ? getImagesForHymn(selectedHymn) : [];
     const primaryImage = selectedImages[0] || '';
@@ -341,19 +341,19 @@ export const PraiseGallery: React.FC<PraiseGalleryProps> = ({ isAdmin = false })
                 <div className="flex items-center gap-4">
                     {/* Filters */}
                     <div className="flex flex-col gap-2 items-end mr-4">
-                        {/* Code Filter */}
+                        {/* Code Filter (Multi-select) */}
                         <div className="flex flex-wrap gap-1.5 items-center justify-end max-w-none">
                             <button
-                                onClick={() => setSelectedCode('')}
-                                className={`px-2.5 py-1 text-[10px] rounded-full transition-all border ${!selectedCode ? 'bg-emerald-500/30 text-emerald-300 border-emerald-500/50' : 'bg-white/5 text-white/50 border-white/10 hover:bg-white/10'}`}
+                                onClick={() => setSelectedCodes([])}
+                                className={`px-2.5 py-1 text-[10px] rounded-full transition-all border ${selectedCodes.length === 0 ? 'bg-emerald-500/30 text-emerald-300 border-emerald-500/50' : 'bg-white/5 text-white/50 border-white/10 hover:bg-white/10'}`}
                             >
                                 All Key
                             </button>
                             {codes.map(code => (
                                 <button
                                     key={code}
-                                    onClick={() => setSelectedCode(code === selectedCode ? '' : code)}
-                                    className={`px-2.5 py-1 text-[10px] rounded-full transition-all border ${selectedCode === code ? 'bg-emerald-500/30 text-emerald-300 border-emerald-500/50' : 'bg-white/5 text-white/50 border-white/10 hover:bg-white/10'}`}
+                                    onClick={() => setSelectedCodes(prev => prev.includes(code) ? prev.filter(c => c !== code) : [...prev, code])}
+                                    className={`px-2.5 py-1 text-[10px] rounded-full transition-all border ${selectedCodes.includes(code) ? 'bg-emerald-500/30 text-emerald-300 border-emerald-500/50' : 'bg-white/5 text-white/50 border-white/10 hover:bg-white/10'}`}
                                 >
                                     {code}
                                 </button>
@@ -421,7 +421,7 @@ export const PraiseGallery: React.FC<PraiseGalleryProps> = ({ isAdmin = false })
                     />
                     {searchQuery && (
                         <button
-                            onClick={() => { setSearchQuery(''); setSelectedCategories([]); setSelectedCode(''); }}
+                            onClick={() => { setSearchQuery(''); setSelectedCategories([]); setSelectedCodes([]); }}
                             className="absolute inset-y-0 right-3 flex items-center text-white/30 hover:text-red-400 transition-colors"
                         >
                             <X size={20} />
@@ -464,12 +464,12 @@ export const PraiseGallery: React.FC<PraiseGalleryProps> = ({ isAdmin = false })
                     )}
                 </div>
 
-                {/* Code Filter */}
+                {/* Code Filter (Multi-select) */}
                 <div className="flex flex-wrap gap-2 items-center">
                     <Hash size={14} className="text-white/40" />
                     <button
-                        onClick={() => setSelectedCode('')}
-                        className={`px-3 py-1 text-xs rounded-full transition-all ${!selectedCode
+                        onClick={() => setSelectedCodes([])}
+                        className={`px-3 py-1 text-xs rounded-full transition-all ${selectedCodes.length === 0
                             ? 'bg-emerald-500/30 text-emerald-300 border border-emerald-500/50'
                             : 'bg-white/5 text-white/50 border border-white/10 hover:bg-white/10'}`}
                     >
@@ -478,8 +478,8 @@ export const PraiseGallery: React.FC<PraiseGalleryProps> = ({ isAdmin = false })
                     {codes.map(code => (
                         <button
                             key={code}
-                            onClick={() => setSelectedCode(code === selectedCode ? '' : code)}
-                            className={`px-3 py-1 text-xs rounded-full transition-all ${selectedCode === code
+                            onClick={() => setSelectedCodes(prev => prev.includes(code) ? prev.filter(c => c !== code) : [...prev, code])}
+                            className={`px-3 py-1 text-xs rounded-full transition-all ${selectedCodes.includes(code)
                                 ? 'bg-emerald-500/30 text-emerald-300 border border-emerald-500/50'
                                 : 'bg-white/5 text-white/50 border border-white/10 hover:bg-white/10'}`}
                         >
@@ -491,7 +491,7 @@ export const PraiseGallery: React.FC<PraiseGalleryProps> = ({ isAdmin = false })
 
             {/* Matching Results Info */}
             {
-                (searchQuery || selectedCategories.length > 0 || selectedCode) && (
+                (searchQuery || selectedCategories.length > 0 || selectedCodes.length > 0) && (
                     <div className="mb-4 flex items-center gap-2 text-sm flex-wrap">
                         <span className="text-white/40">검색 결과:</span>
                         <span className="text-emerald-400 font-bold">{filteredHymns.length}개</span>
