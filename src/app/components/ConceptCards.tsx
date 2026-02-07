@@ -20,6 +20,7 @@ interface Connection {
     start: string;
     end: string;
     score: number;
+    reasons: string[];
 }
 
 interface Point {
@@ -180,7 +181,8 @@ export const ConceptCards: React.FC<ConceptCardsProps> = ({ onViewRelated, maxIt
                         id: `${c1.id}-${c2.id}`,
                         start: c1.id,
                         end: c2.id,
-                        score
+                        score,
+                        reasons: Array.from(intersection).slice(0, 3)
                     });
                 }
             }
@@ -348,22 +350,72 @@ export const ConceptCards: React.FC<ConceptCardsProps> = ({ onViewRelated, maxIt
                         const opacity = isConnectedToHover ? 0.6 : 0.03;
                         const width = isConnectedToHover ? 2 : 1;
 
+                        let labelX = (start.x + end.x) / 2;
+                        let labelY = (start.y + end.y) / 2;
+                        let labelText = conn.reasons ? conn.reasons.join(", ") : "";
+
+                        if (isConnectedToHover && hoveredCardId) {
+                            const isStartHovered = hoveredCardId === conn.start;
+                            // Position at 25% distance from the hovered card
+                            const t = isStartHovered ? 0.25 : 0.75;
+                            labelX = start.x + (end.x - start.x) * t;
+                            labelY = start.y + (end.y - start.y) * t;
+
+                            const targetId = isStartHovered ? conn.end : conn.start;
+                            const targetConcept = concepts.find(c => c.id === targetId);
+                            if (targetConcept) {
+                                labelText = targetConcept.conceptName;
+                                if (conn.reasons && conn.reasons.length > 0) {
+                                    labelText += ` (${conn.reasons.join(", ")})`;
+                                }
+                            }
+                        }
+
                         return (
-                            <motion.line
-                                key={conn.id}
-                                x1={start.x}
-                                y1={start.y}
-                                x2={end.x}
-                                y2={end.y}
-                                stroke={isConnectedToHover ? "url(#lineGradient)" : "white"}
-                                strokeWidth={width}
-                                initial={false}
-                                animate={{
-                                    opacity,
-                                    strokeWidth: width
-                                }}
-                                transition={{ duration: 0.3 }}
-                            />
+                            <React.Fragment key={conn.id}>
+                                <motion.line
+                                    x1={start.x}
+                                    y1={start.y}
+                                    x2={end.x}
+                                    y2={end.y}
+                                    stroke={isConnectedToHover ? "url(#lineGradient)" : "white"}
+                                    strokeWidth={width}
+                                    initial={false}
+                                    animate={{
+                                        opacity,
+                                        strokeWidth: width
+                                    }}
+                                    transition={{ duration: 0.3 }}
+                                />
+                                {isConnectedToHover && labelText && (
+                                    <g>
+                                        <rect
+                                            x={labelX - (labelText.length * 3 + 10)}
+                                            y={labelY - 12}
+                                            width={labelText.length * 6 + 20}
+                                            height="24"
+                                            rx="12"
+                                            fill="#050505"
+                                            fillOpacity="0.8"
+                                            stroke={isConnectedToHover ? "#6366f1" : "transparent"}
+                                            strokeWidth="1"
+                                            strokeOpacity="0.3"
+                                        />
+                                        <text
+                                            x={labelX}
+                                            y={labelY}
+                                            fill="#e0e7ff"
+                                            fontSize="11"
+                                            fontWeight="500"
+                                            textAnchor="middle"
+                                            dominantBaseline="middle"
+                                            className="font-sans tracking-wide pointer-events-none"
+                                        >
+                                            {labelText}
+                                        </text>
+                                    </g>
+                                )}
+                            </React.Fragment>
                         );
                     })}
                 </svg>

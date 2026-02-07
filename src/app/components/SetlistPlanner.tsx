@@ -55,6 +55,40 @@ export const SetlistPlanner: React.FC = () => {
     const [activeSetlistId, setActiveSetlistId] = useState<string>('');
     const [saving, setSaving] = useState(false);
 
+    // Multi-selection state
+    const [selectedLibraryIds, setSelectedLibraryIds] = useState<Set<string>>(new Set());
+
+    const toggleSelection = (id: string) => {
+        const newSet = new Set(selectedLibraryIds);
+        if (newSet.has(id)) {
+            newSet.delete(id);
+        } else {
+            newSet.add(id);
+        }
+        setSelectedLibraryIds(newSet);
+    };
+
+    const addSelectedToSetlist = () => {
+        const selectedItems = libraryItems.filter(item => selectedLibraryIds.has(item.id));
+        const newItems: SetlistItem[] = selectedItems.map(item => {
+            const images = item.imageUrls && item.imageUrls.length > 0
+                ? item.imageUrls
+                : (item.imageUrl ? [item.imageUrl] : []);
+            return {
+                id: `${item.type}-${item.id}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+                sourceId: item.id,
+                type: item.type,
+                number: item.number,
+                title: item.title,
+                imageUrl: item.imageUrl || images[0] || '',
+                imageUrls: images
+            };
+        });
+
+        setSetlistItems(prev => [...prev, ...newItems]);
+        setSelectedLibraryIds(new Set()); // Clear selection after adding
+    };
+
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, (user) => {
             if (user) {
@@ -322,6 +356,14 @@ export const SetlistPlanner: React.FC = () => {
                             🎶 찬양곡
                         </button>
                         <div className="ml-auto flex items-center gap-2">
+                            {selectedLibraryIds.size > 0 && (
+                                <button
+                                    onClick={addSelectedToSetlist}
+                                    className="px-3 py-1.5 bg-indigo-500 text-white text-xs font-bold rounded-lg hover:bg-indigo-600 transition-colors shadow-lg animate-pulse"
+                                >
+                                    {selectedLibraryIds.size}곡 추가하기
+                                </button>
+                            )}
                             <input
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
@@ -389,18 +431,31 @@ export const SetlistPlanner: React.FC = () => {
                     <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 overflow-y-auto pr-2 max-h-[60vh]">
                         {filteredLibrary.map(item => {
                             const thumb = item.imageUrls && item.imageUrls.length > 0 ? item.imageUrls[0] : item.imageUrl;
+                            const isSelected = selectedLibraryIds.has(item.id);
                             return (
                                 <motion.div
                                     key={item.id}
-                                    className="group relative bg-white rounded-xl overflow-hidden border border-white/10 shadow-md"
+                                    layoutId={`lib-${item.id}`}
+                                    onClick={() => toggleSelection(item.id)}
+                                    className={`group relative bg-white rounded-xl overflow-hidden border shadow-md cursor-pointer transition-all ${isSelected
+                                            ? 'border-indigo-500 ring-2 ring-indigo-500/50 transform scale-[0.98]'
+                                            : 'border-white/10 hover:border-indigo-500/30'
+                                        }`}
                                     whileHover={{ y: -4 }}
                                 >
-                                    <div className="aspect-[3/4] bg-zinc-100">
+                                    <div className="aspect-[3/4] bg-zinc-100 relative">
                                         {thumb ? (
                                             <img src={thumb} alt={item.title} className="w-full h-full object-cover" loading="lazy" />
                                         ) : (
                                             <div className="w-full h-full flex items-center justify-center text-zinc-300 text-xs">No Image</div>
                                         )}
+                                        {/* Selection Overlay */}
+                                        <div className={`absolute inset-0 bg-indigo-500/20 transition-opacity ${isSelected ? 'opacity-100' : 'opacity-0 group-hover:opacity-10'}`} />
+
+                                        {/* Checkbox Indicator */}
+                                        <div className={`absolute top-2 left-2 w-5 h-5 rounded-full border border-black/20 flex items-center justify-center transition-all ${isSelected ? 'bg-indigo-500' : 'bg-white/80'}`}>
+                                            {isSelected && <div className="w-2.5 h-2.5 bg-white rounded-full" />}
+                                        </div>
                                     </div>
                                     <div className="p-2 text-zinc-900">
                                         <div className="text-[10px] uppercase tracking-wider text-zinc-500">
@@ -412,9 +467,9 @@ export const SetlistPlanner: React.FC = () => {
                                         )}
                                     </div>
                                     <button
-                                        onClick={() => addToSetlist(item)}
-                                        className="absolute top-2 right-2 p-2 rounded-full bg-black/60 text-white/80 opacity-0 group-hover:opacity-100 transition-opacity"
-                                        title="콘티에 추가"
+                                        onClick={(e) => { e.stopPropagation(); addToSetlist(item); }}
+                                        className="absolute top-2 right-2 p-2 rounded-full bg-black/60 text-white/80 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-black hover:text-white"
+                                        title="바로 추가"
                                     >
                                         <Plus size={14} />
                                     </button>

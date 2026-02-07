@@ -29,7 +29,7 @@ export const HymnGallery: React.FC<HymnGalleryProps> = ({ isAdmin = false }) => 
     const [selectedHymn, setSelectedHymn] = useState<Hymn | null>(null);
     const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
 
-    const MAX_QUERY_LENGTH = 3;
+    const MAX_QUERY_LENGTH = 20;
 
     // Category/Tag filter
     const [selectedCategory, setSelectedCategory] = useState<string>('');
@@ -231,6 +231,8 @@ export const HymnGallery: React.FC<HymnGalleryProps> = ({ isAdmin = false }) => 
                 if (isNumeric && h.number.toString().startsWith(q)) return true;
                 // Title match
                 if (h.title.toLowerCase().includes(q)) return true;
+                // Lyrics match
+                if (h.lyrics?.toLowerCase().includes(q)) return true;
                 // Code match
                 if (h.code?.toLowerCase() === q) return true;
                 return false;
@@ -255,17 +257,22 @@ export const HymnGallery: React.FC<HymnGalleryProps> = ({ isAdmin = false }) => 
                         </div>
 
                         {/* Number Display */}
-                        <div className="flex items-center gap-3">
-                            <div className="bg-gradient-to-br from-emerald-500/20 to-teal-500/10 border border-emerald-500/30 rounded-2xl px-6 py-3 min-w-[120px] text-center backdrop-blur-sm">
-                                <span className="text-3xl md:text-4xl font-bold text-white font-mono tracking-wider">
-                                    {searchQuery || '___'}
-                                </span>
-                                <span className="text-emerald-400 text-lg ml-1">장</span>
+                        <div className="relative group min-w-[200px] md:min-w-[300px]">
+                            <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none">
+                                <Search className="text-emerald-400 opacity-50" size={20} />
                             </div>
-                            {(searchQuery || selectedCategory) && (
+                            <input
+                                type="text"
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                placeholder="번호, 제목, 가사 검색..."
+                                className="bg-gradient-to-br from-emerald-500/20 to-teal-500/10 border border-emerald-500/30 rounded-2xl pl-12 pr-10 py-3 w-full text-xl md:text-2xl font-bold text-white placeholder-white/20 focus:outline-none focus:border-emerald-500/60 focus:ring-1 focus:ring-emerald-500/30 transition-all backdrop-blur-sm"
+                                maxLength={20}
+                            />
+                            {searchQuery && (
                                 <button
                                     onClick={() => { setSearchQuery(''); setSelectedCategory(''); }}
-                                    className="p-2 bg-white/5 hover:bg-red-500/20 border border-white/10 hover:border-red-500/30 rounded-xl text-white/50 hover:text-red-400 transition-all"
+                                    className="absolute inset-y-0 right-3 flex items-center text-white/30 hover:text-red-400 transition-colors"
                                 >
                                     <X size={20} />
                                 </button>
@@ -353,10 +360,12 @@ export const HymnGallery: React.FC<HymnGalleryProps> = ({ isAdmin = false }) => 
                         </span>
                     )}
                     {searchQuery && (
-                        <span className="text-white/50">
-                            {searchQuery.length === 1 && `${searchQuery}장, ${searchQuery}0~${searchQuery}9장, ${searchQuery}00~${searchQuery}99장`}
-                            {searchQuery.length === 2 && `${searchQuery}장, ${searchQuery}0~${searchQuery}9장`}
-                            {searchQuery.length === 3 && `${searchQuery}장`}
+                        <span className="text-white/50 text-xs ml-2">
+                            {/^\d+$/.test(searchQuery) ? (
+                                <span>(번호 검색: {searchQuery}...)</span>
+                            ) : (
+                                <span>("{searchQuery}" 검색)</span>
+                            )}
                         </span>
                     )}
                 </div>
