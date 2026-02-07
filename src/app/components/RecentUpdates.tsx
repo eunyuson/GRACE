@@ -1605,7 +1605,6 @@ export const RecentUpdates: React.FC<RecentUpdatesProps> = ({ isAdmin = false })
                     <div className="mb-6 flex items-center justify-between">
                         <div>
                             <h2 className="text-3xl md:text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-400 mb-3">
-                                최근 소식 (Updated)
                             </h2>
                             <p className="text-white/40 text-sm">iPhone에서 보낸 메모와 업데이트</p>
                         </div>

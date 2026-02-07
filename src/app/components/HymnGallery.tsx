@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, Download, Music, Grid, List, Edit3, Save, Youtube, Plus, Trash2, ExternalLink, Search, Hash, ChevronLeft, ChevronRight } from 'lucide-react';
+import { X, Download, Music, Grid, List, Edit3, Save, Youtube, Plus, Trash2, ExternalLink, Search, Hash, ChevronLeft, ChevronRight, Image as ImageIcon } from 'lucide-react';
 import { collection, query, onSnapshot, where, doc, updateDoc } from 'firebase/firestore';
-import { db } from '../firebase';
+import { db, storage } from '../firebase';
+import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 import { allHymnData, getAllCategories, getHymnByNumber, HymnInfo } from '../data';
 
 interface Hymn {
@@ -32,23 +33,46 @@ export const HymnGallery: React.FC<HymnGalleryProps> = ({ isAdmin = false }) => 
     const MAX_QUERY_LENGTH = 20;
 
     // Category/Tag filter
-    const [selectedCategory, setSelectedCategory] = useState<string>('');
+    const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+    const [selectedCode, setSelectedCode] = useState<string>('');
     const [showCategoryPicker, setShowCategoryPicker] = useState(false);
-    const categories = useMemo(() => getAllCategories(), []);
+
+    const codes = useMemo(() => Array.from(new Set(hymns.map(h => h.code).filter((c): c is string => !!c))).sort(), [hymns]);
+    const categories = useMemo(() => {
+        const uniqueTags = new Set<string>();
+        hymns.forEach(h => {
+            if (h.category) {
+                h.category.split(',').forEach(tag => {
+                    const clean = tag.replace(/#/g, '').trim();
+                    if (clean) uniqueTags.add(clean);
+                });
+            }
+        });
+        return Array.from(uniqueTags).sort();
+    }, [hymns]);
 
     // Editing states
     const [isEditing, setIsEditing] = useState(false);
     const [editLyrics, setEditLyrics] = useState('');
+    const [editTitle, setEditTitle] = useState('');
+    const [editCode, setEditCode] = useState('');
+    const [editCategory, setEditCategory] = useState('');
     const [editYoutubeLinks, setEditYoutubeLinks] = useState<{ url: string; title: string }[]>([]);
+    const [editImages, setEditImages] = useState<string[]>([]);
     const [newYoutubeUrl, setNewYoutubeUrl] = useState('');
     const [newYoutubeTitle, setNewYoutubeTitle] = useState('');
     const [saving, setSaving] = useState(false);
+    const [uploading, setUploading] = useState(false);
 
     // Start editing mode
     const startEditing = () => {
         if (selectedHymn) {
             setEditLyrics(selectedHymn.lyrics || '');
+            setEditTitle(selectedHymn.title || '');
+            setEditCode(selectedHymn.code || '');
+            setEditCategory(selectedHymn.category || '');
             setEditYoutubeLinks(selectedHymn.youtubeLinks || []);
+            setEditImages(selectedHymn.imageUrls && selectedHymn.imageUrls.length > 0 ? selectedHymn.imageUrls : (selectedHymn.imageUrl ? [selectedHymn.imageUrl] : []));
             setNewYoutubeUrl('');
             setNewYoutubeTitle('');
             setIsEditing(true);
@@ -63,15 +87,25 @@ export const HymnGallery: React.FC<HymnGalleryProps> = ({ isAdmin = false }) => 
         try {
             const hymnRef = doc(db, 'gallery', selectedHymn.id);
             await updateDoc(hymnRef, {
+                title: editTitle,
                 lyrics: editLyrics,
-                youtubeLinks: editYoutubeLinks
+                code: editCode,
+                category: editCategory,
+                youtubeLinks: editYoutubeLinks,
+                imageUrls: editImages,
+                imageUrl: editImages[0] || ''
             });
 
             // Update local state
             setSelectedHymn({
                 ...selectedHymn,
+                title: editTitle,
                 lyrics: editLyrics,
-                youtubeLinks: editYoutubeLinks
+                code: editCode,
+                category: editCategory,
+                youtubeLinks: editYoutubeLinks,
+                imageUrls: editImages,
+                imageUrl: editImages[0] || ''
             });
             setIsEditing(false);
         } catch (error) {
@@ -115,6 +149,29 @@ export const HymnGallery: React.FC<HymnGalleryProps> = ({ isAdmin = false }) => 
         setEditYoutubeLinks([]);
         setNewYoutubeUrl('');
         setNewYoutubeTitle('');
+        setEditImages([]);
+    };
+
+    const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (!e.target.files || e.target.files.length === 0 || !selectedHymn) return;
+        setUploading(true);
+        try {
+            const file = e.target.files[0];
+            const storageRef = ref(storage, `hymns/${selectedHymn.number}/${Date.now()}_${file.name}`);
+            await uploadBytes(storageRef, file);
+            const url = await getDownloadURL(storageRef);
+            setEditImages(prev => [...prev, url]);
+        } catch (error) {
+            console.error('Upload failed:', error);
+            alert('이미지 업로드 실패');
+        } finally {
+            setUploading(false);
+        }
+    };
+
+    const removeImage = (index: number) => {
+        if (!confirm('이미지 목록에서 제외하시겠습니까? (저장 시 반영됩니다)')) return;
+        setEditImages(prev => prev.filter((_, i) => i !== index));
     };
 
     useEffect(() => {
@@ -215,9 +272,16 @@ export const HymnGallery: React.FC<HymnGalleryProps> = ({ isAdmin = false }) => 
     const filteredHymns = useMemo(() => {
         let results = hymns;
 
-        // Apply category/tag filter first
-        if (selectedCategory) {
-            results = results.filter(h => h.category === selectedCategory);
+        // Apply category/tag filter first (multi-select: match ANY selected tag)
+        if (selectedCategories.length > 0) {
+            results = results.filter(h => {
+                if (!h.category) return false;
+                const tags = h.category.split(',').map(t => t.replace(/#/g, '').trim());
+                return selectedCategories.some(cat => tags.includes(cat));
+            });
+        }
+        if (selectedCode) {
+            results = results.filter(h => h.code === selectedCode);
         }
 
         // Then apply search query
@@ -240,136 +304,131 @@ export const HymnGallery: React.FC<HymnGalleryProps> = ({ isAdmin = false }) => 
         }
 
         return results;
-    }, [hymns, searchQuery, selectedCategory]);
+        return results;
+    }, [hymns, searchQuery, selectedCategories, selectedCode]);
 
     const selectedImages = selectedHymn ? getImagesForHymn(selectedHymn) : [];
     const primaryImage = selectedImages[0] || '';
 
     return (
-        <div className="w-full h-full overflow-hidden flex flex-col pt-44 md:pt-32 px-4 md:px-10 pb-10">
-            {/* Header & Search */}
-            <div className="flex flex-col gap-4 mb-6">
-                <div className="flex flex-col lg:flex-row justify-between items-start lg:items-end gap-4">
-                    <div className="flex items-end gap-6">
-                        <div>
-                            <h1 className="text-4xl md:text-5xl font-['Anton'] text-white mb-1">HYMNS</h1>
-                            <p className="text-white/40 font-['Inter'] tracking-wider text-xs">새찬송가 1-639장</p>
-                        </div>
-
-                        {/* Number Display */}
-                        <div className="relative group min-w-[200px] md:min-w-[300px]">
-                            <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none">
-                                <Search className="text-emerald-400 opacity-50" size={20} />
-                            </div>
-                            <input
-                                type="text"
-                                value={searchQuery}
-                                onChange={(e) => setSearchQuery(e.target.value)}
-                                placeholder="번호, 제목, 가사 검색..."
-                                className="bg-gradient-to-br from-emerald-500/20 to-teal-500/10 border border-emerald-500/30 rounded-2xl pl-12 pr-10 py-3 w-full text-xl md:text-2xl font-bold text-white placeholder-white/20 focus:outline-none focus:border-emerald-500/60 focus:ring-1 focus:ring-emerald-500/30 transition-all backdrop-blur-sm"
-                                maxLength={20}
-                            />
-                            {searchQuery && (
+        <div className="w-full h-full overflow-hidden print:overflow-visible flex flex-col pt-40 md:pt-60 px-4 md:px-10 pb-10 print:p-0 print:h-auto relative">
+            {/* Filters & Toggle (Right Top) */}
+            <div className="flex flex-col gap-4 mb-2 md:absolute md:top-0 md:right-10 md:w-auto md:mb-0 z-20 pointer-events-auto items-end">
+                <div className="flex items-center gap-4">
+                    {/* Filters */}
+                    <div className="flex flex-col gap-2 items-end mr-4">
+                        {/* Code Filter */}
+                        <div className="flex flex-wrap gap-1.5 items-center justify-end max-w-none">
+                            <button
+                                onClick={() => setSelectedCode('')}
+                                className={`px-2.5 py-1 text-[10px] rounded-full transition-all border ${!selectedCode ? 'bg-emerald-500/30 text-emerald-300 border-emerald-500/50' : 'bg-white/5 text-white/50 border-white/10 hover:bg-white/10'}`}
+                            >
+                                All Key
+                            </button>
+                            {codes.map(code => (
                                 <button
-                                    onClick={() => { setSearchQuery(''); setSelectedCategory(''); }}
-                                    className="absolute inset-y-0 right-3 flex items-center text-white/30 hover:text-red-400 transition-colors"
+                                    key={code}
+                                    onClick={() => setSelectedCode(code === selectedCode ? '' : code)}
+                                    className={`px-2.5 py-1 text-[10px] rounded-full transition-all border ${selectedCode === code ? 'bg-emerald-500/30 text-emerald-300 border-emerald-500/50' : 'bg-white/5 text-white/50 border-white/10 hover:bg-white/10'}`}
                                 >
-                                    <X size={20} />
+                                    {code}
+                                </button>
+                            ))}
+                        </div>
+                        {/* Category Filter - Widened (Multi-select) */}
+                        <div className="flex flex-wrap gap-1.5 items-center justify-end max-w-[800px]">
+                            <button
+                                onClick={() => setSelectedCategories([])}
+                                className={`px-2.5 py-1 text-[10px] rounded-full transition-all border ${selectedCategories.length === 0 ? 'bg-emerald-500/30 text-emerald-300 border-emerald-500/50' : 'bg-white/5 text-white/50 border-white/10 hover:bg-white/10'}`}
+                            >
+                                All
+                            </button>
+                            {categories.slice(0, showCategoryPicker ? categories.length : 15).map(cat => (
+                                <button
+                                    key={cat}
+                                    onClick={() => setSelectedCategories(prev => prev.includes(cat) ? prev.filter(c => c !== cat) : [...prev, cat])}
+                                    className={`px-2.5 py-1 text-[10px] rounded-full transition-all border ${selectedCategories.includes(cat) ? 'bg-emerald-500/30 text-emerald-300 border-emerald-500/50' : 'bg-white/5 text-white/50 border-white/10 hover:bg-white/10'}`}
+                                >
+                                    #{cat}
+                                </button>
+                            ))}
+                            {categories.length > 15 && (
+                                <button
+                                    onClick={() => setShowCategoryPicker(!showCategoryPicker)}
+                                    className="px-2.5 py-1 text-[10px] rounded-full bg-white/5 text-white/50 border border-white/10 hover:bg-white/10"
+                                >
+                                    {showCategoryPicker ? '접기' : `+${categories.length - 15}`}
                                 </button>
                             )}
                         </div>
                     </div>
 
-                    <div className="flex items-center gap-4">
-                        {/* Number Keypad */}
-                        <div className="grid grid-cols-5 gap-1.5 bg-white/5 p-2 rounded-2xl border border-white/10 backdrop-blur-sm">
-                            {[1, 2, 3, 4, 5, 6, 7, 8, 9, 0].map((num) => (
-                                <button
-                                    key={num}
-                                    onClick={() => {
-                                        if (searchQuery.length < MAX_QUERY_LENGTH) {
-                                            setSearchQuery(prev => prev + num.toString());
-                                        }
-                                    }}
-                                    className="w-10 h-10 md:w-11 md:h-11 rounded-xl bg-gradient-to-br from-white/10 to-white/5 hover:from-emerald-500/30 hover:to-teal-500/20 border border-white/10 hover:border-emerald-500/40 text-white font-bold text-lg transition-all hover:scale-105 active:scale-95 shadow-lg"
-                                >
-                                    {num}
-                                </button>
-                            ))}
-                        </div>
-
-                        {/* View Mode Toggle */}
-                        <div className="flex flex-col bg-white/5 rounded-xl p-1 border border-white/10">
-                            <button
-                                onClick={() => setViewMode('grid')}
-                                className={`p-2 rounded-lg transition-all ${viewMode === 'grid' ? 'bg-emerald-500/20 text-emerald-400' : 'text-white/40 hover:text-white/70'}`}
-                            >
-                                <Grid size={18} />
-                            </button>
-                            <button
-                                onClick={() => setViewMode('list')}
-                                className={`p-2 rounded-lg transition-all ${viewMode === 'list' ? 'bg-emerald-500/20 text-emerald-400' : 'text-white/40 hover:text-white/70'}`}
-                            >
-                                <List size={18} />
-                            </button>
-                        </div>
+                    {/* View Mode Toggle */}
+                    <div className="flex flex-col bg-white/5 rounded-xl p-1 border border-white/10">
+                        <button
+                            onClick={() => setViewMode('grid')}
+                            className={`p-2 rounded-lg transition-all ${viewMode === 'grid' ? 'bg-emerald-500/20 text-emerald-400' : 'text-white/40 hover:text-white/70'}`}
+                        >
+                            <Grid size={18} />
+                        </button>
+                        <button
+                            onClick={() => setViewMode('list')}
+                            className={`p-2 rounded-lg transition-all ${viewMode === 'list' ? 'bg-emerald-500/20 text-emerald-400' : 'text-white/40 hover:text-white/70'}`}
+                        >
+                            <List size={18} />
+                        </button>
                     </div>
                 </div>
+            </div>
 
-                {/* Category/Tag Filter */}
-                <div className="flex flex-wrap gap-2 items-center">
-                    <Hash size={14} className="text-white/40" />
-                    <button
-                        onClick={() => setSelectedCategory('')}
-                        className={`px-3 py-1 text-xs rounded-full transition-all ${!selectedCategory
-                            ? 'bg-emerald-500/30 text-emerald-300 border border-emerald-500/50'
-                            : 'bg-white/5 text-white/50 border border-white/10 hover:bg-white/10'}`}
-                    >
-                        전체
-                    </button>
-                    {categories.slice(0, showCategoryPicker ? categories.length : 8).map(cat => (
+            {/* Search Bar (Left Above Toggle) */}
+            <div className="relative mb-6 md:mb-0 md:absolute md:top-32 md:left-10 z-20 pointer-events-auto w-full md:w-[300px]">
+                <div className="relative group w-full">
+                    <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none">
+                        <Search className="text-emerald-400 opacity-50" size={20} />
+                    </div>
+                    <input
+                        type="text"
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        placeholder="번호, 제목, 가사 검색..."
+                        className="bg-gradient-to-br from-emerald-500/20 to-teal-500/10 border border-emerald-500/30 rounded-2xl pl-12 pr-10 py-3 w-full text-xl md:text-2xl font-bold text-white placeholder-white/20 focus:outline-none focus:border-emerald-500/60 focus:ring-1 focus:ring-emerald-500/30 transition-all backdrop-blur-sm"
+                        maxLength={20}
+                    />
+                    {searchQuery && (
                         <button
-                            key={cat}
-                            onClick={() => setSelectedCategory(cat === selectedCategory ? '' : cat)}
-                            className={`px-3 py-1 text-xs rounded-full transition-all ${selectedCategory === cat
-                                ? 'bg-emerald-500/30 text-emerald-300 border border-emerald-500/50'
-                                : 'bg-white/5 text-white/50 border border-white/10 hover:bg-white/10'}`}
+                            onClick={() => { setSearchQuery(''); setSelectedCategories([]); }}
+                            className="absolute inset-y-0 right-3 flex items-center text-white/30 hover:text-red-400 transition-colors"
                         >
-                            #{cat}
-                        </button>
-                    ))}
-                    {categories.length > 8 && (
-                        <button
-                            onClick={() => setShowCategoryPicker(!showCategoryPicker)}
-                            className="px-3 py-1 text-xs rounded-full bg-white/5 text-white/50 border border-white/10 hover:bg-white/10 flex items-center gap-1"
-                        >
-                            {showCategoryPicker ? '접기' : `+${categories.length - 8}개 더보기`}
+                            <X size={20} />
                         </button>
                     )}
                 </div>
             </div>
 
             {/* Matching Results Info */}
-            {(searchQuery || selectedCategory) && (
-                <div className="mb-4 flex items-center gap-2 text-sm flex-wrap">
-                    <span className="text-white/40">검색 결과:</span>
-                    <span className="text-emerald-400 font-bold">{filteredHymns.length}개</span>
-                    {selectedCategory && (
-                        <span className="px-2 py-0.5 bg-emerald-500/20 text-emerald-300 rounded text-xs">
-                            #{selectedCategory}
-                        </span>
-                    )}
-                    {searchQuery && (
-                        <span className="text-white/50 text-xs ml-2">
-                            {/^\d+$/.test(searchQuery) ? (
-                                <span>(번호 검색: {searchQuery}...)</span>
-                            ) : (
-                                <span>("{searchQuery}" 검색)</span>
-                            )}
-                        </span>
-                    )}
-                </div>
-            )}
+            {
+                (searchQuery || selectedCategories.length > 0) && (
+                    <div className="mb-4 flex items-center gap-2 text-sm flex-wrap">
+                        <span className="text-white/40">검색 결과:</span>
+                        <span className="text-emerald-400 font-bold">{filteredHymns.length}개</span>
+                        {selectedCategories.map(cat => (
+                            <span key={cat} className="px-2 py-0.5 bg-emerald-500/20 text-emerald-300 rounded text-xs">
+                                #{cat}
+                            </span>
+                        ))}
+                        {searchQuery && (
+                            <span className="text-white/50 text-xs ml-2">
+                                {/^\d+$/.test(searchQuery) ? (
+                                    <span>(번호 검색: {searchQuery}...)</span>
+                                ) : (
+                                    <span>("{searchQuery}" 검색)</span>
+                                )}
+                            </span>
+                        )}
+                    </div>
+                )
+            }
 
             {/* Content */}
             <div className="flex-1 overflow-y-auto custom-scrollbar -mr-4 pr-4">
@@ -560,11 +619,11 @@ export const HymnGallery: React.FC<HymnGalleryProps> = ({ isAdmin = false }) => 
                                                 {selectedHymn.code}
                                             </span>
                                         )}
-                                        {selectedHymn.category && (
-                                            <span className="px-3 py-1 bg-white/10 text-white/60 rounded text-xs border border-white/10">
-                                                #{selectedHymn.category}
+                                        {selectedHymn.category && selectedHymn.category.split(',').map(tag => (
+                                            <span key={tag} className="px-3 py-1 bg-white/10 text-white/60 rounded text-xs border border-white/10">
+                                                #{tag.replace(/#/g, '').trim()}
                                             </span>
-                                        )}
+                                        ))}
                                     </div>
                                     <h2 className="text-2xl font-bold text-white leading-tight">{selectedHymn.title}</h2>
                                 </div>
@@ -572,6 +631,87 @@ export const HymnGallery: React.FC<HymnGalleryProps> = ({ isAdmin = false }) => 
                                 {/* Editing Mode */}
                                 {isEditing ? (
                                     <div className="flex-1 flex flex-col gap-6 overflow-y-auto">
+                                        {/* Image Editor */}
+                                        <div>
+                                            <h3 className="text-xs uppercase tracking-wider text-white/40 mb-3 font-bold flex items-center gap-2">
+                                                <ImageIcon size={14} /> 악보 이미지
+                                            </h3>
+                                            <div className="grid grid-cols-3 gap-2 mb-3">
+                                                {editImages.map((url, index) => (
+                                                    <div key={index} className="aspect-[3/4] relative group rounded-lg overflow-hidden border border-white/10">
+                                                        <img src={url} alt="" className="w-full h-full object-cover" />
+                                                        <button
+                                                            onClick={() => removeImage(index)}
+                                                            className="absolute top-1 right-1 p-1 bg-red-500/80 text-white rounded opacity-0 group-hover:opacity-100 transition-opacity"
+                                                        >
+                                                            <Trash2 size={12} />
+                                                        </button>
+                                                        <div className="absolute bottom-0 left-0 right-0 bg-black/60 text-[10px] text-white/80 p-1 text-center truncate">
+                                                            {index + 1}
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                                <label className="aspect-[3/4] flex flex-col items-center justify-center border border-dashed border-white/20 rounded-lg hover:bg-white/5 cursor-pointer transition-colors relative">
+                                                    {uploading ? (
+                                                        <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                                    ) : (
+                                                        <>
+                                                            <Plus size={20} className="text-white/40 mb-1" />
+                                                            <span className="text-[10px] text-white/40">추가</span>
+                                                        </>
+                                                    )}
+                                                    <input
+                                                        type="file"
+                                                        accept="image/*"
+                                                        onChange={handleImageUpload}
+                                                        disabled={uploading}
+                                                        className="hidden"
+                                                    />
+                                                </label>
+                                            </div>
+                                            <p className="text-[10px] text-white/30">* 첫 번째 이미지가 대표 이미지가 됩니다.</p>
+                                        </div>
+
+                                        {/* Info Editor */}
+                                        {/* Title Editor */}
+                                        <div className="mb-4">
+                                            <h3 className="text-xs uppercase tracking-wider text-white/40 mb-3 font-bold flex items-center gap-2">
+                                                <Edit3 size={14} /> 제목
+                                            </h3>
+                                            <input
+                                                type="text"
+                                                value={editTitle}
+                                                onChange={(e) => setEditTitle(e.target.value)}
+                                                className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-white text-lg font-bold focus:outline-none focus:border-indigo-500/50 transition-all placeholder-white/20"
+                                            />
+                                        </div>
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <div>
+                                                <h3 className="text-xs uppercase tracking-wider text-white/40 mb-3 font-bold flex items-center gap-2">
+                                                    <Music size={14} /> Key (코드)
+                                                </h3>
+                                                <input
+                                                    type="text"
+                                                    value={editCode}
+                                                    onChange={(e) => setEditCode(e.target.value)}
+                                                    placeholder="예: G"
+                                                    className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-white text-sm focus:outline-none focus:border-indigo-500/50 transition-all font-mono"
+                                                />
+                                            </div>
+                                            <div>
+                                                <h3 className="text-xs uppercase tracking-wider text-white/40 mb-3 font-bold flex items-center gap-2">
+                                                    <Hash size={14} /> 주제 (분류)
+                                                </h3>
+                                                <input
+                                                    type="text"
+                                                    value={editCategory}
+                                                    onChange={(e) => setEditCategory(e.target.value)}
+                                                    placeholder="예: 경배와찬양"
+                                                    className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-white text-sm focus:outline-none focus:border-indigo-500/50 transition-all"
+                                                />
+                                            </div>
+                                        </div>
+
                                         {/* Lyrics Editor */}
                                         <div>
                                             <h3 className="text-xs uppercase tracking-wider text-white/40 mb-3 font-bold flex items-center gap-2">
@@ -723,6 +863,6 @@ export const HymnGallery: React.FC<HymnGalleryProps> = ({ isAdmin = false }) => 
                     </motion.div>
                 )}
             </AnimatePresence>
-        </div>
+        </div >
     );
 };

@@ -428,7 +428,6 @@ export const ConceptCards: React.FC<ConceptCardsProps> = ({ onViewRelated, maxIt
                     className="mb-12 relative z-10"
                 >
                     <h1 className="font-['Anton'] text-[clamp(2.5rem,6vw,5rem)] leading-[0.9] text-white overflow-hidden">
-                        CONCEPT CARDS
                     </h1>
                     <div className="flex items-center gap-4 mt-4">
                         <p className="font-['Inter'] text-sm md:text-base text-white/50 tracking-wide">

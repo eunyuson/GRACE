@@ -4,7 +4,7 @@ import { onAuthStateChanged, signInAnonymously, User } from 'firebase/auth';
 import { addDoc, collection, doc, onSnapshot, query, serverTimestamp, updateDoc, where } from 'firebase/firestore';
 import { db, auth } from '../firebase';
 import { getAllCategories, getHymnByNumber } from '../data';
-import { Plus, Trash2, ArrowUp, ArrowDown, Save, Printer, X } from 'lucide-react';
+import { Plus, Trash2, ArrowUp, ArrowDown, Save, Printer, X, Cloud, Search, Hash, Music } from 'lucide-react';
 
 interface LibraryItem {
     id: string;
@@ -15,6 +15,7 @@ interface LibraryItem {
     imageUrls?: string[];
     tags?: string[];
     category?: string;
+    code?: string;
 }
 
 interface SetlistItem {
@@ -35,16 +36,18 @@ interface SetlistDoc {
     createdAt?: any;
 }
 
-const MAX_QUERY_LENGTH = 3;
+const MAX_QUERY_LENGTH = 20;
 
 export const SetlistPlanner: React.FC = () => {
     const [currentUser, setCurrentUser] = useState<User | null>(null);
     const [authError, setAuthError] = useState('');
     const [anonTried, setAnonTried] = useState(false);
 
-    const [libraryTab, setLibraryTab] = useState<'hymn' | 'praise'>('hymn');
+    const [libraryTab, setLibraryTab] = useState<'hymn' | 'praise' | 'all'>('hymn');
     const [searchQuery, setSearchQuery] = useState('');
-    const [selectedTag, setSelectedTag] = useState('');
+    const [selectedTags, setSelectedTags] = useState<string[]>([]);
+    const [selectedCode, setSelectedCode] = useState('');
+    const [showCategoryPicker, setShowCategoryPicker] = useState(false);
 
     const [hymnItems, setHymnItems] = useState<LibraryItem[]>([]);
     const [praiseItems, setPraiseItems] = useState<LibraryItem[]>([]);
@@ -132,7 +135,8 @@ export const SetlistPlanner: React.FC = () => {
                 const info = getHymnByNumber(item.number);
                 return {
                     ...item,
-                    category: info?.category || ''
+                    category: info?.category || '',
+                    code: info?.code || ''
                 };
             });
 
@@ -204,28 +208,44 @@ export const SetlistPlanner: React.FC = () => {
         return () => window.removeEventListener('keydown', handleKeyDown);
     }, []);
 
-    const libraryItems = libraryTab === 'hymn' ? hymnItems : praiseItems;
-
-    const availableTags = useMemo(() => {
-        if (libraryTab === 'hymn') {
-            return getAllCategories();
-        }
-        const tagSet = new Set<string>();
-        praiseItems.forEach(item => {
-            (item.tags || []).forEach(tag => tagSet.add(tag.replace(/^#+/, '')));
+    const libraryItems = useMemo(() => {
+        if (libraryTab === 'hymn') return hymnItems;
+        if (libraryTab === 'praise') return praiseItems;
+        return [...hymnItems, ...praiseItems].sort((a, b) => {
+            if (a.type !== b.type) return a.type === 'hymn' ? -1 : 1;
+            return (a.number || 0) - (b.number || 0);
         });
-        return Array.from(tagSet).sort();
-    }, [libraryTab, praiseItems]);
+    }, [libraryTab, hymnItems, praiseItems]);
+
+    const categories = useMemo(() => {
+        const unique = new Set<string>();
+        libraryItems.forEach(item => {
+            if (item.category) {
+                item.category.split(',').forEach(t => unique.add(t.replace(/#/g, '').trim()));
+            }
+            if (item.tags) {
+                item.tags.forEach(t => unique.add(t.replace(/^#+/, '').trim()));
+            }
+        });
+        return Array.from(unique).filter(Boolean).sort();
+    }, [libraryItems]);
+
+    const codes = useMemo(() => Array.from(new Set(libraryItems.map(i => i.code).filter((c): c is string => !!c))).sort(), [libraryItems]);
 
     const filteredLibrary = useMemo(() => {
         let results = libraryItems;
 
-        if (selectedTag) {
-            if (libraryTab === 'hymn') {
-                results = results.filter(item => item.category === selectedTag);
-            } else {
-                results = results.filter(item => (item.tags || []).some(t => t.replace(/^#+/, '') === selectedTag));
-            }
+        if (selectedTags.length > 0) {
+            results = results.filter(item => {
+                const tags: string[] = [];
+                if (item.category) item.category.split(',').forEach(t => tags.push(t.replace(/#/g, '').trim()));
+                if (item.tags) item.tags.forEach(t => tags.push(t.replace(/^#+/, '').trim()));
+                return selectedTags.some(st => tags.includes(st));
+            });
+        }
+
+        if (selectedCode) {
+            results = results.filter(item => item.code === selectedCode);
         }
 
         if (!searchQuery) return results;
@@ -237,9 +257,10 @@ export const SetlistPlanner: React.FC = () => {
             if (isNumeric && item.number.toString().startsWith(q)) return true;
             if (item.title?.toLowerCase().includes(q)) return true;
             if (item.category?.toLowerCase().includes(q)) return true;
+            if (item.code?.toLowerCase() === q) return true;
             return false;
         });
-    }, [libraryItems, searchQuery, selectedTag, libraryTab]);
+    }, [libraryItems, searchQuery, selectedTags, selectedCode]);
 
     const addToSetlist = (item: LibraryItem) => {
         const images = item.imageUrls && item.imageUrls.length > 0
@@ -303,6 +324,7 @@ export const SetlistPlanner: React.FC = () => {
                 });
                 setActiveSetlistId(docRef.id);
             }
+            alert('저장되었습니다.');
         } catch (err) {
             console.error('Setlist save failed:', err);
             alert('저장에 실패했습니다.');
@@ -332,14 +354,82 @@ export const SetlistPlanner: React.FC = () => {
     };
 
     return (
-        <div className="w-full h-full overflow-hidden flex flex-col pt-32 px-4 md:px-10 pb-10">
-            <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-6 mb-8 print-hide">
-                <div>
-                    <h1 className="text-4xl md:text-5xl font-['Anton'] text-white mb-2">SETLIST</h1>
-                    <p className="text-white/40 text-xs tracking-[0.3em] uppercase font-['Inter']">찬양 콘티 플래너</p>
+        <div className="w-full h-full overflow-hidden print:overflow-visible flex flex-col pt-40 md:pt-60 px-4 md:px-10 pb-10 print:p-0 print:h-auto relative">
+            {/* Filters & Toggle (Right Top) */}
+            <div className="flex flex-col gap-4 mb-2 md:absolute md:top-0 md:right-10 md:w-auto md:mb-0 z-20 pointer-events-auto items-end">
+                <div className="flex items-center gap-4">
+                    {/* Filters */}
+                    <div className="flex flex-col gap-2 items-end mr-4">
+                        {/* Code Filter */}
+                        <div className="flex flex-wrap gap-1.5 items-center justify-end max-w-none">
+                            <button
+                                onClick={() => setSelectedCode('')}
+                                className={`px-2.5 py-1 text-[10px] rounded-full transition-all border ${!selectedCode ? 'bg-emerald-500/30 text-emerald-300 border-emerald-500/50' : 'bg-white/5 text-white/50 border-white/10 hover:bg-white/10'}`}
+                            >
+                                All Key
+                            </button>
+                            {codes.map(code => (
+                                <button
+                                    key={code}
+                                    onClick={() => setSelectedCode(code === selectedCode ? '' : code)}
+                                    className={`px-2.5 py-1 text-[10px] rounded-full transition-all border ${selectedCode === code ? 'bg-emerald-500/30 text-emerald-300 border-emerald-500/50' : 'bg-white/5 text-white/50 border-white/10 hover:bg-white/10'}`}
+                                >
+                                    {code}
+                                </button>
+                            ))}
+                        </div>
+                        {/* Category Filter - Widened (Multi-select) */}
+                        <div className="flex flex-wrap gap-1.5 items-center justify-end max-w-[800px]">
+                            <button
+                                onClick={() => setSelectedTags([])}
+                                className={`px-2.5 py-1 text-[10px] rounded-full transition-all border ${selectedTags.length === 0 ? 'bg-emerald-500/30 text-emerald-300 border-emerald-500/50' : 'bg-white/5 text-white/50 border-white/10 hover:bg-white/10'}`}
+                            >
+                                All
+                            </button>
+                            {categories.slice(0, showCategoryPicker ? categories.length : 15).map(tag => (
+                                <button
+                                    key={tag}
+                                    onClick={() => setSelectedTags(prev => prev.includes(tag) ? prev.filter(t => t !== tag) : [...prev, tag])}
+                                    className={`px-2.5 py-1 text-[10px] rounded-full transition-all border ${selectedTags.includes(tag) ? 'bg-emerald-500/30 text-emerald-300 border-emerald-500/50' : 'bg-white/5 text-white/50 border-white/10 hover:bg-white/10'}`}
+                                >
+                                    #{tag}
+                                </button>
+                            ))}
+                            {categories.length > 15 && (
+                                <button
+                                    onClick={() => setShowCategoryPicker(!showCategoryPicker)}
+                                    className="px-2.5 py-1 text-[10px] rounded-full bg-white/5 text-white/50 border border-white/10 hover:bg-white/10"
+                                >
+                                    {showCategoryPicker ? '접기' : `+${categories.length - 15}`}
+                                </button>
+                            )}
+                        </div>
+                    </div>
                 </div>
-                <div className="flex items-center gap-2 text-xs text-white/40">
-                    {authError ? authError : currentUser ? `UID: ${currentUser.uid.slice(0, 8)}...` : '로그인 확인 중...'}
+            </div>
+
+            {/* Search Bar (Left Above Toggle) */}
+            <div className="relative mb-2 md:mb-0 md:absolute md:top-44 md:left-10 z-20 pointer-events-auto w-full md:w-[300px]">
+                <div className="relative group w-full">
+                    <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none">
+                        <Search className="text-emerald-400 opacity-50" size={20} />
+                    </div>
+                    <input
+                        type="text"
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        placeholder="번호, 제목, 주제..."
+                        className="bg-gradient-to-br from-emerald-500/20 to-teal-500/10 border border-emerald-500/30 rounded-2xl pl-12 pr-10 py-3 w-full text-xl md:text-2xl font-bold text-white placeholder-white/20 focus:outline-none focus:border-emerald-500/60 focus:ring-1 focus:ring-emerald-500/30 transition-all backdrop-blur-sm"
+                        maxLength={20}
+                    />
+                    {searchQuery && (
+                        <button
+                            onClick={() => { setSearchQuery(''); setSelectedTag(''); setSelectedCode(''); }}
+                            className="absolute inset-y-0 right-3 flex items-center text-white/30 hover:text-red-400 transition-colors"
+                        >
+                            <X size={20} />
+                        </button>
+                    )}
                 </div>
             </div>
 
@@ -363,6 +453,14 @@ export const SetlistPlanner: React.FC = () => {
                         >
                             🎶 찬양곡
                         </button>
+                        <button
+                            onClick={() => { setLibraryTab('all'); setSelectedTag(''); }}
+                            className={`px-3 py-1.5 text-[10px] tracking-[0.15em] uppercase rounded-full transition-all ${libraryTab === 'all'
+                                ? 'bg-gradient-to-r from-indigo-500/30 to-purple-500/30 text-white'
+                                : 'text-white/50 hover:text-white/80'}`}
+                        >
+                            ♾️ 전체
+                        </button>
                         <div className="ml-auto flex items-center gap-2">
                             {selectedLibraryIds.size > 0 && (
                                 <button
@@ -372,67 +470,7 @@ export const SetlistPlanner: React.FC = () => {
                                     {selectedLibraryIds.size}곡 추가하기
                                 </button>
                             )}
-                            <input
-                                value={searchQuery}
-                                onChange={(e) => setSearchQuery(e.target.value)}
-                                placeholder="제목 또는 번호 검색..."
-                                className="bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-xs text-white/80 focus:outline-none focus:border-emerald-500/40"
-                            />
-                            {searchQuery && (
-                                <button
-                                    onClick={() => setSearchQuery('')}
-                                    className="p-2 rounded-lg bg-white/5 border border-white/10 text-white/60 hover:text-white"
-                                >
-                                    <X size={14} />
-                                </button>
-                            )}
-                        </div>
-                    </div>
 
-                    <div className="flex flex-col md:flex-row gap-4 mb-6">
-                        <div className="flex items-center gap-3">
-                            <div className="bg-gradient-to-br from-emerald-500/20 to-teal-500/10 border border-emerald-500/30 rounded-2xl px-5 py-3 min-w-[120px] text-center backdrop-blur-sm">
-                                <span className="text-3xl font-bold text-white font-mono tracking-wider">
-                                    {searchQuery || '___'}
-                                </span>
-                                <span className="text-emerald-400 text-lg ml-1">{libraryTab === 'hymn' ? '장' : '곡'}</span>
-                            </div>
-                            <div className="grid grid-cols-5 gap-1.5 bg-white/5 p-2 rounded-2xl border border-white/10 backdrop-blur-sm">
-                                {[1, 2, 3, 4, 5, 6, 7, 8, 9, 0].map((num) => (
-                                    <button
-                                        key={num}
-                                        onClick={() => {
-                                            if (searchQuery.length < MAX_QUERY_LENGTH) {
-                                                setSearchQuery(prev => prev + num.toString());
-                                            }
-                                        }}
-                                        className="w-10 h-10 rounded-xl bg-gradient-to-br from-white/10 to-white/5 hover:from-emerald-500/30 hover:to-teal-500/20 border border-white/10 hover:border-emerald-500/40 text-white font-bold text-lg transition-all"
-                                    >
-                                        {num}
-                                    </button>
-                                ))}
-                            </div>
-                        </div>
-                        <div className="flex flex-wrap gap-2 items-center">
-                            <button
-                                onClick={() => setSelectedTag('')}
-                                className={`px-3 py-1 text-xs rounded-full transition-all ${!selectedTag
-                                    ? 'bg-emerald-500/30 text-emerald-300 border border-emerald-500/50'
-                                    : 'bg-white/5 text-white/50 border border-white/10 hover:bg-white/10'}`}
-                            >
-                                전체
-                            </button>
-                            {availableTags.slice(0, 10).map(tag => (
-                                <button
-                                    key={tag}
-                                    onClick={() => setSelectedTag(tag === selectedTag ? '' : tag)}
-                                    className={`px-3 py-1 text-xs rounded-full transition-all ${selectedTag === tag
-                                        ? 'bg-emerald-500/30 text-emerald-300 border border-emerald-500/50'
-                                        : 'bg-white/5 text-white/50 border border-white/10 hover:bg-white/10'}`}
-                                >
-                                    #{tag}
-                                </button>
-                            ))}
                         </div>
                     </div>
 
@@ -466,13 +504,16 @@ export const SetlistPlanner: React.FC = () => {
                                         </div>
                                     </div>
                                     <div className="p-2 text-zinc-900">
-                                        <div className="text-[10px] uppercase tracking-wider text-zinc-500">
-                                            {libraryTab === 'hymn' ? '찬송가' : '찬양곡'} {item.number}
+                                        <div className="text-[10px] uppercase tracking-wider text-zinc-500 flex items-center justify-between">
+                                            <span>
+                                                {item.type === 'hymn' ? '찬송가' : '찬양곡'} {item.number}
+                                            </span>
+                                            {item.code && <span className="text-emerald-600 font-bold">{item.code}</span>}
                                         </div>
                                         <div className="text-sm font-semibold truncate">{item.title}</div>
-                                        {item.category && (
-                                            <div className="text-[10px] text-emerald-700 mt-1">#{item.category}</div>
-                                        )}
+                                        {item.category && item.category.split(',').map(tag => (
+                                            <span key={tag} className="text-[10px] text-emerald-700 mt-1 mr-1 inline-block">#{tag.replace(/#/g, '').trim()}</span>
+                                        ))}
                                     </div>
                                     <button
                                         onClick={(e) => { e.stopPropagation(); addToSetlist(item); }}
@@ -491,7 +532,7 @@ export const SetlistPlanner: React.FC = () => {
                 </div>
 
                 {/* Setlist */}
-                <div className="w-full lg:w-[420px] flex-shrink-0 flex flex-col gap-4">
+                <div className="w-full lg:w-[420px] print:w-full flex-shrink-0 flex flex-col gap-4">
                     <div className="bg-white/5 border border-white/10 rounded-2xl p-4 flex flex-col gap-3 print-hide">
                         <div className="flex items-center gap-2">
                             <input
@@ -503,15 +544,19 @@ export const SetlistPlanner: React.FC = () => {
                             <button
                                 onClick={handleSave}
                                 disabled={saving}
-                                className="px-3 py-2 bg-emerald-500/20 text-emerald-300 rounded-lg border border-emerald-500/30 hover:bg-emerald-500/30 transition-colors"
+                                className="px-3 py-2 bg-emerald-500/20 text-emerald-300 rounded-lg border border-emerald-500/30 hover:bg-emerald-500/30 transition-colors flex items-center gap-1"
+                                title="서버에 저장"
                             >
-                                <Save size={16} />
+                                <Cloud size={16} />
+                                <span className="text-xs hidden lg:inline">서버 저장</span>
                             </button>
                             <button
                                 onClick={() => window.print()}
-                                className="px-3 py-2 bg-white/10 text-white/80 rounded-lg border border-white/10 hover:bg-white/20 transition-colors"
+                                className="px-3 py-2 bg-white/10 text-white/80 rounded-lg border border-white/10 hover:bg-white/20 transition-colors flex items-center gap-1"
+                                title="인쇄"
                             >
                                 <Printer size={16} />
+                                <span className="text-xs hidden lg:inline">인쇄</span>
                             </button>
                         </div>
                         <div className="flex items-center gap-2">
@@ -582,7 +627,7 @@ export const SetlistPlanner: React.FC = () => {
                     </div>
 
                     <div className="print-area bg-white text-black rounded-2xl p-4">
-                        <div className="text-lg font-bold mb-4 print-hide">{setlistTitle || '콘티'}</div>
+                        <div className="text-lg font-bold mb-4 print-header">{setlistTitle || '콘티'}</div>
                         {setlistItems.length === 0 && (
                             <div className="text-sm text-black/50 print-hide">콘티에 곡을 추가해 주세요.</div>
                         )}

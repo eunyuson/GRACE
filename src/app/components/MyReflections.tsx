@@ -306,7 +306,6 @@ export const MyReflections: React.FC<MyReflectionsProps> = ({ onSelectCallback }
                             className="flex-shrink-0"
                         >
                             <h1 className="font-['Anton'] text-[clamp(2.5rem,6vw,5rem)] leading-[0.9] text-white overflow-hidden whitespace-nowrap">
-                                MY REFLECTIONS
                             </h1>
                             <div className="flex items-center gap-3 mt-2">
                                 <p className="font-['Inter'] text-sm text-white/50 tracking-wide">

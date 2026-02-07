@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, Download, Music, Grid, List, Edit3, Save, Youtube, Plus, Trash2, ExternalLink, ChevronLeft, ChevronRight, ArrowUp, ArrowDown } from 'lucide-react';
+import { X, Download, Music, Grid, List, Edit3, Save, Youtube, Plus, Trash2, ExternalLink, ChevronLeft, ChevronRight, ArrowUp, ArrowDown, Hash, Search } from 'lucide-react';
 import { collection, query, onSnapshot, where, doc, updateDoc, deleteDoc, writeBatch } from 'firebase/firestore';
 import { getDownloadURL, ref as storageRef, uploadBytes } from 'firebase/storage';
 import { db, storage } from '../firebase';
@@ -32,9 +32,30 @@ export const PraiseGallery: React.FC<PraiseGalleryProps> = ({ isAdmin = false })
     const MAX_QUERY_LENGTH = 3;
     const [isMerging, setIsMerging] = useState(false);
 
+    // Category/Tag filter
+    const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+    const [selectedCode, setSelectedCode] = useState<string>('');
+    const [showCategoryPicker, setShowCategoryPicker] = useState(false);
+    const codes = useMemo(() => Array.from(new Set(hymns.map(h => h.code).filter((c): c is string => !!c))).sort(), [hymns]);
+    const categories = useMemo(() => {
+        const uniqueTags = new Set<string>();
+        hymns.forEach(h => {
+            if (h.category) {
+                h.category.split(',').forEach(tag => {
+                    const clean = tag.replace(/#/g, '').trim();
+                    if (clean) uniqueTags.add(clean);
+                });
+            }
+        });
+        return Array.from(uniqueTags).sort();
+    }, [hymns]);
+
     // Editing states
     const [isEditing, setIsEditing] = useState(false);
     const [editLyrics, setEditLyrics] = useState('');
+    const [editTitle, setEditTitle] = useState('');
+    const [editCode, setEditCode] = useState('');
+    const [editCategory, setEditCategory] = useState('');
     const [editYoutubeLinks, setEditYoutubeLinks] = useState<{ url: string; title: string }[]>([]);
     const [editImageUrls, setEditImageUrls] = useState<string[]>([]);
     const [newImageUrl, setNewImageUrl] = useState('');
@@ -48,6 +69,9 @@ export const PraiseGallery: React.FC<PraiseGalleryProps> = ({ isAdmin = false })
     const startEditing = () => {
         if (selectedHymn) {
             setEditLyrics(selectedHymn.lyrics || '');
+            setEditTitle(selectedHymn.title || '');
+            setEditCode(selectedHymn.code || '');
+            setEditCategory(selectedHymn.category || '');
             setEditYoutubeLinks(selectedHymn.youtubeLinks || []);
             setEditImageUrls(getImagesForHymn(selectedHymn));
             setNewImageUrl('');
@@ -64,10 +88,13 @@ export const PraiseGallery: React.FC<PraiseGalleryProps> = ({ isAdmin = false })
         setSaving(true);
         try {
             const cleanedImageUrls = editImageUrls.map(u => u.trim()).filter(Boolean);
-            const primaryImageUrl = cleanedImageUrls[0] || selectedHymn.imageUrl || '';
+            const primaryImageUrl = cleanedImageUrls[0] || '';
             const hymnRef = doc(db, 'gallery', selectedHymn.id);
             await updateDoc(hymnRef, {
+                title: editTitle,
                 lyrics: editLyrics,
+                code: editCode,
+                category: editCategory,
                 youtubeLinks: editYoutubeLinks,
                 imageUrls: cleanedImageUrls,
                 imageUrl: primaryImageUrl
@@ -76,7 +103,10 @@ export const PraiseGallery: React.FC<PraiseGalleryProps> = ({ isAdmin = false })
             // Update local state
             setSelectedHymn({
                 ...selectedHymn,
+                title: editTitle,
                 lyrics: editLyrics,
+                code: editCode,
+                category: editCategory,
                 youtubeLinks: editYoutubeLinks,
                 imageUrls: cleanedImageUrls,
                 imageUrl: primaryImageUrl
@@ -281,100 +311,200 @@ export const PraiseGallery: React.FC<PraiseGalleryProps> = ({ isAdmin = false })
 
     // Filtering: number prefix + title contains
     const filteredHymns = useMemo(() => {
-        if (!searchQuery) return hymns;
+        let results = hymns;
+        if (selectedCategories.length > 0) {
+            results = results.filter(h => {
+                if (!h.category) return false;
+                const tags = h.category.split(',').map(t => t.replace(/#/g, '').trim());
+                return selectedCategories.some(cat => tags.includes(cat));
+            });
+        }
+        if (selectedCode) results = results.filter(h => h.code === selectedCode);
+
+        if (!searchQuery) return results;
         const q = searchQuery.toLowerCase().trim();
         const isNumeric = /^\d+$/.test(q);
 
-        return hymns.filter(h => {
+        return results.filter(h => {
             if (isNumeric && h.number.toString().startsWith(q)) return true;
             return h.title.toLowerCase().includes(q);
         });
-    }, [hymns, searchQuery]);
+    }, [hymns, searchQuery, selectedCategories, selectedCode]);
 
     const selectedImages = selectedHymn ? getImagesForHymn(selectedHymn) : [];
     const primaryImage = selectedImages[0] || '';
 
     return (
-        <div className="w-full h-full overflow-hidden flex flex-col pt-32 px-4 md:px-10 pb-10">
-            {/* Header & Search */}
-            <div className="flex flex-col gap-4 mb-6">
-                <div className="flex flex-col lg:flex-row justify-between items-start lg:items-end gap-4">
-                    <div className="flex items-end gap-6">
-                        <div>
-                            <h1 className="text-4xl md:text-5xl font-['Anton'] text-white mb-1">PRAISE</h1>
-                            <p className="text-white/40 font-['Inter'] tracking-wider text-xs">찬양 악보 모음</p>
-                        </div>
-
-                        {/* Number Display */}
-                        <div className="flex items-center gap-3">
-                            <div className="bg-gradient-to-br from-emerald-500/20 to-teal-500/10 border border-emerald-500/30 rounded-2xl px-6 py-3 min-w-[120px] text-center backdrop-blur-sm">
-                                <span className="text-3xl md:text-4xl font-bold text-white font-mono tracking-wider">
-                                    {searchQuery || '___'}
-                                </span>
-                                <span className="text-emerald-400 text-lg ml-1">곡</span>
-                            </div>
-                            {searchQuery && (
+        <div className="w-full h-full overflow-hidden flex flex-col pt-40 md:pt-60 px-4 md:px-10 pb-10 relative">
+            {/* Filters & Toggle (Right Top) */}
+            <div className="flex flex-col gap-4 mb-2 md:absolute md:top-0 md:right-10 md:w-auto md:mb-0 z-20 pointer-events-auto items-end">
+                <div className="flex items-center gap-4">
+                    {/* Filters */}
+                    <div className="flex flex-col gap-2 items-end mr-4">
+                        {/* Code Filter */}
+                        <div className="flex flex-wrap gap-1.5 items-center justify-end max-w-none">
+                            <button
+                                onClick={() => setSelectedCode('')}
+                                className={`px-2.5 py-1 text-[10px] rounded-full transition-all border ${!selectedCode ? 'bg-emerald-500/30 text-emerald-300 border-emerald-500/50' : 'bg-white/5 text-white/50 border-white/10 hover:bg-white/10'}`}
+                            >
+                                All Key
+                            </button>
+                            {codes.map(code => (
                                 <button
-                                    onClick={() => setSearchQuery('') }
-                                    className="p-2 bg-white/5 hover:bg-red-500/20 border border-white/10 hover:border-red-500/30 rounded-xl text-white/50 hover:text-red-400 transition-all"
+                                    key={code}
+                                    onClick={() => setSelectedCode(code === selectedCode ? '' : code)}
+                                    className={`px-2.5 py-1 text-[10px] rounded-full transition-all border ${selectedCode === code ? 'bg-emerald-500/30 text-emerald-300 border-emerald-500/50' : 'bg-white/5 text-white/50 border-white/10 hover:bg-white/10'}`}
                                 >
-                                    <X size={20} />
+                                    {code}
+                                </button>
+                            ))}
+                        </div>
+                        {/* Category Filter - Widened (Multi-select) */}
+                        <div className="flex flex-wrap gap-1.5 items-center justify-end max-w-[800px]">
+                            <button
+                                onClick={() => setSelectedCategories([])}
+                                className={`px-2.5 py-1 text-[10px] rounded-full transition-all border ${selectedCategories.length === 0 ? 'bg-emerald-500/30 text-emerald-300 border-emerald-500/50' : 'bg-white/5 text-white/50 border-white/10 hover:bg-white/10'}`}
+                            >
+                                All
+                            </button>
+                            {categories.slice(0, showCategoryPicker ? categories.length : 15).map(cat => (
+                                <button
+                                    key={cat}
+                                    onClick={() => setSelectedCategories(prev => prev.includes(cat) ? prev.filter(c => c !== cat) : [...prev, cat])}
+                                    className={`px-2.5 py-1 text-[10px] rounded-full transition-all border ${selectedCategories.includes(cat) ? 'bg-emerald-500/30 text-emerald-300 border-emerald-500/50' : 'bg-white/5 text-white/50 border-white/10 hover:bg-white/10'}`}
+                                >
+                                    #{cat}
+                                </button>
+                            ))}
+                            {categories.length > 15 && (
+                                <button
+                                    onClick={() => setShowCategoryPicker(!showCategoryPicker)}
+                                    className="px-2.5 py-1 text-[10px] rounded-full bg-white/5 text-white/50 border border-white/10 hover:bg-white/10"
+                                >
+                                    {showCategoryPicker ? '접기' : `+${categories.length - 15}`}
                                 </button>
                             )}
                         </div>
                     </div>
 
-                    <div className="flex items-center gap-4">
-                        {/* Number Keypad */}
-                        <div className="grid grid-cols-5 gap-1.5 bg-white/5 p-2 rounded-2xl border border-white/10 backdrop-blur-sm">
-                            {[1, 2, 3, 4, 5, 6, 7, 8, 9, 0].map((num) => (
-                                <button
-                                    key={num}
-                                    onClick={() => {
-                                        if (searchQuery.length < MAX_QUERY_LENGTH) {
-                                            setSearchQuery(prev => prev + num.toString());
-                                        }
-                                    }}
-                                    className="w-10 h-10 md:w-11 md:h-11 rounded-xl bg-gradient-to-br from-white/10 to-white/5 hover:from-emerald-500/30 hover:to-teal-500/20 border border-white/10 hover:border-emerald-500/40 text-white font-bold text-lg transition-all hover:scale-105 active:scale-95 shadow-lg"
-                                >
-                                    {num}
-                                </button>
-                            ))}
-                        </div>
-
-                        {/* View Mode Toggle */}
-                        <div className="flex flex-col bg-white/5 rounded-xl p-1 border border-white/10">
-                            <button
-                                onClick={() => setViewMode('grid')}
-                                className={`p-2 rounded-lg transition-all ${viewMode === 'grid' ? 'bg-emerald-500/20 text-emerald-400' : 'text-white/40 hover:text-white/70'}`}
-                            >
-                                <Grid size={18} />
-                            </button>
-                            <button
-                                onClick={() => setViewMode('list')}
-                                className={`p-2 rounded-lg transition-all ${viewMode === 'list' ? 'bg-emerald-500/20 text-emerald-400' : 'text-white/40 hover:text-white/70'}`}
-                            >
-                                <List size={18} />
-                            </button>
-                        </div>
+                    {/* View Mode Toggle */}
+                    <div className="flex flex-col bg-white/5 rounded-xl p-1 border border-white/10">
+                        <button
+                            onClick={() => setViewMode('grid')}
+                            className={`p-2 rounded-lg transition-all ${viewMode === 'grid' ? 'bg-emerald-500/20 text-emerald-400' : 'text-white/40 hover:text-white/70'}`}
+                        >
+                            <Grid size={18} />
+                        </button>
+                        <button
+                            onClick={() => setViewMode('list')}
+                            className={`p-2 rounded-lg transition-all ${viewMode === 'list' ? 'bg-emerald-500/20 text-emerald-400' : 'text-white/40 hover:text-white/70'}`}
+                        >
+                            <List size={18} />
+                        </button>
                     </div>
                 </div>
             </div>
 
-            {/* Matching Results Info */}
-            {searchQuery && (
-                <div className="mb-4 flex items-center gap-2 text-sm flex-wrap">
-                    <span className="text-white/40">검색 결과:</span>
-                    <span className="text-emerald-400 font-bold">{filteredHymns.length}개</span>
+            {/* Search Bar (Left Above Toggle) */}
+            <div className="relative mb-6 md:mb-0 md:absolute md:top-32 md:left-10 z-20 pointer-events-auto w-full md:w-[300px]">
+                <div className="relative group w-full">
+                    <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none">
+                        <Search className="text-emerald-400 opacity-50" size={20} />
+                    </div>
+                    <input
+                        type="text"
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        placeholder="번호, 제목, 주제 검색..."
+                        className="bg-gradient-to-br from-emerald-500/20 to-teal-500/10 border border-emerald-500/30 rounded-2xl pl-12 pr-10 py-3 w-full text-xl md:text-2xl font-bold text-white placeholder-white/20 focus:outline-none focus:border-emerald-500/60 focus:ring-1 focus:ring-emerald-500/30 transition-all backdrop-blur-sm"
+                        maxLength={20}
+                    />
                     {searchQuery && (
-                        <span className="text-white/50">
-                            {searchQuery.length === 1 && `${searchQuery}곡, ${searchQuery}0~${searchQuery}9곡, ${searchQuery}00~${searchQuery}99곡`}
-                            {searchQuery.length === 2 && `${searchQuery}곡, ${searchQuery}0~${searchQuery}9곡`}
-                            {searchQuery.length === 3 && `${searchQuery}곡`}
-                        </span>
+                        <button
+                            onClick={() => { setSearchQuery(''); setSelectedCategories([]); setSelectedCode(''); }}
+                            className="absolute inset-y-0 right-3 flex items-center text-white/30 hover:text-red-400 transition-colors"
+                        >
+                            <X size={20} />
+                        </button>
                     )}
                 </div>
-            )}
+            </div>
+
+            {/* Filters */}
+            <div className="flex flex-col gap-2 mb-4 hidden">
+                {/* Category Filter */}
+                <div className="flex flex-wrap gap-2 items-center">
+                    <Hash size={14} className="text-white/40" />
+                    <button
+                        onClick={() => setSelectedCategories([])}
+                        className={`px-3 py-1 text-xs rounded-full transition-all ${selectedCategories.length === 0
+                            ? 'bg-emerald-500/30 text-emerald-300 border border-emerald-500/50'
+                            : 'bg-white/5 text-white/50 border border-white/10 hover:bg-white/10'}`}
+                    >
+                        전체
+                    </button>
+                    {categories.slice(0, showCategoryPicker ? categories.length : 8).map(cat => (
+                        <button
+                            key={cat}
+                            onClick={() => setSelectedCategories(prev => prev.includes(cat) ? prev.filter(c => c !== cat) : [...prev, cat])}
+                            className={`px-3 py-1 text-xs rounded-full transition-all ${selectedCategories.includes(cat)
+                                ? 'bg-emerald-500/30 text-emerald-300 border border-emerald-500/50'
+                                : 'bg-white/5 text-white/50 border border-white/10 hover:bg-white/10'}`}
+                        >
+                            #{cat}
+                        </button>
+                    ))}
+                    {categories.length > 8 && (
+                        <button
+                            onClick={() => setShowCategoryPicker(!showCategoryPicker)}
+                            className="px-3 py-1 text-xs rounded-full bg-white/5 text-white/50 border border-white/10 hover:bg-white/10 flex items-center gap-1"
+                        >
+                            {showCategoryPicker ? '접기' : `+${categories.length - 8}개 더보기`}
+                        </button>
+                    )}
+                </div>
+
+                {/* Code Filter */}
+                <div className="flex flex-wrap gap-2 items-center">
+                    <Hash size={14} className="text-white/40" />
+                    <button
+                        onClick={() => setSelectedCode('')}
+                        className={`px-3 py-1 text-xs rounded-full transition-all ${!selectedCode
+                            ? 'bg-emerald-500/30 text-emerald-300 border border-emerald-500/50'
+                            : 'bg-white/5 text-white/50 border border-white/10 hover:bg-white/10'}`}
+                    >
+                        전체 Key
+                    </button>
+                    {codes.map(code => (
+                        <button
+                            key={code}
+                            onClick={() => setSelectedCode(code === selectedCode ? '' : code)}
+                            className={`px-3 py-1 text-xs rounded-full transition-all ${selectedCode === code
+                                ? 'bg-emerald-500/30 text-emerald-300 border border-emerald-500/50'
+                                : 'bg-white/5 text-white/50 border border-white/10 hover:bg-white/10'}`}
+                        >
+                            {code}
+                        </button>
+                    ))}
+                </div>
+            </div>
+
+            {/* Matching Results Info */}
+            {
+                (searchQuery || selectedCategories.length > 0 || selectedCode) && (
+                    <div className="mb-4 flex items-center gap-2 text-sm flex-wrap">
+                        <span className="text-white/40">검색 결과:</span>
+                        <span className="text-emerald-400 font-bold">{filteredHymns.length}개</span>
+                        {searchQuery && (
+                            <span className="text-white/50">
+                                {searchQuery.length === 1 && `${searchQuery}곡, ${searchQuery}0~${searchQuery}9곡, ${searchQuery}00~${searchQuery}99곡`}
+                                {searchQuery.length === 2 && `${searchQuery}곡, ${searchQuery}0~${searchQuery}9곡`}
+                                {searchQuery.length === 3 && `${searchQuery}곡`}
+                            </span>
+                        )}
+                    </div>
+                )
+            }
 
             {/* Content */}
             <div className="flex-1 overflow-y-auto custom-scrollbar -mr-4 pr-4">
@@ -582,11 +712,11 @@ export const PraiseGallery: React.FC<PraiseGalleryProps> = ({ isAdmin = false })
                                                 {selectedHymn.code}
                                             </span>
                                         )}
-                                        {selectedHymn.category && (
-                                            <span className="px-3 py-1 bg-white/10 text-white/60 rounded text-xs border border-white/10">
-                                                #{selectedHymn.category}
+                                        {selectedHymn.category && selectedHymn.category.split(',').map(tag => (
+                                            <span key={tag} className="px-3 py-1 bg-white/10 text-white/60 rounded text-xs border border-white/10">
+                                                #{tag.replace(/#/g, '').trim()}
                                             </span>
-                                        )}
+                                        ))}
                                     </div>
                                     <h2 className="text-2xl font-bold text-white leading-tight">{selectedHymn.title}</h2>
                                 </div>
@@ -594,6 +724,46 @@ export const PraiseGallery: React.FC<PraiseGalleryProps> = ({ isAdmin = false })
                                 {/* Editing Mode */}
                                 {isEditing ? (
                                     <div className="flex-1 flex flex-col gap-6 overflow-y-auto">
+                                        {/* Info Editor */}
+                                        {/* Title Editor */}
+                                        <div className="mb-4">
+                                            <h3 className="text-xs uppercase tracking-wider text-white/40 mb-3 font-bold flex items-center gap-2">
+                                                <Edit3 size={14} /> 제목
+                                            </h3>
+                                            <input
+                                                type="text"
+                                                value={editTitle}
+                                                onChange={(e) => setEditTitle(e.target.value)}
+                                                className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-white text-lg font-bold focus:outline-none focus:border-indigo-500/50 transition-all placeholder-white/20"
+                                            />
+                                        </div>
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <div>
+                                                <h3 className="text-xs uppercase tracking-wider text-white/40 mb-3 font-bold flex items-center gap-2">
+                                                    <Music size={14} /> Key (코드)
+                                                </h3>
+                                                <input
+                                                    type="text"
+                                                    value={editCode}
+                                                    onChange={(e) => setEditCode(e.target.value)}
+                                                    placeholder="예: G"
+                                                    className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-white text-sm focus:outline-none focus:border-indigo-500/50 transition-all font-mono"
+                                                />
+                                            </div>
+                                            <div>
+                                                <h3 className="text-xs uppercase tracking-wider text-white/40 mb-3 font-bold flex items-center gap-2">
+                                                    <Hash size={14} /> 주제 (분류)
+                                                </h3>
+                                                <input
+                                                    type="text"
+                                                    value={editCategory}
+                                                    onChange={(e) => setEditCategory(e.target.value)}
+                                                    placeholder="예: 경배와찬양"
+                                                    className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-white text-sm focus:outline-none focus:border-indigo-500/50 transition-all"
+                                                />
+                                            </div>
+                                        </div>
+
                                         {/* Lyrics Editor */}
                                         <div>
                                             <h3 className="text-xs uppercase tracking-wider text-white/40 mb-3 font-bold flex items-center gap-2">
@@ -833,6 +1003,6 @@ export const PraiseGallery: React.FC<PraiseGalleryProps> = ({ isAdmin = false })
                     </motion.div>
                 )}
             </AnimatePresence>
-        </div>
+        </div >
     );
 };
