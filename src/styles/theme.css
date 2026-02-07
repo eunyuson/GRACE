@@ -186,13 +186,15 @@
 
 @media print {
   @page {
-    size: letter;
-    margin: 0.5in;
+    size: landscape;
+    margin: 0.5cm;
   }
 
   body {
     background: #ffffff !important;
     color: #000000 !important;
+    margin: 0;
+    padding: 0;
   }
 
   .print-hide {
@@ -200,9 +202,13 @@
   }
 
   .print-area {
-    display: block !important;
-    background: #ffffff !important;
-    color: #000000 !important;
+    display: grid !important;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    width: 100%;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: white !important;
     box-shadow: none !important;
     border: none !important;
   }
@@ -210,23 +216,24 @@
   .print-page {
     break-inside: avoid;
     break-after: auto;
-    margin-bottom: 1.5rem;
-    padding-bottom: 1.5rem;
-    border-bottom: 1px dashed #ccc;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: none !important;
     display: flex;
     flex-direction: column;
     align-items: center;
+    justify-content: flex-start;
   }
 
   .print-page:last-child {
-    border-bottom: none;
+    border: none;
     margin-bottom: 0;
   }
 
   .print-page img {
-    max-height: 42vh;
-    width: auto;
     max-width: 100%;
+    max-height: 95vh;
+    width: auto;
     object-fit: contain;
     break-inside: avoid;
   }

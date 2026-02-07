@@ -582,13 +582,13 @@ export const SetlistPlanner: React.FC = () => {
                     </div>
 
                     <div className="print-area bg-white text-black rounded-2xl p-4">
-                        <div className="text-lg font-bold mb-4">{setlistTitle || '콘티'}</div>
+                        <div className="text-lg font-bold mb-4 print-hide">{setlistTitle || '콘티'}</div>
                         {setlistItems.length === 0 && (
-                            <div className="text-sm text-black/50">콘티에 곡을 추가해 주세요.</div>
+                            <div className="text-sm text-black/50 print-hide">콘티에 곡을 추가해 주세요.</div>
                         )}
                         {setlistItems.map((item, idx) => (
                             <div key={item.id} className="print-page mb-6">
-                                <div className="text-sm font-semibold mb-2">{idx + 1}. {item.title} ({item.type === 'hymn' ? '찬송가' : '찬양곡'} {item.number})</div>
+                                <div className="text-sm font-semibold mb-2 print-hide">{idx + 1}. {item.title} ({item.type === 'hymn' ? '찬송가' : '찬양곡'} {item.number})</div>
                                 <div className="flex flex-col gap-4">
                                     {(item.imageUrls && item.imageUrls.length > 0 ? item.imageUrls : item.imageUrl ? [item.imageUrl] : []).map((url, index) => (
                                         <img

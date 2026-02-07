@@ -148,10 +148,6 @@ export const MyReflections: React.FC<MyReflectionsProps> = ({ onSelectCallback }
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, (user) => {
             setCurrentUser(user);
-            if (!user) {
-                setLoading(false);
-                setMemos([]);
-            }
         });
         return () => unsubscribe();
     }, []);
