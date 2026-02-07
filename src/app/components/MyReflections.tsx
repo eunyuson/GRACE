@@ -293,7 +293,7 @@ export const MyReflections: React.FC<MyReflectionsProps> = ({ onSelectCallback }
 
     return (
         <div className="w-full h-full overflow-y-auto bg-[#050505]">
-            <div className="w-full max-w-[1600px] mx-auto px-4 md:px-10 py-20 md:py-32 min-h-screen">
+            <div className="w-full max-w-[1600px] mx-auto px-4 md:px-10 py-4 md:py-8 min-h-screen">
                 {/* Sticky Header Container */}
                 {/* Sticky Header Container */}
                 <div className="sticky top-0 z-50 bg-[#050505]/95 backdrop-blur-md -mx-4 md:-mx-10 px-4 md:px-10 pt-8 pb-4 transition-all duration-300 border-b border-white/5 mb-8">
