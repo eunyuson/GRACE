@@ -680,25 +680,30 @@ export const SetlistPlanner: React.FC = () => {
                         {setlistItems.length === 0 && (
                             <div className="text-sm text-black/50 print-hide">콘티에 곡을 추가해 주세요.</div>
                         )}
-                        {setlistItems.map((item, idx) => (
-                            <div key={item.id} className="print-page mb-6">
-                                <div className="text-sm font-semibold mb-2 print-hide">
-                                    {idx + 1}. {item.title}
-                                    {item.code && <span className="ml-2 text-emerald-600">[{item.code}]</span>}
-                                    <span className="ml-2 text-black/40 text-xs">({item.type === 'hymn' ? '찬송가' : '찬양곡'} {item.number})</span>
+                        {setlistItems.map((item, idx) => {
+                            const images = (item.imageUrls && item.imageUrls.length > 0 ? item.imageUrls : item.imageUrl ? [item.imageUrl] : []);
+                            const hasMultipleImages = images.length > 1;
+
+                            return (
+                                <div key={item.id} className={`print-page mb-6 ${hasMultipleImages ? 'span-2' : ''}`}>
+                                    <div className="text-sm font-semibold mb-2 print-hide">
+                                        {idx + 1}. {item.title}
+                                        {item.code && <span className="ml-2 text-emerald-600">[{item.code}]</span>}
+                                        <span className="ml-2 text-black/40 text-xs">({item.type === 'hymn' ? '찬송가' : '찬양곡'} {item.number})</span>
+                                    </div>
+                                    <div className={`flex flex-col gap-4 w-full ${hasMultipleImages ? 'print-images-grid-2' : ''}`}>
+                                        {images.map((url, index) => (
+                                            <img
+                                                key={`${item.id}-${index}`}
+                                                src={url}
+                                                alt={item.title}
+                                                className="w-full h-auto object-contain"
+                                            />
+                                        ))}
+                                    </div>
                                 </div>
-                                <div className="flex flex-col gap-4">
-                                    {(item.imageUrls && item.imageUrls.length > 0 ? item.imageUrls : item.imageUrl ? [item.imageUrl] : []).map((url, index) => (
-                                        <img
-                                            key={`${item.id}-${index}`}
-                                            src={url}
-                                            alt={item.title}
-                                            className="w-full h-auto object-contain"
-                                        />
-                                    ))}
-                                </div>
-                            </div>
-                        ))}
+                            );
+                        })}
                     </div>
                 </div>
             </div>

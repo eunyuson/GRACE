@@ -241,6 +241,17 @@
     justify-content: flex-start;
   }
 
+  .print-page.span-2 {
+    grid-column: span 2;
+  }
+
+  .print-images-grid-2 {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr;
+    gap: 10mm;
+    align-items: start;
+  }
+
   .print-page:last-child {
     border: none;
     margin-bottom: 0;
@@ -254,5 +265,10 @@
     object-fit: contain;
     break-inside: avoid;
     margin-top: 15mm;
+  }
+
+  .print-images-grid-2 img {
+    margin-top: 5mm;
+    /* Less margin for side-by-side images */
   }
 }
