@@ -308,26 +308,36 @@ export const SetlistPlanner: React.FC = () => {
 
         setSaving(true);
         try {
+            // Sanitize items: remove undefined values and ensure imageUrls is a clean array
+            const sanitizedItems = setlistItems.map(item => ({
+                sourceId: item.sourceId || '',
+                type: item.type || 'praise',
+                number: item.number || 0,
+                title: item.title || '',
+                imageUrl: item.imageUrl || '',
+                imageUrls: (item.imageUrls || []).filter(Boolean)
+            }));
+
             if (activeSetlistId) {
                 await updateDoc(doc(db, 'setlists', activeSetlistId), {
                     title,
-                    items: setlistItems,
+                    items: sanitizedItems,
                     updatedAt: serverTimestamp()
                 });
             } else {
                 const docRef = await addDoc(collection(db, 'setlists'), {
                     ownerId: currentUser.uid,
                     title,
-                    items: setlistItems,
+                    items: sanitizedItems,
                     createdAt: serverTimestamp(),
                     updatedAt: serverTimestamp()
                 });
                 setActiveSetlistId(docRef.id);
             }
             alert('저장되었습니다.');
-        } catch (err) {
+        } catch (err: any) {
             console.error('Setlist save failed:', err);
-            alert('저장에 실패했습니다.');
+            alert(`저장에 실패했습니다: ${err.message || '알 수 없는 오류'}`);
         } finally {
             setSaving(false);
         }
