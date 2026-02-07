@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { X, ExternalLink, Youtube, Image as ImageIcon, Plus, HelpCircle } from 'lucide-react';
 import { collectionGroup, query, where, onSnapshot, orderBy, deleteDoc, doc, updateDoc, addDoc, collection, serverTimestamp } from 'firebase/firestore';
@@ -296,14 +296,43 @@ export const MyReflections: React.FC<MyReflectionsProps> = ({ onSelectCallback }
         return passLevel1 && passLevel2 && passLevel3;
     });
 
-    // if (!currentUser) {
-    //     return (
-    //         <div className="flex flex-col items-center justify-center min-h-[50vh] text-white/50">
-    //             <div className="text-4xl mb-4">🔒</div>
-    //             <p>로그인이 필요한 서비스입니다.</p>
-    //         </div>
-    //     );
-    // }
+    // Dynamic tag visibility logic
+    const { visibleL1Tags, visibleL2Tags, visibleL3Tags } = useMemo(() => {
+        const level1Selected = selectedTags.filter(t => t.startsWith('#') && !t.startsWith('##'));
+        const level2Selected = selectedTags.filter(t => t.startsWith('##') && !t.startsWith('###'));
+
+        // Memos matching L1 selection (OR within level)
+        const matchingL1 = memos.filter(m =>
+            level1Selected.length === 0 || level1Selected.some(t => m.tags?.includes(t))
+        );
+
+        // Memos matching L1 AND L2 selection
+        const matchingL12 = matchingL1.filter(m =>
+            level2Selected.length === 0 || level2Selected.some(t => m.tags?.includes(t))
+        );
+
+        // Extract co-occurring tags
+        const l1CoTags = new Set<string>();
+        matchingL1.forEach(m => m.tags?.forEach(t => l1CoTags.add(t)));
+
+        const l12CoTags = new Set<string>();
+        matchingL12.forEach(m => m.tags?.forEach(t => l12CoTags.add(t)));
+
+        return {
+            visibleL1Tags: availableTags.filter(t => t.tag.startsWith('#') && !t.tag.startsWith('##')),
+            visibleL2Tags: availableTags.filter(t =>
+                t.tag.startsWith('##') && !t.tag.startsWith('###') &&
+                (level1Selected.length === 0 || l1CoTags.has(t.tag))
+            ),
+            visibleL3Tags: availableTags.filter(t =>
+                t.tag.startsWith('###') &&
+                (level2Selected.length === 0
+                    ? (level1Selected.length === 0 || l1CoTags.has(t.tag))
+                    : l12CoTags.has(t.tag)
+                )
+            )
+        };
+    }, [memos, availableTags, selectedTags]);
 
     return (
         <div className="w-full h-full overflow-y-auto bg-[#050505]">
@@ -348,9 +377,9 @@ export const MyReflections: React.FC<MyReflectionsProps> = ({ onSelectCallback }
                                 <div className="flex flex-col gap-2 items-start lg:items-end">
                                     {/* Helper to render a row of tags */}
                                     {[
-                                        { prefix: '#', label: 'Topics', tags: availableTags.filter(t => !t.tag.startsWith('##')) },
-                                        { prefix: '##', label: 'Categories', tags: availableTags.filter(t => t.tag.startsWith('##') && !t.tag.startsWith('###')) },
-                                        { prefix: '###', label: 'Deep Dive', tags: availableTags.filter(t => t.tag.startsWith('###')) }
+                                        { prefix: '#', label: 'Topics', tags: visibleL1Tags },
+                                        { prefix: '##', label: 'Categories', tags: visibleL2Tags },
+                                        { prefix: '###', label: 'Deep Dive', tags: visibleL3Tags }
                                     ].map((group, idx) => (
                                         group.tags.length > 0 && (
                                             <div key={idx} className="flex flex-wrap gap-1.5 items-center justify-start lg:justify-end w-full">
