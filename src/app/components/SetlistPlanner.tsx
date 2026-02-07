@@ -356,7 +356,7 @@ export const SetlistPlanner: React.FC = () => {
     return (
         <div className="w-full h-full overflow-hidden print:overflow-visible flex flex-col pt-40 md:pt-60 px-4 md:px-10 pb-10 print:p-0 print:h-auto relative">
             {/* Filters & Toggle (Right Top) */}
-            <div className="flex flex-col gap-4 mb-2 md:absolute md:top-0 md:right-10 md:w-auto md:mb-0 z-20 pointer-events-auto items-end">
+            <div className="flex flex-col gap-4 mb-2 md:absolute md:top-0 md:right-10 md:w-auto md:mb-0 z-20 pointer-events-auto items-end print-hide">
                 <div className="flex items-center gap-4">
                     {/* Filters */}
                     <div className="flex flex-col gap-2 items-end mr-4">
@@ -409,7 +409,7 @@ export const SetlistPlanner: React.FC = () => {
             </div>
 
             {/* Search Bar (Left Above Toggle) */}
-            <div className="relative mb-6 md:mb-0 md:absolute md:top-32 md:left-10 z-20 pointer-events-auto w-full md:w-[300px]">
+            <div className="relative mb-6 md:mb-0 md:absolute md:top-32 md:left-10 z-20 pointer-events-auto w-full md:w-[300px] print-hide">
                 <div className="relative group w-full">
                     <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none">
                         <Search className="text-emerald-400 opacity-50" size={20} />
