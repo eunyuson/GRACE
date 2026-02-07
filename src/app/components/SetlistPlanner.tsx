@@ -409,7 +409,7 @@ export const SetlistPlanner: React.FC = () => {
             </div>
 
             {/* Search Bar (Left Above Toggle) */}
-            <div className="relative mb-2 md:mb-0 md:absolute md:top-44 md:left-10 z-20 pointer-events-auto w-full md:w-[300px]">
+            <div className="relative mb-6 md:mb-0 md:absolute md:top-32 md:left-10 z-20 pointer-events-auto w-full md:w-[300px]">
                 <div className="relative group w-full">
                     <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none">
                         <Search className="text-emerald-400 opacity-50" size={20} />
@@ -424,7 +424,7 @@ export const SetlistPlanner: React.FC = () => {
                     />
                     {searchQuery && (
                         <button
-                            onClick={() => { setSearchQuery(''); setSelectedTag(''); setSelectedCode(''); }}
+                            onClick={() => { setSearchQuery(''); setSelectedTags([]); setSelectedCode(''); }}
                             className="absolute inset-y-0 right-3 flex items-center text-white/30 hover:text-red-400 transition-colors"
                         >
                             <X size={20} />
@@ -438,7 +438,7 @@ export const SetlistPlanner: React.FC = () => {
                 <div className="flex-1 min-h-0 print-hide">
                     <div className="flex flex-wrap items-center gap-2 mb-4">
                         <button
-                            onClick={() => { setLibraryTab('hymn'); setSelectedTag(''); }}
+                            onClick={() => { setLibraryTab('hymn'); setSelectedTags([]); }}
                             className={`px-3 py-1.5 text-[10px] tracking-[0.15em] uppercase rounded-full transition-all ${libraryTab === 'hymn'
                                 ? 'bg-gradient-to-r from-green-500/30 to-teal-500/30 text-white'
                                 : 'text-white/50 hover:text-white/80'}`}
@@ -446,7 +446,7 @@ export const SetlistPlanner: React.FC = () => {
                             🎵 찬송가
                         </button>
                         <button
-                            onClick={() => { setLibraryTab('praise'); setSelectedTag(''); }}
+                            onClick={() => { setLibraryTab('praise'); setSelectedTags([]); }}
                             className={`px-3 py-1.5 text-[10px] tracking-[0.15em] uppercase rounded-full transition-all ${libraryTab === 'praise'
                                 ? 'bg-gradient-to-r from-emerald-500/30 to-green-500/30 text-white'
                                 : 'text-white/50 hover:text-white/80'}`}
@@ -454,7 +454,7 @@ export const SetlistPlanner: React.FC = () => {
                             🎶 찬양곡
                         </button>
                         <button
-                            onClick={() => { setLibraryTab('all'); setSelectedTag(''); }}
+                            onClick={() => { setLibraryTab('all'); setSelectedTags([]); }}
                             className={`px-3 py-1.5 text-[10px] tracking-[0.15em] uppercase rounded-full transition-all ${libraryTab === 'all'
                                 ? 'bg-gradient-to-r from-indigo-500/30 to-purple-500/30 text-white'
                                 : 'text-white/50 hover:text-white/80'}`}
