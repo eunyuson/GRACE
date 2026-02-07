@@ -672,10 +672,13 @@ export const SetlistPlanner: React.FC = () => {
                                         </button>
                                         <button
                                             onClick={() => toggleFullPage(index)}
-                                            className={`p-1 transition-colors ${item.fullPage ? 'text-emerald-400' : 'text-white/30 hover:text-white/60'}`}
-                                            title={item.fullPage ? "1페이지 크게 보기 해제" : "1페이지 크게 보기 설정"}
+                                            className={`px-1.5 py-0.5 rounded text-[10px] font-bold border transition-all flex items-center gap-1 ${item.fullPage
+                                                ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/50 shadow-[0_0_10px_rgba(52,211,153,0.1)]'
+                                                : 'bg-white/5 text-white/30 border-white/10 hover:border-white/30 hover:text-white/60'}`}
+                                            title={item.fullPage ? "기본 보기로 변경" : "한 페이지에 하나씩 크게 보기"}
                                         >
-                                            <ImageIcon size={14} />
+                                            <ImageIcon size={12} />
+                                            <span>1P</span>
                                         </button>
                                         <button
                                             onClick={() => removeSetlistItem(index)}
@@ -699,12 +702,29 @@ export const SetlistPlanner: React.FC = () => {
                         )}
                         {setlistItems.map((item, idx) => {
                             const images = (item.imageUrls && item.imageUrls.length > 0 ? item.imageUrls : item.imageUrl ? [item.imageUrl] : []);
-                            // If has multiple images OR fullPage is requested, span 2 columns
-                            const isFullWidth = images.length > 1 || item.fullPage;
-                            const useGrid2 = images.length > 1 && !item.fullPage;
+
+                            // If fullPage is true, we render EACH image as a separate full-page div
+                            if (item.fullPage) {
+                                return images.map((url, imgIdx) => (
+                                    <div key={`${item.id}-${imgIdx}`} className="print-page full-page span-2">
+                                        <div className="absolute top-4 left-4 text-[10px] font-bold text-black/20 print-only">
+                                            {idx + 1}-{imgIdx + 1}. {item.title}
+                                        </div>
+                                        <img
+                                            src={url}
+                                            alt={item.title}
+                                            className="w-full h-full object-contain"
+                                        />
+                                    </div>
+                                ));
+                            }
+
+                            // Otherwise, normal behavior: stack them or grid them
+                            const isFullWidth = images.length > 1;
+                            const useGrid2 = images.length > 1;
 
                             return (
-                                <div key={item.id} className={`print-page mb-6 ${isFullWidth ? 'span-2' : ''} ${item.fullPage ? 'full-page' : ''}`}>
+                                <div key={item.id} className={`print-page mb-6 ${isFullWidth ? 'span-2' : ''}`}>
                                     <div className="text-sm font-semibold mb-2 print-hide">
                                         {idx + 1}. {item.title}
                                         {item.code && <span className="ml-2 text-emerald-600">[{item.code}]</span>}
