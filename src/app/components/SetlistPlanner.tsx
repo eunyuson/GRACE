@@ -26,6 +26,7 @@ interface SetlistItem {
     title: string;
     imageUrl: string;
     imageUrls?: string[];
+    code?: string;
 }
 
 interface SetlistDoc {
@@ -92,7 +93,8 @@ export const SetlistPlanner: React.FC = () => {
                 number: item.number,
                 title: item.title,
                 imageUrl: item.imageUrl || images[0] || '',
-                imageUrls: images
+                imageUrls: images,
+                code: item.code
             };
         });
 
@@ -278,7 +280,8 @@ export const SetlistPlanner: React.FC = () => {
             number: item.number,
             title: item.title,
             imageUrl: item.imageUrl || images[0] || '',
-            imageUrls: images
+            imageUrls: images,
+            code: item.code
         };
 
         setSetlistItems(prev => [...prev, newItem]);
@@ -319,7 +322,8 @@ export const SetlistPlanner: React.FC = () => {
                 number: item.number || 0,
                 title: item.title || '',
                 imageUrl: item.imageUrl || '',
-                imageUrls: (item.imageUrls || []).filter(Boolean)
+                imageUrls: (item.imageUrls || []).filter(Boolean),
+                code: item.code || ''
             }));
 
             if (activeSetlistId) {
@@ -633,7 +637,10 @@ export const SetlistPlanner: React.FC = () => {
                                         {item.number}
                                     </div>
                                     <div className="flex-1 min-w-0">
-                                        <div className="text-white text-sm truncate">{item.title}</div>
+                                        <div className="flex items-baseline gap-2">
+                                            <div className="text-white text-sm truncate">{item.title}</div>
+                                            {item.code && <span className="text-emerald-400 text-[10px] font-bold">{item.code}</span>}
+                                        </div>
                                         <div className="text-white/40 text-[10px]">
                                             {item.type === 'hymn' ? '찬송가' : '찬양곡'}
                                         </div>
@@ -675,7 +682,11 @@ export const SetlistPlanner: React.FC = () => {
                         )}
                         {setlistItems.map((item, idx) => (
                             <div key={item.id} className="print-page mb-6">
-                                <div className="text-sm font-semibold mb-2 print-hide">{idx + 1}. {item.title} ({item.type === 'hymn' ? '찬송가' : '찬양곡'} {item.number})</div>
+                                <div className="text-sm font-semibold mb-2 print-hide">
+                                    {idx + 1}. {item.title}
+                                    {item.code && <span className="ml-2 text-emerald-600">[{item.code}]</span>}
+                                    <span className="ml-2 text-black/40 text-xs">({item.type === 'hymn' ? '찬송가' : '찬양곡'} {item.number})</span>
+                                </div>
                                 <div className="flex flex-col gap-4">
                                     {(item.imageUrls && item.imageUrls.length > 0 ? item.imageUrls : item.imageUrl ? [item.imageUrl] : []).map((url, index) => (
                                         <img
