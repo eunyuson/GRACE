@@ -7,9 +7,32 @@ import 'react-pdf/dist/Page/TextLayer.css';
 // Configure worker
 pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
 
-// LocalStorage helpers
-const getStorageKey = (url: string) => `pdf_progress_${btoa(url).slice(0, 50)}`;
-const getTOCKey = (url: string) => `pdf_toc_${btoa(url).slice(0, 50)}`;
+// LocalStorage helpers - use encodeURIComponent for safe URL encoding (handles Korean/special chars)
+const safeEncode = (url: string): string => {
+    try {
+        // First try to use a hash of the URL for consistency
+        let hash = 0;
+        for (let i = 0; i < url.length; i++) {
+            const char = url.charCodeAt(i);
+            hash = ((hash << 5) - hash) + char;
+            hash = hash & hash; // Convert to 32bit integer
+        }
+        // Combine hash with filename for readability
+        const filename = url.split('/').pop()?.split('?')[0] || 'unknown';
+        const safeFilename = encodeURIComponent(filename).slice(0, 30);
+        return `${Math.abs(hash).toString(36)}_${safeFilename}`;
+    } catch {
+        // Fallback: simple hash
+        let hash = 0;
+        for (let i = 0; i < url.length; i++) {
+            hash = ((hash << 5) - hash) + url.charCodeAt(i);
+            hash = hash & hash;
+        }
+        return Math.abs(hash).toString(36);
+    }
+};
+const getStorageKey = (url: string) => `pdf_progress_${safeEncode(url)}`;
+const getTOCKey = (url: string) => `pdf_toc_${safeEncode(url)}`;
 
 const getSavedPage = (url: string): number | null => {
     try {

@@ -531,19 +531,19 @@ export const HymnGallery: React.FC<HymnGalleryProps> = ({ isAdmin = false }) => 
                             {prevHymn && (
                                 <button
                                     onClick={(e) => { e.stopPropagation(); navigateToHymn(prevHymn); }}
-                                    className="absolute left-2 md:left-4 top-1/2 -translate-y-1/2 z-30 p-3 md:p-4 bg-black/20 hover:bg-black/50 rounded-full text-white/60 hover:text-white border border-white/10 backdrop-blur-sm transition-all"
+                                    className="absolute left-1 md:left-4 top-1/2 -translate-y-1/2 z-30 p-2 md:p-4 bg-black/5 md:bg-black/20 hover:bg-black/50 rounded-full text-white/30 md:text-white/60 hover:text-white border border-transparent md:border-white/10 backdrop-blur-sm transition-all"
                                     aria-label="이전 찬송가"
                                 >
-                                    <ChevronLeft size={22} />
+                                    <ChevronLeft size={20} className="md:w-[22px] md:h-[22px]" />
                                 </button>
                             )}
                             {nextHymn && (
                                 <button
                                     onClick={(e) => { e.stopPropagation(); navigateToHymn(nextHymn); }}
-                                    className="absolute right-2 md:right-4 top-1/2 -translate-y-1/2 z-30 p-3 md:p-4 bg-black/20 hover:bg-black/50 rounded-full text-white/60 hover:text-white border border-white/10 backdrop-blur-sm transition-all"
+                                    className="absolute right-1 md:right-4 top-1/2 -translate-y-1/2 z-30 p-2 md:p-4 bg-black/5 md:bg-black/20 hover:bg-black/50 rounded-full text-white/30 md:text-white/60 hover:text-white border border-transparent md:border-white/10 backdrop-blur-sm transition-all"
                                     aria-label="다음 찬송가"
                                 >
-                                    <ChevronRight size={22} />
+                                    <ChevronRight size={20} className="md:w-[22px] md:h-[22px]" />
                                 </button>
                             )}
 
@@ -557,19 +557,31 @@ export const HymnGallery: React.FC<HymnGalleryProps> = ({ isAdmin = false }) => 
                                 </button>
                             )}
 
-                            {/* Image Section - Full screen on mobile */}
-                            <div className="w-full h-full md:flex-[1.2] bg-black flex flex-col items-center justify-start overflow-auto relative">
+                            {/* Image Section - Fit to screen on desktop */}
+                            <div className="w-full h-full md:flex-[1.2] bg-black flex flex-col items-center justify-center overflow-auto relative">
                                 {selectedImages.length > 0 ? (
-                                    <div className="w-full h-full flex flex-col items-center gap-4 py-4">
-                                        {selectedImages.map((url, index) => (
+                                    selectedImages.length === 1 ? (
+                                        /* Single image - fit to viewport */
+                                        <div className="w-full h-full flex items-center justify-center p-4">
                                             <img
-                                                key={`${url}-${index}`}
-                                                src={url}
+                                                src={selectedImages[0]}
                                                 alt={selectedHymn.title}
-                                                className="w-full h-auto md:w-auto md:max-w-full object-contain"
+                                                className="max-w-full max-h-full object-contain"
                                             />
-                                        ))}
-                                    </div>
+                                        </div>
+                                    ) : (
+                                        /* Multiple images - scrollable */
+                                        <div className="w-full h-full flex flex-col items-center gap-4 py-4 overflow-y-auto">
+                                            {selectedImages.map((url, index) => (
+                                                <img
+                                                    key={`${url}-${index}`}
+                                                    src={url}
+                                                    alt={selectedHymn.title}
+                                                    className="w-full h-auto md:w-auto md:max-w-full object-contain"
+                                                />
+                                            ))}
+                                        </div>
+                                    )
                                 ) : (
                                     <div className="text-white/20 flex flex-col items-center gap-4 py-10">
                                         <Music size={64} />
@@ -604,6 +616,45 @@ export const HymnGallery: React.FC<HymnGalleryProps> = ({ isAdmin = false }) => 
                                         <Download size={14} /> 원본
                                     </a>
                                 )}
+                            </div>
+
+                            {/* Mobile: Bottom Info Panel (Lyrics & YouTube) */}
+                            <div className="md:hidden absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black via-black/95 to-transparent max-h-[45%] overflow-y-auto">
+                                <div className="p-4 pt-8 space-y-4">
+                                    {/* YouTube Links - Mobile */}
+                                    {selectedHymn.youtubeLinks && selectedHymn.youtubeLinks.length > 0 && (
+                                        <div>
+                                            <h3 className="text-xs uppercase tracking-wider text-white/40 mb-2 font-bold flex items-center gap-2">
+                                                <Youtube size={12} className="text-red-400" /> 영상
+                                            </h3>
+                                            <div className="flex gap-2 overflow-x-auto pb-2">
+                                                {selectedHymn.youtubeLinks.map((link, index) => (
+                                                    <a
+                                                        key={index}
+                                                        href={link.url.replace('/embed/', '/watch?v=')}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        className="flex-shrink-0 flex items-center gap-2 bg-red-500/20 border border-red-500/30 rounded-full px-3 py-1.5 text-red-300 text-xs"
+                                                        onClick={e => e.stopPropagation()}
+                                                    >
+                                                        <Youtube size={14} />
+                                                        <span className="truncate max-w-[120px]">{link.title}</span>
+                                                    </a>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* Lyrics - Mobile */}
+                                    {selectedHymn.lyrics && (
+                                        <div>
+                                            <h3 className="text-xs uppercase tracking-wider text-white/40 mb-2 font-bold">가사</h3>
+                                            <p className="text-white/70 whitespace-pre-wrap leading-relaxed text-xs">
+                                                {selectedHymn.lyrics}
+                                            </p>
+                                        </div>
+                                    )}
+                                </div>
                             </div>
 
                             {/* Right: Info Panel - Desktop only */}
