@@ -21,9 +21,11 @@ interface Hymn {
 
 interface HymnGalleryProps {
     isAdmin?: boolean;
+    currentTab?: 'hymn' | 'praise';
+    onTabChange?: (tab: 'hymn' | 'praise') => void;
 }
 
-export const HymnGallery: React.FC<HymnGalleryProps> = ({ isAdmin = false }) => {
+export const HymnGallery: React.FC<HymnGalleryProps> = ({ isAdmin = false, currentTab, onTabChange }) => {
     const [hymns, setHymns] = useState<Hymn[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState('');
@@ -381,9 +383,9 @@ export const HymnGallery: React.FC<HymnGalleryProps> = ({ isAdmin = false }) => 
                 </div>
             </div>
 
-            {/* Search Bar (Left Above Toggle) */}
-            <div className="relative mb-6 md:mb-0 md:absolute md:top-32 md:left-10 z-20 pointer-events-auto w-full md:w-[300px]">
-                <div className="relative group w-full">
+            {/* Search Bar & Tabs (Left Above Toggle) */}
+            <div className="relative mb-6 md:mb-0 md:absolute md:top-32 md:left-10 z-20 pointer-events-auto w-full md:w-auto flex flex-col md:flex-row items-start md:items-center gap-4">
+                <div className="relative group w-full md:w-[300px]">
                     <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none">
                         <Search className="text-emerald-400 opacity-50" size={20} />
                     </div>
@@ -404,6 +406,30 @@ export const HymnGallery: React.FC<HymnGalleryProps> = ({ isAdmin = false }) => 
                         </button>
                     )}
                 </div>
+
+                {/* Tab Buttons */}
+                {onTabChange && (
+                    <div className="flex gap-1 p-1 rounded-full bg-white/10 backdrop-blur-sm border border-white/15 shadow-lg">
+                        <button
+                            onClick={() => onTabChange('hymn')}
+                            className={`px-3 py-1.5 text-[9px] md:text-[10px] tracking-[0.15em] uppercase rounded-full transition-all ${currentTab === 'hymn'
+                                ? 'bg-gradient-to-r from-green-500/30 to-teal-500/30 text-white'
+                                : 'text-white/50 hover:text-white/80'
+                                }`}
+                        >
+                            🎵 찬송가
+                        </button>
+                        <button
+                            onClick={() => onTabChange('praise')}
+                            className={`px-3 py-1.5 text-[9px] md:text-[10px] tracking-[0.15em] uppercase rounded-full transition-all ${currentTab === 'praise'
+                                ? 'bg-gradient-to-r from-emerald-500/30 to-green-500/30 text-white'
+                                : 'text-white/50 hover:text-white/80'
+                                }`}
+                        >
+                            🎶 찬양곡
+                        </button>
+                    </div>
+                )}
             </div>
 
             {/* Matching Results Info */}

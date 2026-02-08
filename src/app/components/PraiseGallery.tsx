@@ -20,9 +20,11 @@ interface Hymn {
 
 interface PraiseGalleryProps {
     isAdmin?: boolean;
+    currentTab?: 'hymn' | 'praise';
+    onTabChange?: (tab: 'hymn' | 'praise') => void;
 }
 
-export const PraiseGallery: React.FC<PraiseGalleryProps> = ({ isAdmin = false }) => {
+export const PraiseGallery: React.FC<PraiseGalleryProps> = ({ isAdmin = false, currentTab, onTabChange }) => {
     const [hymns, setHymns] = useState<Hymn[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState('');
@@ -464,9 +466,9 @@ export const PraiseGallery: React.FC<PraiseGalleryProps> = ({ isAdmin = false })
                 </div>
             </div>
 
-            {/* Search Bar (Left Above Toggle) */}
-            <div className="relative mb-6 md:mb-0 md:absolute md:top-32 md:left-10 z-20 pointer-events-auto w-full md:w-[300px]">
-                <div className="relative group w-full">
+            {/* Search Bar & Tabs (Left Above Toggle) */}
+            <div className="relative mb-6 md:mb-0 md:absolute md:top-32 md:left-10 z-20 pointer-events-auto w-full md:w-auto flex flex-col md:flex-row items-start md:items-center gap-4">
+                <div className="relative group w-full md:w-[300px]">
                     <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none">
                         <Search className="text-emerald-400 opacity-50" size={20} />
                     </div>
@@ -487,10 +489,35 @@ export const PraiseGallery: React.FC<PraiseGalleryProps> = ({ isAdmin = false })
                         </button>
                     )}
                 </div>
+
+                {/* Tab Buttons */}
+                {onTabChange && (
+                    <div className="flex gap-1 p-1 rounded-full bg-white/10 backdrop-blur-sm border border-white/15 shadow-lg">
+                        <button
+                            onClick={() => onTabChange('hymn')}
+                            className={`px-3 py-1.5 text-[9px] md:text-[10px] tracking-[0.15em] uppercase rounded-full transition-all ${currentTab === 'hymn'
+                                ? 'bg-gradient-to-r from-green-500/30 to-teal-500/30 text-white'
+                                : 'text-white/50 hover:text-white/80'
+                                }`}
+                        >
+                            🎵 찬송가
+                        </button>
+                        <button
+                            onClick={() => onTabChange('praise')}
+                            className={`px-3 py-1.5 text-[9px] md:text-[10px] tracking-[0.15em] uppercase rounded-full transition-all ${currentTab === 'praise'
+                                ? 'bg-gradient-to-r from-emerald-500/30 to-green-500/30 text-white'
+                                : 'text-white/50 hover:text-white/80'
+                                }`}
+                        >
+                            🎶 찬양곡
+                        </button>
+                    </div>
+                )}
+
                 {isAdmin && (
                     <button
                         onClick={handleAddSong}
-                        className="flex items-center gap-2 px-4 py-3 bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 rounded-2xl hover:bg-emerald-500/30 transition-all font-bold text-sm"
+                        className="flex items-center gap-2 px-4 py-3 bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 rounded-2xl hover:bg-emerald-500/30 transition-all font-bold text-sm ml-auto md:ml-0"
                     >
                         <Plus size={18} /> 새 곡 추가
                     </button>
@@ -599,20 +626,30 @@ export const PraiseGallery: React.FC<PraiseGalleryProps> = ({ isAdmin = false })
                                         onClick={() => setSelectedHymn(hymn)}
                                         className="group cursor-pointer bg-white/5 border border-white/10 rounded-xl overflow-hidden hover:border-white/30 transition-all hover:-translate-y-1"
                                     >
-                                        <div className="aspect-[3/4] bg-black/40 relative">
-                                            {(hymn.imageUrl || (hymn.imageUrls && hymn.imageUrls[0])) ? (
+                                        <div className="relative aspect-[3/4] overflow-hidden bg-gradient-to-br from-gray-900 to-black">
+                                            {/* Placeholder (Always rendered behind) */}
+                                            <div className="absolute inset-0 flex items-center justify-center text-white/10 z-0">
+                                                <Music size={48} />
+                                            </div>
+
+                                            {/* Image (Rendered on top) */}
+                                            {((hymn.imageUrl || (hymn.imageUrls && hymn.imageUrls[0]))) && (
                                                 <img
                                                     src={(hymn.imageUrl || (hymn.imageUrls && hymn.imageUrls[0]) || "")}
                                                     alt={hymn.title}
-                                                    className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity"
+                                                    className="absolute inset-0 w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity z-10"
                                                     loading="lazy"
+                                                    onError={(e) => {
+                                                        e.currentTarget.style.display = 'none';
+                                                    }}
                                                 />
-                                            ) : (
-                                                <div className="w-full h-full flex items-center justify-center text-white/10">
-                                                    <Music size={32} />
-                                                </div>
                                             )}
-                                            <div className="absolute top-2 left-2 bg-black/60 backdrop-blur-md px-2 py-0.5 rounded text-xs font-bold text-white border border-white/10">
+
+                                            {/* Overlay Content */}
+                                            <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent opacity-60 group-hover:opacity-80 transition-opacity z-20" />
+
+                                            {/* Top Right Number */}
+                                            <div className="absolute top-2 left-2 z-30 bg-black/60 backdrop-blur-md px-2 py-0.5 rounded text-xs font-bold text-white border border-white/10">
                                                 {hymn.number}곡
                                             </div>
                                         </div>
@@ -645,444 +682,457 @@ export const PraiseGallery: React.FC<PraiseGalleryProps> = ({ isAdmin = false })
                             </div>
                         )}
                     </>
-                )}
-            </div>
+                )
+                }
+            </div >
 
             {/* Detail Modal */}
             <AnimatePresence>
-                {selectedHymn && (
-                    <motion.div
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
-                        className="fixed inset-0 z-[3000] bg-black/95 backdrop-blur-md flex items-center justify-center p-2 md:p-4"
-                        onClick={() => { setSelectedHymn(null); cancelEditing(); }}
-                    >
+                {
+                    selectedHymn && (
                         <motion.div
-                            layoutId={`praise-${selectedHymn.id}`}
-                            className="w-full h-full max-w-6xl bg-[#111] rounded-2xl overflow-hidden flex flex-col md:flex-row border border-white/10 shadow-2xl relative"
-                            onClick={e => e.stopPropagation()}
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            className="fixed inset-0 z-[3000] bg-black/95 backdrop-blur-md flex items-center justify-center p-2 md:p-4"
+                            onClick={() => { setSelectedHymn(null); cancelEditing(); }}
                         >
-                            <button
-                                onClick={() => { setSelectedHymn(null); cancelEditing(); }}
-                                className="absolute top-2 right-2 md:top-4 md:right-4 z-20 p-2 bg-black/50 rounded-full text-white/70 hover:text-white hover:bg-black/80 transition-all border border-white/10"
+                            <motion.div
+                                layoutId={`praise-${selectedHymn.id}`}
+                                className="w-full h-full max-w-6xl bg-[#111] rounded-2xl overflow-hidden flex flex-col md:flex-row border border-white/10 shadow-2xl relative"
+                                onClick={e => e.stopPropagation()}
                             >
-                                <X size={20} />
-                            </button>
-
-                            {prevHymn && (
                                 <button
-                                    onClick={(e) => { e.stopPropagation(); navigateToHymn(prevHymn); }}
-                                    className="absolute left-2 md:left-4 top-1/2 -translate-y-1/2 z-20 p-3 md:p-4 bg-black/20 hover:bg-black/50 rounded-full text-white/60 hover:text-white border border-white/10 backdrop-blur-sm transition-all"
-                                    aria-label="이전 찬양곡"
+                                    onClick={() => { setSelectedHymn(null); cancelEditing(); }}
+                                    className="absolute top-2 right-2 md:top-4 md:right-4 z-20 p-2 bg-black/50 rounded-full text-white/70 hover:text-white hover:bg-black/80 transition-all border border-white/10"
                                 >
-                                    <ChevronLeft size={22} />
+                                    <X size={20} />
                                 </button>
-                            )}
-                            {nextHymn && (
-                                <button
-                                    onClick={(e) => { e.stopPropagation(); navigateToHymn(nextHymn); }}
-                                    className="absolute right-2 md:right-4 top-1/2 -translate-y-1/2 z-20 p-3 md:p-4 bg-black/20 hover:bg-black/50 rounded-full text-white/60 hover:text-white border border-white/10 backdrop-blur-sm transition-all"
-                                    aria-label="다음 찬양곡"
-                                >
-                                    <ChevronRight size={22} />
-                                </button>
-                            )}
 
-                            {/* Admin Merge Button */}
-                            {isAdmin && !isEditing && (
-                                <button
-                                    onClick={mergeWithNext}
-                                    disabled={isMerging}
-                                    className="absolute top-2 right-20 md:top-4 md:right-24 z-20 px-2 py-1.5 bg-amber-500/20 rounded-full text-amber-300 hover:bg-amber-500/40 transition-all border border-amber-500/30 text-[10px] md:text-xs disabled:opacity-60"
-                                >
-                                    {isMerging ? '합치는 중...' : '다음과 합치기'}
-                                </button>
-                            )}
-
-                            {/* Admin Edit Button */}
-                            {isAdmin && !isEditing && (
-                                <button
-                                    onClick={startEditing}
-                                    className="absolute top-2 right-12 md:top-4 md:right-16 z-50 p-2 bg-indigo-500/20 rounded-full text-indigo-300 hover:bg-indigo-500/40 transition-all border border-indigo-500/30 flex items-center gap-2"
-                                >
-                                    <Edit3 size={18} />
-                                </button>
-                            )}
-
-                            {/* Mobile: Vertical layout with full-height image */}
-                            {/* Desktop: Horizontal layout */}
-
-                            {/* Image Section - fills available height on mobile */}
-                            <div className="flex-1 md:flex-[1.2] bg-black flex flex-col items-center justify-start p-2 md:p-8 overflow-auto relative group min-h-0">
-                                {selectedImages.length > 0 ? (
-                                    <div className="w-full h-full flex flex-col items-center gap-4 py-4">
-                                        {selectedImages.map((url, index) => (
-                                            <img
-                                                key={`${url}-${index}`}
-                                                src={url}
-                                                alt={selectedHymn.title}
-                                                className="w-full h-auto md:w-auto md:max-w-full object-contain shadow-2xl"
-                                            />
-                                        ))}
-                                    </div>
-                                ) : (
-                                    <div className="text-white/20 flex flex-col items-center gap-4 py-10">
-                                        <Music size={64} />
-                                        <p>악보 이미지가 없습니다</p>
-                                    </div>
-                                )}
-
-                                {primaryImage && (
-                                    <a
-                                        href={primaryImage}
-                                        download
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className="absolute bottom-4 right-4 md:bottom-6 md:right-6 bg-white text-black px-3 py-1.5 md:px-4 md:py-2 rounded-full font-bold shadow-lg opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity flex items-center gap-2 text-sm"
+                                {prevHymn && (
+                                    <button
+                                        onClick={(e) => { e.stopPropagation(); navigateToHymn(prevHymn); }}
+                                        className="absolute left-2 md:left-4 top-1/2 -translate-y-1/2 z-20 p-3 md:p-4 bg-black/20 hover:bg-black/50 rounded-full text-white/60 hover:text-white border border-white/10 backdrop-blur-sm transition-all"
+                                        aria-label="이전 찬양곡"
                                     >
-                                        <Download size={14} /> 원본
-                                    </a>
+                                        <ChevronLeft size={22} />
+                                    </button>
+                                )}
+                                {nextHymn && (
+                                    <button
+                                        onClick={(e) => { e.stopPropagation(); navigateToHymn(nextHymn); }}
+                                        className="absolute right-2 md:right-4 top-1/2 -translate-y-1/2 z-20 p-3 md:p-4 bg-black/20 hover:bg-black/50 rounded-full text-white/60 hover:text-white border border-white/10 backdrop-blur-sm transition-all"
+                                        aria-label="다음 찬양곡"
+                                    >
+                                        <ChevronRight size={22} />
+                                    </button>
                                 )}
 
-                                {/* Mobile: Hymn info overlay at bottom */}
-                                <div className="absolute bottom-0 left-0 right-0 md:hidden bg-gradient-to-t from-black/90 via-black/70 to-transparent p-4 pt-8">
-                                    <div className="flex items-center gap-2 mb-1">
-                                        <span className="px-2 py-0.5 bg-indigo-500/30 text-indigo-300 rounded text-xs font-bold">
-                                            {selectedHymn.number}곡
-                                        </span>
-                                        {selectedHymn.code && (
-                                            <span className="px-2 py-0.5 bg-emerald-500/30 text-emerald-300 rounded text-xs">
-                                                {selectedHymn.code}
-                                            </span>
-                                        )}
-                                        {selectedHymn.category && (
-                                            <span className="px-2 py-0.5 bg-white/10 text-white/60 rounded text-xs">
-                                                #{selectedHymn.category}
-                                            </span>
-                                        )}
-                                    </div>
-                                    <h2 className="text-lg font-bold text-white">{selectedHymn.title}</h2>
-                                </div>
-                            </div>
+                                {/* Admin Merge Button */}
+                                {isAdmin && !isEditing && (
+                                    <button
+                                        onClick={mergeWithNext}
+                                        disabled={isMerging}
+                                        className="absolute top-2 right-20 md:top-4 md:right-24 z-20 px-2 py-1.5 bg-amber-500/20 rounded-full text-amber-300 hover:bg-amber-500/40 transition-all border border-amber-500/30 text-[10px] md:text-xs disabled:opacity-60"
+                                    >
+                                        {isMerging ? '합치는 중...' : '다음과 합치기'}
+                                    </button>
+                                )}
 
-                            {/* Right: Info Panel - Hidden on mobile by default, shown on desktop */}
-                            <div className="hidden md:flex w-full md:w-[400px] bg-[#1a1a1a] p-6 border-l border-white/10 flex-col overflow-y-auto">
-                                {/* Header */}
-                                <div className="mb-6">
-                                    <div className="flex items-center gap-2 mb-2">
-                                        <span className="px-3 py-1 bg-indigo-500/20 text-indigo-300 rounded text-xs font-bold border border-indigo-500/20">
-                                            {selectedHymn.number}곡
-                                        </span>
-                                        {selectedHymn.code && (
-                                            <span className="px-3 py-1 bg-emerald-500/20 text-emerald-300 rounded text-xs border border-emerald-500/20">
-                                                {selectedHymn.code}
-                                            </span>
-                                        )}
-                                        {selectedHymn.category && selectedHymn.category.split(',').map(tag => (
-                                            <span key={tag} className="px-3 py-1 bg-white/10 text-white/60 rounded text-xs border border-white/10">
-                                                #{tag.replace(/#/g, '').trim()}
-                                            </span>
-                                        ))}
-                                    </div>
-                                    <h2 className="text-2xl font-bold text-white leading-tight">{selectedHymn.title}</h2>
-                                </div>
+                                {/* Admin Edit Button */}
+                                {isAdmin && !isEditing && (
+                                    <button
+                                        onClick={startEditing}
+                                        className="absolute top-2 right-12 md:top-4 md:right-16 z-50 p-2 bg-indigo-500/20 rounded-full text-indigo-300 hover:bg-indigo-500/40 transition-all border border-indigo-500/30 flex items-center gap-2"
+                                    >
+                                        <Edit3 size={18} />
+                                    </button>
+                                )}
 
-                                {/* Editing Mode */}
-                                {isEditing ? (
-                                    <div className="flex-1 flex flex-col gap-6 overflow-y-auto">
-                                        {/* Info Editor */}
-                                        {/* Title Editor */}
-                                        <div className="mb-4 grid grid-cols-4 gap-4">
-                                            <div className="col-span-1">
-                                                <h3 className="text-xs uppercase tracking-wider text-white/40 mb-3 font-bold flex items-center gap-2">
-                                                    <Hash size={14} /> 번호
-                                                </h3>
-                                                <input
-                                                    type="number"
-                                                    value={editNumber}
-                                                    onChange={(e) => setEditNumber(e.target.value ? Number(e.target.value) : '')}
-                                                    className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-white text-lg font-bold focus:outline-none focus:border-indigo-500/50 transition-all"
-                                                />
-                                            </div>
-                                            <div className="col-span-3">
-                                                <h3 className="text-xs uppercase tracking-wider text-white/40 mb-3 font-bold flex items-center gap-2">
-                                                    <Edit3 size={14} /> 제목
-                                                </h3>
-                                                <input
-                                                    type="text"
-                                                    value={editTitle}
-                                                    onChange={(e) => setEditTitle(e.target.value)}
-                                                    className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-white text-lg font-bold focus:outline-none focus:border-indigo-500/50 transition-all placeholder-white/20"
-                                                />
-                                            </div>
-                                        </div>
-                                        <div className="grid grid-cols-2 gap-4">
-                                            <div>
-                                                <h3 className="text-xs uppercase tracking-wider text-white/40 mb-3 font-bold flex items-center gap-2">
-                                                    <Music size={14} /> Key (코드)
-                                                </h3>
-                                                <input
-                                                    type="text"
-                                                    value={editCode}
-                                                    onChange={(e) => setEditCode(e.target.value)}
-                                                    placeholder="예: G"
-                                                    className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-white text-sm focus:outline-none focus:border-indigo-500/50 transition-all font-mono"
-                                                />
-                                            </div>
-                                            <div>
-                                                <h3 className="text-xs uppercase tracking-wider text-white/40 mb-3 font-bold flex items-center gap-2">
-                                                    <Hash size={14} /> 주제 (분류)
-                                                </h3>
-                                                <input
-                                                    type="text"
-                                                    value={editCategory}
-                                                    onChange={(e) => setEditCategory(e.target.value)}
-                                                    placeholder="예: 경배와찬양"
-                                                    className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-white text-sm focus:outline-none focus:border-indigo-500/50 transition-all"
-                                                />
-                                            </div>
-                                        </div>
+                                {/* Mobile: Vertical layout with full-height image */}
+                                {/* Desktop: Horizontal layout */}
 
-                                        {/* Lyrics Editor */}
-                                        <div>
-                                            <h3 className="text-xs uppercase tracking-wider text-white/40 mb-3 font-bold flex items-center gap-2">
-                                                <Edit3 size={14} /> 가사 편집
-                                            </h3>
-                                            <textarea
-                                                value={editLyrics}
-                                                onChange={(e) => setEditLyrics(e.target.value)}
-                                                className="w-full h-48 bg-black/40 border border-white/10 rounded-xl p-4 text-white/90 text-sm resize-none focus:outline-none focus:border-indigo-500/50 placeholder-white/30"
-                                                placeholder="가사를 입력하세요..."
-                                            />
-                                        </div>
+                                {/* Image Section - fills available height on mobile */}
+                                <div className="flex-1 md:flex-[1.2] bg-black flex flex-col items-center justify-start p-2 md:p-8 overflow-auto relative group min-h-0">
+                                    {selectedImages.length > 0 ? (
+                                        <div className="w-full h-full flex flex-col items-center gap-4 py-4">
+                                            {selectedImages.map((url, index) => (
+                                                <div key={`${url}-${index}`} className="relative w-full h-auto md:w-auto md:max-w-full shadow-2xl min-h-[300px] flex items-center justify-center bg-gray-900/50 rounded-lg overflow-hidden">
+                                                    {/* Placeholder */}
+                                                    <div className="absolute inset-0 flex items-center justify-center text-white/10">
+                                                        <Music size={64} />
+                                                    </div>
 
-                                        {/* Image URLs Editor */}
-                                        <div>
-                                            <h3 className="text-xs uppercase tracking-wider text-white/40 mb-3 font-bold flex items-center gap-2">
-                                                <Music size={14} /> 악보 이미지
-                                            </h3>
-                                            <div className="flex flex-wrap items-center gap-2 mb-3">
-                                                <label className="px-3 py-2 bg-white/10 text-white/80 rounded-lg border border-white/10 hover:bg-white/15 cursor-pointer text-xs">
-                                                    {uploading ? '업로드 중...' : '이미지 업로드'}
-                                                    <input
-                                                        type="file"
-                                                        accept="image/*"
-                                                        multiple
-                                                        className="hidden"
-                                                        onChange={(e) => handleImageUpload(e.target.files)}
-                                                        disabled={uploading}
+                                                    <img
+                                                        src={url}
+                                                        alt={selectedHymn.title}
+                                                        className="relative z-10 w-full h-auto object-contain"
+                                                        loading="lazy"
+                                                        onError={(e) => {
+                                                            e.currentTarget.style.display = 'none';
+                                                        }}
                                                     />
-                                                </label>
-                                                {uploadError && (
-                                                    <span className="text-xs text-red-400">{uploadError}</span>
-                                                )}
-                                                <span className="text-[10px] text-white/30">업로드 후 저장을 눌러야 반영됩니다.</span>
-                                            </div>
-                                            <div className="space-y-2">
-                                                {editImageUrls.length === 0 && (
-                                                    <div className="text-white/30 text-sm">등록된 이미지가 없습니다.</div>
-                                                )}
-                                                {editImageUrls.map((url, index) => (
-                                                    <div key={`${url}-${index}`} className="flex items-center gap-2 bg-black/40 border border-white/10 rounded-lg p-2">
-                                                        <input
-                                                            type="text"
-                                                            value={url}
-                                                            onChange={(e) => {
-                                                                const value = e.target.value;
-                                                                setEditImageUrls(prev => prev.map((u, i) => (i === index ? value : u)));
-                                                            }}
-                                                            className="flex-1 bg-black/20 border border-white/10 rounded px-2 py-1 text-white/90 text-xs focus:outline-none focus:border-indigo-500/50"
-                                                            placeholder="이미지 URL"
-                                                        />
-                                                        <button
-                                                            onClick={() => moveImage(index, index - 1)}
-                                                            disabled={index === 0}
-                                                            className="p-1 text-white/50 hover:text-white disabled:opacity-30"
-                                                            title="위로"
-                                                        >
-                                                            <ArrowUp size={14} />
-                                                        </button>
-                                                        <button
-                                                            onClick={() => moveImage(index, index + 1)}
-                                                            disabled={index === editImageUrls.length - 1}
-                                                            className="p-1 text-white/50 hover:text-white disabled:opacity-30"
-                                                            title="아래로"
-                                                        >
-                                                            <ArrowDown size={14} />
-                                                        </button>
-                                                        <button
-                                                            onClick={() => setEditImageUrls(prev => prev.filter((_, i) => i !== index))}
-                                                            className="p-1 text-red-400 hover:bg-red-500/20 rounded"
-                                                            title="삭제"
-                                                        >
-                                                            <Trash2 size={14} />
-                                                        </button>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                            <div className="mt-3 flex gap-2">
-                                                <input
-                                                    type="text"
-                                                    value={newImageUrl}
-                                                    onChange={(e) => setNewImageUrl(e.target.value)}
-                                                    placeholder="이미지 URL 추가..."
-                                                    className="flex-1 bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-white/90 text-sm focus:outline-none focus:border-indigo-500/50 placeholder-white/30"
-                                                />
-                                                <button
-                                                    onClick={() => {
-                                                        const next = newImageUrl.trim();
-                                                        if (!next) return;
-                                                        setEditImageUrls(prev => [...prev, next]);
-                                                        setNewImageUrl('');
-                                                    }}
-                                                    disabled={!newImageUrl.trim()}
-                                                    className="px-3 py-2 bg-emerald-500/20 text-emerald-300 rounded-lg hover:bg-emerald-500/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                                                >
-                                                    추가
-                                                </button>
-                                            </div>
-                                            <p className="text-[10px] text-white/30 mt-2">첫 번째 이미지가 대표 이미지로 사용됩니다.</p>
+                                                </div>
+                                            ))}
                                         </div>
+                                    ) : (
+                                        <div className="text-white/20 flex flex-col items-center gap-4 py-10">
+                                            <Music size={64} />
+                                            <p>악보 이미지가 없습니다</p>
+                                        </div>
+                                    )}
 
-                                        {/* YouTube Links Editor */}
-                                        <div>
-                                            <h3 className="text-xs uppercase tracking-wider text-white/40 mb-3 font-bold flex items-center gap-2">
-                                                <Youtube size={14} /> 유튜브 영상
-                                            </h3>
+                                    {primaryImage && (
+                                        <a
+                                            href={primaryImage}
+                                            download
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="absolute bottom-4 right-4 md:bottom-6 md:right-6 bg-white text-black px-3 py-1.5 md:px-4 md:py-2 rounded-full font-bold shadow-lg opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity flex items-center gap-2 text-sm"
+                                        >
+                                            <Download size={14} /> 원본
+                                        </a>
+                                    )}
 
-                                            {/* Existing Links */}
-                                            <div className="space-y-2 mb-4">
-                                                {editYoutubeLinks.map((link, index) => (
-                                                    <div key={index} className="flex items-center gap-2 bg-black/40 border border-white/10 rounded-lg p-2">
-                                                        <Youtube size={16} className="text-red-400 flex-shrink-0" />
-                                                        <span className="flex-1 text-white/80 text-sm truncate">{link.title}</span>
-                                                        <button
-                                                            onClick={() => removeYoutubeLink(index)}
-                                                            className="p-1 text-red-400 hover:bg-red-500/20 rounded"
-                                                        >
-                                                            <Trash2 size={14} />
-                                                        </button>
-                                                    </div>
-                                                ))}
-                                            </div>
+                                    {/* Mobile: Hymn info overlay at bottom */}
+                                    <div className="absolute bottom-0 left-0 right-0 md:hidden bg-gradient-to-t from-black/90 via-black/70 to-transparent p-4 pt-8">
+                                        <div className="flex items-center gap-2 mb-1">
+                                            <span className="px-2 py-0.5 bg-indigo-500/30 text-indigo-300 rounded text-xs font-bold">
+                                                {selectedHymn.number}곡
+                                            </span>
+                                            {selectedHymn.code && (
+                                                <span className="px-2 py-0.5 bg-emerald-500/30 text-emerald-300 rounded text-xs">
+                                                    {selectedHymn.code}
+                                                </span>
+                                            )}
+                                            {selectedHymn.category && (
+                                                <span className="px-2 py-0.5 bg-white/10 text-white/60 rounded text-xs">
+                                                    #{selectedHymn.category}
+                                                </span>
+                                            )}
+                                        </div>
+                                        <h2 className="text-lg font-bold text-white">{selectedHymn.title}</h2>
+                                    </div>
+                                </div>
 
-                                            {/* Add New Link */}
-                                            <div className="space-y-2">
-                                                <input
-                                                    type="text"
-                                                    value={newYoutubeUrl}
-                                                    onChange={(e) => setNewYoutubeUrl(e.target.value)}
-                                                    placeholder="YouTube URL 붙여넣기..."
-                                                    className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-white/90 text-sm focus:outline-none focus:border-indigo-500/50 placeholder-white/30"
-                                                />
-                                                <div className="flex gap-2">
+                                {/* Right: Info Panel - Hidden on mobile by default, shown on desktop */}
+                                <div className="hidden md:flex w-full md:w-[400px] bg-[#1a1a1a] p-6 border-l border-white/10 flex-col overflow-y-auto">
+                                    {/* Header */}
+                                    <div className="mb-6">
+                                        <div className="flex items-center gap-2 mb-2">
+                                            <span className="px-3 py-1 bg-indigo-500/20 text-indigo-300 rounded text-xs font-bold border border-indigo-500/20">
+                                                {selectedHymn.number}곡
+                                            </span>
+                                            {selectedHymn.code && (
+                                                <span className="px-3 py-1 bg-emerald-500/20 text-emerald-300 rounded text-xs border border-emerald-500/20">
+                                                    {selectedHymn.code}
+                                                </span>
+                                            )}
+                                            {selectedHymn.category && selectedHymn.category.split(',').map(tag => (
+                                                <span key={tag} className="px-3 py-1 bg-white/10 text-white/60 rounded text-xs border border-white/10">
+                                                    #{tag.replace(/#/g, '').trim()}
+                                                </span>
+                                            ))}
+                                        </div>
+                                        <h2 className="text-2xl font-bold text-white leading-tight">{selectedHymn.title}</h2>
+                                    </div>
+
+                                    {/* Editing Mode */}
+                                    {isEditing ? (
+                                        <div className="flex-1 flex flex-col gap-6 overflow-y-auto">
+                                            {/* Info Editor */}
+                                            {/* Title Editor */}
+                                            <div className="mb-4 grid grid-cols-4 gap-4">
+                                                <div className="col-span-1">
+                                                    <h3 className="text-xs uppercase tracking-wider text-white/40 mb-3 font-bold flex items-center gap-2">
+                                                        <Hash size={14} /> 번호
+                                                    </h3>
+                                                    <input
+                                                        type="number"
+                                                        value={editNumber}
+                                                        onChange={(e) => setEditNumber(e.target.value ? Number(e.target.value) : '')}
+                                                        className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-white text-lg font-bold focus:outline-none focus:border-indigo-500/50 transition-all"
+                                                    />
+                                                </div>
+                                                <div className="col-span-3">
+                                                    <h3 className="text-xs uppercase tracking-wider text-white/40 mb-3 font-bold flex items-center gap-2">
+                                                        <Edit3 size={14} /> 제목
+                                                    </h3>
                                                     <input
                                                         type="text"
-                                                        value={newYoutubeTitle}
-                                                        onChange={(e) => setNewYoutubeTitle(e.target.value)}
-                                                        placeholder="영상 제목 (선택)"
-                                                        className="flex-1 bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-white/90 text-sm focus:outline-none focus:border-indigo-500/50 placeholder-white/30"
+                                                        value={editTitle}
+                                                        onChange={(e) => setEditTitle(e.target.value)}
+                                                        className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-white text-lg font-bold focus:outline-none focus:border-indigo-500/50 transition-all placeholder-white/20"
                                                     />
-                                                    <button
-                                                        onClick={addYoutubeLink}
-                                                        disabled={!newYoutubeUrl.trim()}
-                                                        className="px-3 py-2 bg-red-500/20 text-red-300 rounded-lg hover:bg-red-500/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
-                                                    >
-                                                        <Plus size={16} />
-                                                    </button>
                                                 </div>
                                             </div>
-                                        </div>
+                                            <div className="grid grid-cols-2 gap-4">
+                                                <div>
+                                                    <h3 className="text-xs uppercase tracking-wider text-white/40 mb-3 font-bold flex items-center gap-2">
+                                                        <Music size={14} /> Key (코드)
+                                                    </h3>
+                                                    <input
+                                                        type="text"
+                                                        value={editCode}
+                                                        onChange={(e) => setEditCode(e.target.value)}
+                                                        placeholder="예: G"
+                                                        className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-white text-sm focus:outline-none focus:border-indigo-500/50 transition-all font-mono"
+                                                    />
+                                                </div>
+                                                <div>
+                                                    <h3 className="text-xs uppercase tracking-wider text-white/40 mb-3 font-bold flex items-center gap-2">
+                                                        <Hash size={14} /> 주제 (분류)
+                                                    </h3>
+                                                    <input
+                                                        type="text"
+                                                        value={editCategory}
+                                                        onChange={(e) => setEditCategory(e.target.value)}
+                                                        placeholder="예: 경배와찬양"
+                                                        className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-white text-sm focus:outline-none focus:border-indigo-500/50 transition-all"
+                                                    />
+                                                </div>
+                                            </div>
 
-                                        {/* Action Buttons */}
-                                        <div className="flex gap-3 mt-auto pt-4 border-t border-white/10">
-                                            <button
-                                                onClick={cancelEditing}
-                                                className="flex-1 py-3 bg-white/5 text-white/60 rounded-xl hover:bg-white/10 transition-colors"
-                                            >
-                                                취소
-                                            </button>
-                                            <button
-                                                onClick={saveChanges}
-                                                disabled={saving}
-                                                className="flex-1 py-3 bg-indigo-500 text-white rounded-xl hover:bg-indigo-600 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
-                                            >
-                                                {saving ? (
-                                                    <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                                                ) : (
-                                                    <>
-                                                        <Save size={18} />
-                                                        저장
-                                                    </>
-                                                )}
-                                            </button>
-                                        </div>
-                                    </div>
-                                ) : (
-                                    /* View Mode */
-                                    <div className="flex-1 flex flex-col gap-6 overflow-y-auto">
-                                        {/* YouTube Videos */}
-                                        {selectedHymn.youtubeLinks && selectedHymn.youtubeLinks.length > 0 && (
+                                            {/* Lyrics Editor */}
                                             <div>
                                                 <h3 className="text-xs uppercase tracking-wider text-white/40 mb-3 font-bold flex items-center gap-2">
-                                                    <Youtube size={14} className="text-red-400" /> 영상
+                                                    <Edit3 size={14} /> 가사 편집
                                                 </h3>
-                                                <div className="space-y-3">
-                                                    {selectedHymn.youtubeLinks.map((link, index) => (
-                                                        <div key={index} className="rounded-xl overflow-hidden border border-white/10">
-                                                            <iframe
-                                                                src={link.url}
-                                                                title={link.title}
-                                                                className="w-full aspect-video"
-                                                                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                                                                allowFullScreen
+                                                <textarea
+                                                    value={editLyrics}
+                                                    onChange={(e) => setEditLyrics(e.target.value)}
+                                                    className="w-full h-48 bg-black/40 border border-white/10 rounded-xl p-4 text-white/90 text-sm resize-none focus:outline-none focus:border-indigo-500/50 placeholder-white/30"
+                                                    placeholder="가사를 입력하세요..."
+                                                />
+                                            </div>
+
+                                            {/* Image URLs Editor */}
+                                            <div>
+                                                <h3 className="text-xs uppercase tracking-wider text-white/40 mb-3 font-bold flex items-center gap-2">
+                                                    <Music size={14} /> 악보 이미지
+                                                </h3>
+                                                <div className="flex flex-wrap items-center gap-2 mb-3">
+                                                    <label className="px-3 py-2 bg-white/10 text-white/80 rounded-lg border border-white/10 hover:bg-white/15 cursor-pointer text-xs">
+                                                        {uploading ? '업로드 중...' : '이미지 업로드'}
+                                                        <input
+                                                            type="file"
+                                                            accept="image/*"
+                                                            multiple
+                                                            className="hidden"
+                                                            onChange={(e) => handleImageUpload(e.target.files)}
+                                                            disabled={uploading}
+                                                        />
+                                                    </label>
+                                                    {uploadError && (
+                                                        <span className="text-xs text-red-400">{uploadError}</span>
+                                                    )}
+                                                    <span className="text-[10px] text-white/30">업로드 후 저장을 눌러야 반영됩니다.</span>
+                                                </div>
+                                                <div className="space-y-2">
+                                                    {editImageUrls.length === 0 && (
+                                                        <div className="text-white/30 text-sm">등록된 이미지가 없습니다.</div>
+                                                    )}
+                                                    {editImageUrls.map((url, index) => (
+                                                        <div key={`${url}-${index}`} className="flex items-center gap-2 bg-black/40 border border-white/10 rounded-lg p-2">
+                                                            <input
+                                                                type="text"
+                                                                value={url}
+                                                                onChange={(e) => {
+                                                                    const value = e.target.value;
+                                                                    setEditImageUrls(prev => prev.map((u, i) => (i === index ? value : u)));
+                                                                }}
+                                                                className="flex-1 bg-black/20 border border-white/10 rounded px-2 py-1 text-white/90 text-xs focus:outline-none focus:border-indigo-500/50"
+                                                                placeholder="이미지 URL"
                                                             />
-                                                            <div className="bg-black/40 px-3 py-2 flex items-center justify-between">
-                                                                <span className="text-white/70 text-sm truncate">{link.title}</span>
-                                                                <a
-                                                                    href={link.url.replace('/embed/', '/watch?v=')}
-                                                                    target="_blank"
-                                                                    rel="noopener noreferrer"
-                                                                    className="text-white/40 hover:text-white/80 transition-colors"
-                                                                >
-                                                                    <ExternalLink size={14} />
-                                                                </a>
-                                                            </div>
+                                                            <button
+                                                                onClick={() => moveImage(index, index - 1)}
+                                                                disabled={index === 0}
+                                                                className="p-1 text-white/50 hover:text-white disabled:opacity-30"
+                                                                title="위로"
+                                                            >
+                                                                <ArrowUp size={14} />
+                                                            </button>
+                                                            <button
+                                                                onClick={() => moveImage(index, index + 1)}
+                                                                disabled={index === editImageUrls.length - 1}
+                                                                className="p-1 text-white/50 hover:text-white disabled:opacity-30"
+                                                                title="아래로"
+                                                            >
+                                                                <ArrowDown size={14} />
+                                                            </button>
+                                                            <button
+                                                                onClick={() => setEditImageUrls(prev => prev.filter((_, i) => i !== index))}
+                                                                className="p-1 text-red-400 hover:bg-red-500/20 rounded"
+                                                                title="삭제"
+                                                            >
+                                                                <Trash2 size={14} />
+                                                            </button>
                                                         </div>
                                                     ))}
                                                 </div>
-                                            </div>
-                                        )}
-
-                                        {/* Lyrics */}
-                                        {selectedHymn.lyrics ? (
-                                            <div className="flex-1">
-                                                <h3 className="text-xs uppercase tracking-wider text-white/40 mb-3 font-bold">가사</h3>
-                                                <p className="text-white/80 whitespace-pre-wrap leading-relaxed text-sm font-light">
-                                                    {selectedHymn.lyrics}
-                                                </p>
-                                            </div>
-                                        ) : (
-                                            <div className="flex-1 flex items-center justify-center text-white/30 text-sm">
-                                                가사가 아직 등록되지 않았습니다.
-                                                {isAdmin && (
+                                                <div className="mt-3 flex gap-2">
+                                                    <input
+                                                        type="text"
+                                                        value={newImageUrl}
+                                                        onChange={(e) => setNewImageUrl(e.target.value)}
+                                                        placeholder="이미지 URL 추가..."
+                                                        className="flex-1 bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-white/90 text-sm focus:outline-none focus:border-indigo-500/50 placeholder-white/30"
+                                                    />
                                                     <button
-                                                        onClick={startEditing}
-                                                        className="ml-2 text-indigo-400 hover:text-indigo-300 underline"
+                                                        onClick={() => {
+                                                            const next = newImageUrl.trim();
+                                                            if (!next) return;
+                                                            setEditImageUrls(prev => [...prev, next]);
+                                                            setNewImageUrl('');
+                                                        }}
+                                                        disabled={!newImageUrl.trim()}
+                                                        className="px-3 py-2 bg-emerald-500/20 text-emerald-300 rounded-lg hover:bg-emerald-500/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                                                     >
-                                                        추가하기
+                                                        추가
                                                     </button>
-                                                )}
+                                                </div>
+                                                <p className="text-[10px] text-white/30 mt-2">첫 번째 이미지가 대표 이미지로 사용됩니다.</p>
                                             </div>
-                                        )}
-                                    </div>
-                                )}
-                            </div>
+
+                                            {/* YouTube Links Editor */}
+                                            <div>
+                                                <h3 className="text-xs uppercase tracking-wider text-white/40 mb-3 font-bold flex items-center gap-2">
+                                                    <Youtube size={14} /> 유튜브 영상
+                                                </h3>
+
+                                                {/* Existing Links */}
+                                                <div className="space-y-2 mb-4">
+                                                    {editYoutubeLinks.map((link, index) => (
+                                                        <div key={index} className="flex items-center gap-2 bg-black/40 border border-white/10 rounded-lg p-2">
+                                                            <Youtube size={16} className="text-red-400 flex-shrink-0" />
+                                                            <span className="flex-1 text-white/80 text-sm truncate">{link.title}</span>
+                                                            <button
+                                                                onClick={() => removeYoutubeLink(index)}
+                                                                className="p-1 text-red-400 hover:bg-red-500/20 rounded"
+                                                            >
+                                                                <Trash2 size={14} />
+                                                            </button>
+                                                        </div>
+                                                    ))}
+                                                </div>
+
+                                                {/* Add New Link */}
+                                                <div className="space-y-2">
+                                                    <input
+                                                        type="text"
+                                                        value={newYoutubeUrl}
+                                                        onChange={(e) => setNewYoutubeUrl(e.target.value)}
+                                                        placeholder="YouTube URL 붙여넣기..."
+                                                        className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-white/90 text-sm focus:outline-none focus:border-indigo-500/50 placeholder-white/30"
+                                                    />
+                                                    <div className="flex gap-2">
+                                                        <input
+                                                            type="text"
+                                                            value={newYoutubeTitle}
+                                                            onChange={(e) => setNewYoutubeTitle(e.target.value)}
+                                                            placeholder="영상 제목 (선택)"
+                                                            className="flex-1 bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-white/90 text-sm focus:outline-none focus:border-indigo-500/50 placeholder-white/30"
+                                                        />
+                                                        <button
+                                                            onClick={addYoutubeLink}
+                                                            disabled={!newYoutubeUrl.trim()}
+                                                            className="px-3 py-2 bg-red-500/20 text-red-300 rounded-lg hover:bg-red-500/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
+                                                        >
+                                                            <Plus size={16} />
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            {/* Action Buttons */}
+                                            <div className="flex gap-3 mt-auto pt-4 border-t border-white/10">
+                                                <button
+                                                    onClick={cancelEditing}
+                                                    className="flex-1 py-3 bg-white/5 text-white/60 rounded-xl hover:bg-white/10 transition-colors"
+                                                >
+                                                    취소
+                                                </button>
+                                                <button
+                                                    onClick={saveChanges}
+                                                    disabled={saving}
+                                                    className="flex-1 py-3 bg-indigo-500 text-white rounded-xl hover:bg-indigo-600 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                                                >
+                                                    {saving ? (
+                                                        <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                                    ) : (
+                                                        <>
+                                                            <Save size={18} />
+                                                            저장
+                                                        </>
+                                                    )}
+                                                </button>
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        /* View Mode */
+                                        <div className="flex-1 flex flex-col gap-6 overflow-y-auto">
+                                            {/* YouTube Videos */}
+                                            {selectedHymn.youtubeLinks && selectedHymn.youtubeLinks.length > 0 && (
+                                                <div>
+                                                    <h3 className="text-xs uppercase tracking-wider text-white/40 mb-3 font-bold flex items-center gap-2">
+                                                        <Youtube size={14} className="text-red-400" /> 영상
+                                                    </h3>
+                                                    <div className="space-y-3">
+                                                        {selectedHymn.youtubeLinks.map((link, index) => (
+                                                            <div key={index} className="rounded-xl overflow-hidden border border-white/10">
+                                                                <iframe
+                                                                    src={link.url}
+                                                                    title={link.title}
+                                                                    className="w-full aspect-video"
+                                                                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                                                    allowFullScreen
+                                                                />
+                                                                <div className="bg-black/40 px-3 py-2 flex items-center justify-between">
+                                                                    <span className="text-white/70 text-sm truncate">{link.title}</span>
+                                                                    <a
+                                                                        href={link.url.replace('/embed/', '/watch?v=')}
+                                                                        target="_blank"
+                                                                        rel="noopener noreferrer"
+                                                                        className="text-white/40 hover:text-white/80 transition-colors"
+                                                                    >
+                                                                        <ExternalLink size={14} />
+                                                                    </a>
+                                                                </div>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            {/* Lyrics */}
+                                            {selectedHymn.lyrics ? (
+                                                <div className="flex-1">
+                                                    <h3 className="text-xs uppercase tracking-wider text-white/40 mb-3 font-bold">가사</h3>
+                                                    <p className="text-white/80 whitespace-pre-wrap leading-relaxed text-sm font-light">
+                                                        {selectedHymn.lyrics}
+                                                    </p>
+                                                </div>
+                                            ) : (
+                                                <div className="flex-1 flex items-center justify-center text-white/30 text-sm">
+                                                    가사가 아직 등록되지 않았습니다.
+                                                    {isAdmin && (
+                                                        <button
+                                                            onClick={startEditing}
+                                                            className="ml-2 text-indigo-400 hover:text-indigo-300 underline"
+                                                        >
+                                                            추가하기
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
+                            </motion.div>
                         </motion.div>
-                    </motion.div>
-                )}
-            </AnimatePresence>
+                    )
+                }
+            </AnimatePresence >
         </div >
     );
 };
