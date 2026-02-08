@@ -454,18 +454,57 @@ export const SetlistPlanner: React.FC = () => {
                 </div>
             </div>
 
-            {/* Search Bar (Left Above Toggle) */}
-            <div className="relative mb-6 md:mb-0 md:absolute md:top-32 md:left-10 z-20 pointer-events-auto w-full md:w-[300px] print-hide">
-                <div className="relative group w-full">
-                    <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none">
-                        <Search className="text-emerald-400 opacity-50" size={20} />
+            {/* Search Bar & Tabs (Left Above Toggle) */}
+            <div className="relative mb-2 md:mb-0 md:absolute md:top-48 md:left-10 z-20 pointer-events-auto w-full md:w-auto flex flex-row items-center gap-2 md:gap-4 overflow-x-auto no-scrollbar pr-4 md:pr-0 print-hide">
+                {/* Library Tab Selector */}
+                <div className="flex gap-1 p-1 rounded-full bg-white/10 backdrop-blur-sm border border-white/15 shadow-lg flex-shrink-0">
+                    <button
+                        onClick={() => { setLibraryTab('hymn'); setSelectedTags([]); }}
+                        className={`px-3 py-1.5 text-[10px] tracking-[0.05em] uppercase rounded-full transition-all whitespace-nowrap ${libraryTab === 'hymn'
+                            ? 'bg-gradient-to-r from-green-500/30 to-teal-500/30 text-white font-bold'
+                            : 'text-white/50 hover:text-white/80'}`}
+                    >
+                        찬송가
+                    </button>
+                    <button
+                        onClick={() => { setLibraryTab('praise'); setSelectedTags([]); }}
+                        className={`px-3 py-1.5 text-[10px] tracking-[0.05em] uppercase rounded-full transition-all whitespace-nowrap ${libraryTab === 'praise'
+                            ? 'bg-gradient-to-r from-emerald-500/30 to-green-500/30 text-white font-bold'
+                            : 'text-white/50 hover:text-white/80'}`}
+                    >
+                        찬양곡
+                    </button>
+                    <button
+                        onClick={() => { setLibraryTab('all'); setSelectedTags([]); }}
+                        className={`px-3 py-1.5 text-[10px] tracking-[0.05em] uppercase rounded-full transition-all whitespace-nowrap ${libraryTab === 'all'
+                            ? 'bg-gradient-to-r from-indigo-500/30 to-purple-500/30 text-white font-bold'
+                            : 'text-white/50 hover:text-white/80'}`}
+                    >
+                        전체
+                    </button>
+                </div>
+
+                {/* Add Selected Button (Mobile/Desktop) */}
+                {selectedLibraryIds.size > 0 && (
+                    <button
+                        onClick={addSelectedToSetlist}
+                        className="px-3 py-2 bg-indigo-500 text-white text-xs font-bold rounded-xl hover:bg-indigo-600 transition-colors shadow-lg animate-pulse whitespace-nowrap flex-shrink-0"
+                    >
+                        {selectedLibraryIds.size}곡 추가
+                    </button>
+                )}
+
+                {/* Search Bar */}
+                <div className="relative group flex-1 md:flex-none w-full md:w-[260px] min-w-[180px]">
+                    <div className="absolute inset-y-0 left-3 md:left-4 flex items-center pointer-events-none">
+                        <Search className="text-emerald-400 opacity-50" size={18} />
                     </div>
                     <input
                         type="text"
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
                         placeholder="번호, 제목, 주제..."
-                        className="bg-gradient-to-br from-emerald-500/20 to-teal-500/10 border border-emerald-500/30 rounded-2xl pl-12 pr-10 py-3 w-full text-xl md:text-2xl font-bold text-white placeholder-white/20 focus:outline-none focus:border-emerald-500/60 focus:ring-1 focus:ring-emerald-500/30 transition-all backdrop-blur-sm"
+                        className="bg-gradient-to-br from-emerald-500/20 to-teal-500/10 border border-emerald-500/30 rounded-2xl pl-10 pr-10 py-2 md:py-3 w-full text-lg md:text-xl font-bold text-white placeholder-white/20 focus:outline-none focus:border-emerald-500/60 focus:ring-1 focus:ring-emerald-500/30 transition-all backdrop-blur-sm"
                         maxLength={20}
                     />
                     {searchQuery && (
@@ -473,45 +512,7 @@ export const SetlistPlanner: React.FC = () => {
                             onClick={() => { setSearchQuery(''); setSelectedTags([]); setSelectedCodes([]); }}
                             className="absolute inset-y-0 right-3 flex items-center text-white/30 hover:text-red-400 transition-colors"
                         >
-                            <X size={20} />
-                        </button>
-                    )}
-                </div>
-            </div>
-
-            {/* Library Tab Selector - Below Search Bar */}
-            <div className="relative mb-4 md:mb-0 md:absolute md:top-48 md:left-10 z-20 pointer-events-auto w-full md:w-[300px] print-hide">
-                <div className="flex flex-wrap items-center gap-2">
-                    <button
-                        onClick={() => { setLibraryTab('hymn'); setSelectedTags([]); }}
-                        className={`px-3 py-1.5 text-[10px] tracking-[0.15em] uppercase rounded-full transition-all ${libraryTab === 'hymn'
-                            ? 'bg-gradient-to-r from-green-500/30 to-teal-500/30 text-white'
-                            : 'text-white/50 hover:text-white/80'}`}
-                    >
-                        🎵 찬송가
-                    </button>
-                    <button
-                        onClick={() => { setLibraryTab('praise'); setSelectedTags([]); }}
-                        className={`px-3 py-1.5 text-[10px] tracking-[0.15em] uppercase rounded-full transition-all ${libraryTab === 'praise'
-                            ? 'bg-gradient-to-r from-emerald-500/30 to-green-500/30 text-white'
-                            : 'text-white/50 hover:text-white/80'}`}
-                    >
-                        🎶 찬양곡
-                    </button>
-                    <button
-                        onClick={() => { setLibraryTab('all'); setSelectedTags([]); }}
-                        className={`px-3 py-1.5 text-[10px] tracking-[0.15em] uppercase rounded-full transition-all ${libraryTab === 'all'
-                            ? 'bg-gradient-to-r from-indigo-500/30 to-purple-500/30 text-white'
-                            : 'text-white/50 hover:text-white/80'}`}
-                    >
-                        ♾️ 전체
-                    </button>
-                    {selectedLibraryIds.size > 0 && (
-                        <button
-                            onClick={addSelectedToSetlist}
-                            className="px-3 py-1.5 bg-indigo-500 text-white text-xs font-bold rounded-lg hover:bg-indigo-600 transition-colors shadow-lg animate-pulse"
-                        >
-                            {selectedLibraryIds.size}곡 추가하기
+                            <X size={18} />
                         </button>
                     )}
                 </div>
