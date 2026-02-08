@@ -228,6 +228,24 @@ export const PraiseGallery: React.FC<PraiseGalleryProps> = ({ isAdmin = false, c
         });
     };
 
+    const handleDeleteSong = async () => {
+        if (!selectedHymn || !isAdmin) return;
+
+        if (!confirm(`'${selectedHymn.title}' 곡을 정말 삭제하시겠습니까?\n이 작업은 되돌릴 수 없습니다.`)) {
+            return;
+        }
+
+        try {
+            await deleteDoc(doc(db, 'gallery', selectedHymn.id));
+            alert('삭제되었습니다.');
+            setSelectedHymn(null);
+            setIsEditing(false);
+        } catch (error: any) {
+            console.error('Error deleting song:', error);
+            alert(`삭제 중 오류가 발생했습니다: ${error.message}`);
+        }
+    };
+
     const handleImageUpload = async (files: FileList | null) => {
         if (!files || files.length === 0) return;
         if (!selectedHymn) return;
@@ -1046,9 +1064,19 @@ export const PraiseGallery: React.FC<PraiseGalleryProps> = ({ isAdmin = false, c
 
                                             {/* Action Buttons */}
                                             <div className="flex gap-3 mt-auto pt-4 border-t border-white/10">
+                                                {!isAddingNew && (
+                                                    <button
+                                                        onClick={handleDeleteSong}
+                                                        className="px-4 py-3 bg-red-500/20 text-red-400 rounded-xl hover:bg-red-500/30 transition-colors border border-red-500/30 flex items-center justify-center shrink-0"
+                                                        title="이 곡 삭제"
+                                                    >
+                                                        <Trash2 size={18} />
+                                                    </button>
+                                                )}
                                                 <button
                                                     onClick={cancelEditing}
                                                     className="flex-1 py-3 bg-white/5 text-white/60 rounded-xl hover:bg-white/10 transition-colors"
+
                                                 >
                                                     취소
                                                 </button>
