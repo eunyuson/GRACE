@@ -384,17 +384,17 @@ export const HymnGallery: React.FC<HymnGalleryProps> = ({ isAdmin = false, curre
             </div>
 
             {/* Search Bar & Tabs (Left Above Toggle) */}
-            <div className="relative mb-6 md:mb-0 md:absolute md:top-32 md:left-10 z-20 pointer-events-auto w-full md:w-auto flex flex-col md:flex-row items-start md:items-center gap-4">
-                <div className="relative group w-full md:w-[300px]">
-                    <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none">
-                        <Search className="text-emerald-400 opacity-50" size={20} />
+            <div className="relative mb-2 md:mb-0 md:absolute md:top-24 md:left-10 z-20 pointer-events-auto w-full md:w-auto flex flex-row items-center gap-2 md:gap-4 overflow-x-auto no-scrollbar pr-4 md:pr-0">
+                <div className="relative group flex-1 md:flex-none w-full md:w-[300px] min-w-[200px]">
+                    <div className="absolute inset-y-0 left-3 md:left-4 flex items-center pointer-events-none">
+                        <Search className="text-emerald-400 opacity-50" size={18} />
                     </div>
                     <input
                         type="text"
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
                         placeholder="번호, 제목, 가사 검색..."
-                        className="bg-gradient-to-br from-emerald-500/20 to-teal-500/10 border border-emerald-500/30 rounded-2xl pl-12 pr-10 py-3 w-full text-xl md:text-2xl font-bold text-white placeholder-white/20 focus:outline-none focus:border-emerald-500/60 focus:ring-1 focus:ring-emerald-500/30 transition-all backdrop-blur-sm"
+                        className="bg-gradient-to-br from-emerald-500/20 to-teal-500/10 border border-emerald-500/30 rounded-2xl pl-10 pr-10 py-2 md:py-3 w-full text-lg md:text-2xl font-bold text-white placeholder-white/20 focus:outline-none focus:border-emerald-500/60 focus:ring-1 focus:ring-emerald-500/30 transition-all backdrop-blur-sm"
                         maxLength={20}
                     />
                     {searchQuery && (
@@ -402,31 +402,31 @@ export const HymnGallery: React.FC<HymnGalleryProps> = ({ isAdmin = false, curre
                             onClick={() => { setSearchQuery(''); setSelectedCategories([]); }}
                             className="absolute inset-y-0 right-3 flex items-center text-white/30 hover:text-red-400 transition-colors"
                         >
-                            <X size={20} />
+                            <X size={18} />
                         </button>
                     )}
                 </div>
 
                 {/* Tab Buttons */}
                 {onTabChange && (
-                    <div className="flex gap-1 p-1 rounded-full bg-white/10 backdrop-blur-sm border border-white/15 shadow-lg">
+                    <div className="flex gap-1 p-1 rounded-full bg-white/10 backdrop-blur-sm border border-white/15 shadow-lg flex-shrink-0">
                         <button
                             onClick={() => onTabChange('hymn')}
-                            className={`px-3 py-1.5 text-[9px] md:text-[10px] tracking-[0.15em] uppercase rounded-full transition-all ${currentTab === 'hymn'
-                                ? 'bg-gradient-to-r from-green-500/30 to-teal-500/30 text-white'
+                            className={`px-3 py-1.5 text-[10px] tracking-[0.05em] uppercase rounded-full transition-all whitespace-nowrap ${currentTab === 'hymn'
+                                ? 'bg-gradient-to-r from-green-500/30 to-teal-500/30 text-white font-bold'
                                 : 'text-white/50 hover:text-white/80'
                                 }`}
                         >
-                            🎵 찬송가
+                            찬송가
                         </button>
                         <button
                             onClick={() => onTabChange('praise')}
-                            className={`px-3 py-1.5 text-[9px] md:text-[10px] tracking-[0.15em] uppercase rounded-full transition-all ${currentTab === 'praise'
-                                ? 'bg-gradient-to-r from-emerald-500/30 to-green-500/30 text-white'
+                            className={`px-3 py-1.5 text-[10px] tracking-[0.05em] uppercase rounded-full transition-all whitespace-nowrap ${currentTab === 'praise'
+                                ? 'bg-gradient-to-r from-emerald-500/30 to-green-500/30 text-white font-bold'
                                 : 'text-white/50 hover:text-white/80'
                                 }`}
                         >
-                            🎶 찬양곡
+                            찬양곡
                         </button>
                     </div>
                 )}
