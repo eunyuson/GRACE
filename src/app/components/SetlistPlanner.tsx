@@ -455,7 +455,7 @@ export const SetlistPlanner: React.FC = () => {
             </div>
 
             {/* Search Bar & Tabs (Left Above Toggle) */}
-            <div className="relative mb-2 md:mb-0 md:absolute md:top-48 md:left-10 z-20 pointer-events-auto w-full md:w-auto flex flex-row items-center gap-2 md:gap-4 overflow-x-auto no-scrollbar pr-4 md:pr-0 print-hide">
+            <div className="relative mb-2 md:mb-0 md:absolute md:top-36 md:left-10 z-20 pointer-events-auto w-full md:w-auto flex flex-row items-center gap-2 md:gap-4 overflow-x-auto no-scrollbar pr-4 md:pr-0 print-hide">
                 {/* Library Tab Selector */}
                 <div className="flex gap-1 p-1 rounded-full bg-white/10 backdrop-blur-sm border border-white/15 shadow-lg flex-shrink-0">
                     <button
