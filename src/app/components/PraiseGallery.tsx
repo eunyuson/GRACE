@@ -59,6 +59,8 @@ export const PraiseGallery: React.FC<PraiseGalleryProps> = ({ isAdmin = false })
     const [editYoutubeLinks, setEditYoutubeLinks] = useState<{ url: string; title: string }[]>([]);
     const [editImageUrls, setEditImageUrls] = useState<string[]>([]);
     const [newImageUrl, setNewImageUrl] = useState('');
+    const [newYoutubeUrl, setNewYoutubeUrl] = useState('');
+    const [newYoutubeTitle, setNewYoutubeTitle] = useState('');
     const [uploading, setUploading] = useState(false);
     const [uploadError, setUploadError] = useState('');
     const [editNumber, setEditNumber] = useState<number | ''>('');
@@ -67,19 +69,27 @@ export const PraiseGallery: React.FC<PraiseGalleryProps> = ({ isAdmin = false })
 
     // Start editing mode
     const startEditing = () => {
-        if (selectedHymn) {
-            setEditNumber(selectedHymn.number);
-            setEditLyrics(selectedHymn.lyrics || '');
-            setEditTitle(selectedHymn.title || '');
-            setEditCode(selectedHymn.code || '');
-            setEditCategory(selectedHymn.category || '');
-            setEditYoutubeLinks(selectedHymn.youtubeLinks || []);
-            setEditImageUrls(getImagesForHymn(selectedHymn));
-            setNewImageUrl('');
-            setNewYoutubeUrl('');
-            setNewYoutubeTitle('');
-            setIsEditing(true);
-            setIsAddingNew(false);
+        try {
+            if (selectedHymn) {
+                // Safely handle potential missing properties
+                setEditNumber(selectedHymn.number ?? '');
+                setEditLyrics(selectedHymn.lyrics || '');
+                setEditTitle(selectedHymn.title || '');
+                setEditCode(selectedHymn.code || '');
+                setEditCategory(selectedHymn.category || '');
+                setEditYoutubeLinks(Array.isArray(selectedHymn.youtubeLinks) ? selectedHymn.youtubeLinks : []);
+                setEditImageUrls(getImagesForHymn(selectedHymn));
+
+                setNewImageUrl('');
+                setNewYoutubeUrl('');
+                setNewYoutubeTitle('');
+
+                setIsEditing(true);
+                setIsAddingNew(false);
+            }
+        } catch (error: any) {
+            console.error('Failed to start editing:', error);
+            alert(`편집 모드 진입 중 오류가 발생했습니다: ${error.message}`);
         }
     };
 
@@ -156,9 +166,9 @@ export const PraiseGallery: React.FC<PraiseGalleryProps> = ({ isAdmin = false })
                     imageUrl: primaryImageUrl
                 });
             }
-        } catch (error) {
+        } catch (error: any) {
             console.error('Error saving hymn:', error);
-            alert('저장 중 오류가 발생했습니다.');
+            alert(`저장 중 오류가 발생했습니다: ${error.message || '알 수 없는 오류'}`);
         } finally {
             setSaving(false);
         }
@@ -235,9 +245,9 @@ export const PraiseGallery: React.FC<PraiseGalleryProps> = ({ isAdmin = false })
             if (uploadedUrls.length > 0) {
                 setEditImageUrls(prev => [...prev, ...uploadedUrls]);
             }
-        } catch (error) {
+        } catch (error: any) {
             console.error('Image upload failed:', error);
-            setUploadError('업로드에 실패했습니다. 잠시 후 다시 시도해주세요.');
+            setUploadError(`업로드에 실패했습니다: ${error.message || '알 수 없는 오류'}`);
         } finally {
             setUploading(false);
         }
@@ -328,9 +338,9 @@ export const PraiseGallery: React.FC<PraiseGalleryProps> = ({ isAdmin = false })
 
             setSelectedHymn(prev => prev ? { ...prev, imageUrls: mergedImages, imageUrl: mergedImages[0] } : prev);
             alert('합치기가 완료되었습니다.');
-        } catch (error) {
+        } catch (error: any) {
             console.error('Merge failed:', error);
-            alert('합치기 중 오류가 발생했습니다.');
+            alert(`합치기 중 오류가 발생했습니다: ${error.message || '알 수 없는 오류'}`);
         } finally {
             setIsMerging(false);
         }
@@ -694,7 +704,7 @@ export const PraiseGallery: React.FC<PraiseGalleryProps> = ({ isAdmin = false })
                             {isAdmin && !isEditing && (
                                 <button
                                     onClick={startEditing}
-                                    className="absolute top-2 right-12 md:top-4 md:right-16 z-20 p-2 bg-indigo-500/20 rounded-full text-indigo-300 hover:bg-indigo-500/40 transition-all border border-indigo-500/30 flex items-center gap-2"
+                                    className="absolute top-2 right-12 md:top-4 md:right-16 z-50 p-2 bg-indigo-500/20 rounded-full text-indigo-300 hover:bg-indigo-500/40 transition-all border border-indigo-500/30 flex items-center gap-2"
                                 >
                                     <Edit3 size={18} />
                                 </button>

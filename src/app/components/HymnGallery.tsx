@@ -108,9 +108,9 @@ export const HymnGallery: React.FC<HymnGalleryProps> = ({ isAdmin = false }) => 
                 imageUrl: editImages[0] || ''
             });
             setIsEditing(false);
-        } catch (error) {
+        } catch (error: any) {
             console.error('Error saving hymn:', error);
-            alert('저장 중 오류가 발생했습니다.');
+            alert(`저장 중 오류가 발생했습니다: ${error.message || '알 수 없는 오류'}`);
         } finally {
             setSaving(false);
         }
@@ -161,9 +161,9 @@ export const HymnGallery: React.FC<HymnGalleryProps> = ({ isAdmin = false }) => 
             await uploadBytes(storageRef, file);
             const url = await getDownloadURL(storageRef);
             setEditImages(prev => [...prev, url]);
-        } catch (error) {
+        } catch (error: any) {
             console.error('Upload failed:', error);
-            alert('이미지 업로드 실패');
+            alert(`이미지 업로드 실패: ${error.message || '알 수 없는 오류'}`);
         } finally {
             setUploading(false);
         }
@@ -531,7 +531,7 @@ export const HymnGallery: React.FC<HymnGalleryProps> = ({ isAdmin = false }) => 
                             {prevHymn && (
                                 <button
                                     onClick={(e) => { e.stopPropagation(); navigateToHymn(prevHymn); }}
-                                    className="absolute left-1 md:left-4 top-1/2 -translate-y-1/2 z-30 p-2 md:p-4 bg-black/5 md:bg-black/20 hover:bg-black/50 rounded-full text-white/30 md:text-white/60 hover:text-white border border-transparent md:border-white/10 backdrop-blur-sm transition-all"
+                                    className="absolute left-1 md:left-4 top-1/2 -translate-y-1/2 z-30 p-2 md:p-4 bg-transparent md:bg-black/20 hover:bg-black/50 rounded-full text-white/15 md:text-white/60 hover:text-white border border-transparent md:border-white/10 backdrop-blur-sm transition-all"
                                     aria-label="이전 찬송가"
                                 >
                                     <ChevronLeft size={20} className="md:w-[22px] md:h-[22px]" />
@@ -540,7 +540,7 @@ export const HymnGallery: React.FC<HymnGalleryProps> = ({ isAdmin = false }) => 
                             {nextHymn && (
                                 <button
                                     onClick={(e) => { e.stopPropagation(); navigateToHymn(nextHymn); }}
-                                    className="absolute right-1 md:right-4 top-1/2 -translate-y-1/2 z-30 p-2 md:p-4 bg-black/5 md:bg-black/20 hover:bg-black/50 rounded-full text-white/30 md:text-white/60 hover:text-white border border-transparent md:border-white/10 backdrop-blur-sm transition-all"
+                                    className="absolute right-1 md:right-4 top-1/2 -translate-y-1/2 z-30 p-2 md:p-4 bg-transparent md:bg-black/20 hover:bg-black/50 rounded-full text-white/15 md:text-white/60 hover:text-white border border-transparent md:border-white/10 backdrop-blur-sm transition-all"
                                     aria-label="다음 찬송가"
                                 >
                                     <ChevronRight size={20} className="md:w-[22px] md:h-[22px]" />
@@ -558,7 +558,7 @@ export const HymnGallery: React.FC<HymnGalleryProps> = ({ isAdmin = false }) => 
                             )}
 
                             {/* Image Section - Fit to screen on desktop */}
-                            <div className="w-full h-full md:flex-[1.2] bg-black flex flex-col items-center justify-center overflow-auto relative">
+                            <div className="w-full h-full md:flex-[1.2] bg-black flex flex-col items-center justify-start pt-16 md:pt-0 md:justify-center pb-48 md:pb-0 overflow-auto relative">
                                 {selectedImages.length > 0 ? (
                                     selectedImages.length === 1 ? (
                                         /* Single image - fit to viewport */
@@ -618,8 +618,8 @@ export const HymnGallery: React.FC<HymnGalleryProps> = ({ isAdmin = false }) => 
                                 )}
                             </div>
 
-                            {/* Mobile: Bottom Info Panel (Lyrics & YouTube) */}
-                            <div className="md:hidden absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black via-black/95 to-transparent max-h-[45%] overflow-y-auto">
+                            {/* Mobile: Bottom Info Panel (Lyrics & YouTube) - Always visible */}
+                            <div className="md:hidden absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black via-black/95 to-transparent max-h-[40%] overflow-y-auto">
                                 <div className="p-4 pt-8 space-y-4">
                                     {/* YouTube Links - Mobile */}
                                     {selectedHymn.youtubeLinks && selectedHymn.youtubeLinks.length > 0 && (
