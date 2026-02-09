@@ -447,7 +447,7 @@ export const PraiseGallery: React.FC<PraiseGalleryProps> = ({ isAdmin = false, c
         return results.sort((a, b) => {
             switch (sortBy) {
                 case 'alpha':
-                    return a.title.localeCompare(b.title, 'ko');
+                    return a.title.trim().localeCompare(b.title.trim(), 'ko', { sensitivity: 'base', numeric: true, ignorePunctuation: true });
                 case 'views':
                     return (b.viewCount || 0) - (a.viewCount || 0);
                 case 'usage':
