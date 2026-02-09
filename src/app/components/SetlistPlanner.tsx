@@ -4,7 +4,7 @@ import { onAuthStateChanged, signInAnonymously, User } from 'firebase/auth';
 import { addDoc, collection, doc, onSnapshot, query, serverTimestamp, updateDoc, where, deleteDoc, increment, writeBatch } from 'firebase/firestore';
 import { db, auth } from '../firebase';
 import { getAllCategories, getHymnByNumber } from '../data';
-import { Plus, Trash2, ArrowUp, ArrowDown, Save, Printer, X, Cloud, Search, Hash, Music, Image as ImageIcon } from 'lucide-react';
+import { Plus, Trash2, ArrowUp, ArrowDown, Save, Printer, X, Cloud, Search, Hash, Music, Image as ImageIcon, Edit, Menu } from 'lucide-react';
 
 interface LibraryItem {
     id: string;
@@ -62,6 +62,12 @@ export const SetlistPlanner: React.FC = () => {
     const [activeSetlistId, setActiveSetlistId] = useState<string>('');
     const [saving, setSaving] = useState(false);
     const setlistContainerRef = useRef<HTMLDivElement>(null);
+
+    // Edit Item State
+    const [editingItem, setEditingItem] = useState<LibraryItem | null>(null);
+    const [editTitle, setEditTitle] = useState('');
+    const [editCode, setEditCode] = useState('');
+    const [editCategory, setEditCategory] = useState('');
 
     // Auto-scroll to bottom of setlist when items are added
     useEffect(() => {
@@ -426,6 +432,40 @@ export const SetlistPlanner: React.FC = () => {
         setSetlistItems([]);
     };
 
+    const handleEditClick = (item: LibraryItem) => {
+        setEditingItem(item);
+        setEditTitle(item.title);
+        setEditCode(item.code || '');
+        setEditCategory(item.category || item.tags?.join(', ') || '');
+    };
+
+    const handleSaveLibraryItem = async () => {
+        if (!editingItem) return;
+
+        setSaving(true);
+        try {
+            const ref = doc(db, 'gallery', editingItem.id);
+            await updateDoc(ref, {
+                title: editTitle,
+                code: editCode,
+                category: editCategory,
+                updatedAt: serverTimestamp()
+            });
+
+            // If item type is 'praise', we might want to update 'tags' array too if that's how it's stored
+            // But 'category' string seems to be the main one used in display
+            // Let's assume 'category' field is sufficient based on PraiseGallery.tsx pattern
+
+            alert('수정되었습니다.');
+            setEditingItem(null);
+        } catch (error) {
+            console.error('Error updating item:', error);
+            alert('수정 중 오류가 발생했습니다.');
+        } finally {
+            setSaving(false);
+        }
+    };
+
     return (
         <div className="w-full h-full overflow-hidden print:overflow-visible flex flex-col pt-40 md:pt-60 px-4 md:px-10 pb-10 print:p-0 print:h-auto relative">
             {/* Filters & Toggle (Right Top) */}
@@ -590,13 +630,22 @@ export const SetlistPlanner: React.FC = () => {
                                             <span key={tag} className="text-[10px] text-emerald-700 mt-1 mr-1 inline-block">#{tag.replace(/#/g, '').trim()}</span>
                                         ))}
                                     </div>
-                                    <button
-                                        onClick={(e) => { e.stopPropagation(); addToSetlist(item); }}
-                                        className="absolute top-2 right-2 p-2 rounded-full bg-black/60 text-white/80 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-black hover:text-white"
-                                        title="바로 추가"
-                                    >
-                                        <Plus size={14} />
-                                    </button>
+                                    <div className="absolute top-2 right-2 flex flex-col gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <button
+                                            onClick={(e) => { e.stopPropagation(); handleEditClick(item); }}
+                                            className="p-2 rounded-full bg-black/60 text-white/80 hover:bg-black hover:text-white"
+                                            title="수정"
+                                        >
+                                            <Edit size={14} />
+                                        </button>
+                                        <button
+                                            onClick={(e) => { e.stopPropagation(); addToSetlist(item); }}
+                                            className="p-2 rounded-full bg-black/60 text-white/80 hover:bg-black hover:text-white"
+                                            title="바로 추가"
+                                        >
+                                            <Plus size={14} />
+                                        </button>
+                                    </div>
                                 </motion.div>
                             );
                         })}
@@ -787,6 +836,69 @@ export const SetlistPlanner: React.FC = () => {
                     </div>
                 </div>
             </div>
+            {/* Edit Modal */}
+            {editingItem && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm" onClick={() => setEditingItem(null)}>
+                    <div className="bg-[#1a1a1a] border border-white/20 rounded-2xl w-full max-w-sm p-6 shadow-2xl" onClick={e => e.stopPropagation()}>
+                        <div className="flex items-center justify-between mb-6">
+                            <h3 className="text-lg font-bold text-white">곡 정보 수정</h3>
+                            <button
+                                onClick={() => setEditingItem(null)}
+                                className="text-white/50 hover:text-white"
+                            >
+                                <X size={20} />
+                            </button>
+                        </div>
+
+                        <div className="space-y-4">
+                            <div>
+                                <label className="block text-xs text-white/50 mb-1">제목</label>
+                                <input
+                                    value={editTitle}
+                                    onChange={(e) => setEditTitle(e.target.value)}
+                                    className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-indigo-500"
+                                />
+                            </div>
+
+                            <div>
+                                <label className="block text-xs text-white/50 mb-1">KEY (코드)</label>
+                                <input
+                                    value={editCode}
+                                    onChange={(e) => setEditCode(e.target.value)}
+                                    className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-indigo-500"
+                                    placeholder="예: G, A, Cm"
+                                />
+                            </div>
+
+                            <div>
+                                <label className="block text-xs text-white/50 mb-1">카테고리 (태그)</label>
+                                <input
+                                    value={editCategory}
+                                    onChange={(e) => setEditCategory(e.target.value)}
+                                    className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-indigo-500"
+                                    placeholder="쉼표로 구분 (예: 감사, 은혜)"
+                                />
+                            </div>
+
+                            <div className="flex gap-2 mt-6">
+                                <button
+                                    onClick={() => setEditingItem(null)}
+                                    className="flex-1 py-2.5 rounded-xl bg-white/5 text-white/70 hover:bg-white/10 font-bold text-sm"
+                                >
+                                    취소
+                                </button>
+                                <button
+                                    onClick={handleSaveLibraryItem}
+                                    disabled={saving}
+                                    className="flex-1 py-2.5 rounded-xl bg-indigo-600 text-white hover:bg-indigo-500 font-bold text-sm disabled:opacity-50"
+                                >
+                                    {saving ? '저장 중...' : '저장'}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
