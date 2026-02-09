@@ -348,7 +348,8 @@ export const PraiseGallery: React.FC<PraiseGalleryProps> = ({ isAdmin = false, c
 
         // Extract video ID and create embed-friendly URL
         let videoId = '';
-        const urlMatch = newYoutubeUrl.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([^&\n?#]+)/);
+        // Supports: standard watch, short URL, embed URL, and Shorts
+        const urlMatch = newYoutubeUrl.match(/(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/)([^&\n?#]+)/);
         if (urlMatch) {
             videoId = urlMatch[1];
         }
