@@ -6,6 +6,13 @@ import { db, auth } from '../firebase';
 import { getAllCategories, getHymnByNumber } from '../data';
 import { Plus, Trash2, ArrowUp, ArrowDown, Save, Printer, X, Cloud, Search, Hash, Music, Image as ImageIcon, Edit, Menu } from 'lucide-react';
 
+// Re-use the interface or define locally
+interface LibraryItemVersion {
+    id: string;
+    name: string;
+    imageUrls: string[];
+}
+
 interface LibraryItem {
     id: string;
     type: 'hymn' | 'praise';
@@ -13,6 +20,7 @@ interface LibraryItem {
     title: string;
     imageUrl: string;
     imageUrls?: string[];
+    versions?: LibraryItemVersion[];
     tags?: string[];
     category?: string;
     code?: string;
@@ -26,6 +34,8 @@ interface SetlistItem {
     title: string;
     imageUrl: string;
     imageUrls?: string[];
+    versions?: LibraryItemVersion[];
+    selectedVersionId?: string; // 'default' or version ID
     code?: string;
     fullPage?: boolean;
 }
@@ -103,6 +113,8 @@ export const SetlistPlanner: React.FC = () => {
                 title: item.title,
                 imageUrl: item.imageUrl || images[0] || '',
                 imageUrls: images,
+                versions: item.versions,
+                selectedVersionId: 'default',
                 code: item.code
             };
         });
@@ -290,7 +302,9 @@ export const SetlistPlanner: React.FC = () => {
             title: item.title,
             imageUrl: item.imageUrl || images[0] || '',
             imageUrls: images,
-            code: item.code
+            code: item.code,
+            versions: item.versions,
+            selectedVersionId: 'default'
         };
 
         setSetlistItems(prev => [...prev, newItem]);
@@ -736,8 +750,60 @@ export const SetlistPlanner: React.FC = () => {
                                             <div className="text-white text-sm truncate">{item.title}</div>
                                             {item.code && <span className="text-emerald-400 text-[10px] font-bold">{item.code}</span>}
                                         </div>
-                                        <div className="text-white/40 text-[10px]">
-                                            {item.type === 'hymn' ? '찬송가' : '찬양곡'}
+                                        <div className="flex items-center gap-2 mt-1">
+                                            <div className="text-white/40 text-[10px]">
+                                                {item.type === 'hymn' ? '찬송가' : '찬양곡'}
+                                            </div>
+
+                                            {/* Version Selector */}
+                                            {item.versions && item.versions.length > 0 && (
+                                                <select
+                                                    value={item.selectedVersionId || 'default'}
+                                                    onChange={(e) => {
+                                                        const newVersionId = e.target.value;
+                                                        // We need to update this item in the list
+                                                        // But wait, `moveSetlistItem` modifies state, we need a generic update function or use setSetlistItems directly
+                                                        setSetlistItems(prev => {
+                                                            const newItems = [...prev];
+                                                            const targetIndex = newItems.findIndex(i => i.id === item.id);
+                                                            if (targetIndex === -1) return prev;
+
+                                                            const currentItem = newItems[targetIndex];
+
+                                                            // Find source item to get default data if switching back to default
+                                                            const sourceItem = [...hymnItems, ...praiseItems].find(i => i.id === currentItem.sourceId);
+
+                                                            let newImages = [];
+                                                            let newSelectedVersionId = 'default';
+
+                                                            if (newVersionId === 'default') {
+                                                                newImages = sourceItem?.imageUrls || (sourceItem?.imageUrl ? [sourceItem.imageUrl] : []);
+                                                                newSelectedVersionId = 'default';
+                                                            } else {
+                                                                const version = currentItem.versions?.find(v => v.id === newVersionId);
+                                                                newImages = version?.imageUrls || [];
+                                                                newSelectedVersionId = newVersionId;
+                                                            }
+
+                                                            newItems[targetIndex] = {
+                                                                ...currentItem,
+                                                                selectedVersionId: newSelectedVersionId,
+                                                                imageUrls: newImages,
+                                                                imageUrl: newImages[0] || ''
+                                                            };
+
+                                                            return newItems;
+                                                        });
+                                                    }}
+                                                    className="bg-white/10 text-white/70 text-[10px] rounded border border-white/10 px-1 py-0.5 focus:outline-none focus:border-indigo-500/50 cursor-pointer hover:bg-white/20 transition-colors"
+                                                    onClick={(e) => e.stopPropagation()}
+                                                >
+                                                    <option value="default" className="text-black">기본</option>
+                                                    {item.versions.map(v => (
+                                                        <option key={v.id} value={v.id} className="text-black">{v.name}</option>
+                                                    ))}
+                                                </select>
+                                            )}
                                         </div>
                                     </div>
                                     <div className="flex items-center gap-1">
@@ -837,68 +903,70 @@ export const SetlistPlanner: React.FC = () => {
                 </div>
             </div>
             {/* Edit Modal */}
-            {editingItem && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm" onClick={() => setEditingItem(null)}>
-                    <div className="bg-[#1a1a1a] border border-white/20 rounded-2xl w-full max-w-sm p-6 shadow-2xl" onClick={e => e.stopPropagation()}>
-                        <div className="flex items-center justify-between mb-6">
-                            <h3 className="text-lg font-bold text-white">곡 정보 수정</h3>
-                            <button
-                                onClick={() => setEditingItem(null)}
-                                className="text-white/50 hover:text-white"
-                            >
-                                <X size={20} />
-                            </button>
-                        </div>
-
-                        <div className="space-y-4">
-                            <div>
-                                <label className="block text-xs text-white/50 mb-1">제목</label>
-                                <input
-                                    value={editTitle}
-                                    onChange={(e) => setEditTitle(e.target.value)}
-                                    className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-indigo-500"
-                                />
-                            </div>
-
-                            <div>
-                                <label className="block text-xs text-white/50 mb-1">KEY (코드)</label>
-                                <input
-                                    value={editCode}
-                                    onChange={(e) => setEditCode(e.target.value)}
-                                    className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-indigo-500"
-                                    placeholder="예: G, A, Cm"
-                                />
-                            </div>
-
-                            <div>
-                                <label className="block text-xs text-white/50 mb-1">카테고리 (태그)</label>
-                                <input
-                                    value={editCategory}
-                                    onChange={(e) => setEditCategory(e.target.value)}
-                                    className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-indigo-500"
-                                    placeholder="쉼표로 구분 (예: 감사, 은혜)"
-                                />
-                            </div>
-
-                            <div className="flex gap-2 mt-6">
+            {
+                editingItem && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm" onClick={() => setEditingItem(null)}>
+                        <div className="bg-[#1a1a1a] border border-white/20 rounded-2xl w-full max-w-sm p-6 shadow-2xl" onClick={e => e.stopPropagation()}>
+                            <div className="flex items-center justify-between mb-6">
+                                <h3 className="text-lg font-bold text-white">곡 정보 수정</h3>
                                 <button
                                     onClick={() => setEditingItem(null)}
-                                    className="flex-1 py-2.5 rounded-xl bg-white/5 text-white/70 hover:bg-white/10 font-bold text-sm"
+                                    className="text-white/50 hover:text-white"
                                 >
-                                    취소
+                                    <X size={20} />
                                 </button>
-                                <button
-                                    onClick={handleSaveLibraryItem}
-                                    disabled={saving}
-                                    className="flex-1 py-2.5 rounded-xl bg-indigo-600 text-white hover:bg-indigo-500 font-bold text-sm disabled:opacity-50"
-                                >
-                                    {saving ? '저장 중...' : '저장'}
-                                </button>
+                            </div>
+
+                            <div className="space-y-4">
+                                <div>
+                                    <label className="block text-xs text-white/50 mb-1">제목</label>
+                                    <input
+                                        value={editTitle}
+                                        onChange={(e) => setEditTitle(e.target.value)}
+                                        className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-indigo-500"
+                                    />
+                                </div>
+
+                                <div>
+                                    <label className="block text-xs text-white/50 mb-1">KEY (코드)</label>
+                                    <input
+                                        value={editCode}
+                                        onChange={(e) => setEditCode(e.target.value)}
+                                        className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-indigo-500"
+                                        placeholder="예: G, A, Cm"
+                                    />
+                                </div>
+
+                                <div>
+                                    <label className="block text-xs text-white/50 mb-1">카테고리 (태그)</label>
+                                    <input
+                                        value={editCategory}
+                                        onChange={(e) => setEditCategory(e.target.value)}
+                                        className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-indigo-500"
+                                        placeholder="쉼표로 구분 (예: 감사, 은혜)"
+                                    />
+                                </div>
+
+                                <div className="flex gap-2 mt-6">
+                                    <button
+                                        onClick={() => setEditingItem(null)}
+                                        className="flex-1 py-2.5 rounded-xl bg-white/5 text-white/70 hover:bg-white/10 font-bold text-sm"
+                                    >
+                                        취소
+                                    </button>
+                                    <button
+                                        onClick={handleSaveLibraryItem}
+                                        disabled={saving}
+                                        className="flex-1 py-2.5 rounded-xl bg-indigo-600 text-white hover:bg-indigo-500 font-bold text-sm disabled:opacity-50"
+                                    >
+                                        {saving ? '저장 중...' : '저장'}
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     </div>
-                </div>
-            )}
-        </div>
+                )
+            }
+        </div >
     );
 };

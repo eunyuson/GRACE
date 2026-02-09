@@ -5,12 +5,20 @@ import { collection, query, onSnapshot, where, doc, updateDoc, deleteDoc, writeB
 import { getDownloadURL, ref as storageRef, uploadBytes } from 'firebase/storage';
 import { db, storage } from '../firebase';
 
+// Add named versions support
+export interface HymnVersion {
+    id: string; // unique ID for version
+    name: string; // e.g. "G Key", "Drum Score"
+    imageUrls: string[];
+}
+
 interface Hymn {
     id: string;
     number: number;
     title: string;
     imageUrl: string;
     imageUrls?: string[];
+    versions?: HymnVersion[];
     pptUrl?: string;
     lyrics?: string;
     youtubeLinks?: { url: string; title: string }[];
@@ -63,6 +71,11 @@ export const PraiseGallery: React.FC<PraiseGalleryProps> = ({ isAdmin = false, c
     const [editCategory, setEditCategory] = useState('');
     const [editYoutubeLinks, setEditYoutubeLinks] = useState<{ url: string; title: string }[]>([]);
     const [editImageUrls, setEditImageUrls] = useState<string[]>([]);
+    // Version editing state
+    const [editVersions, setEditVersions] = useState<HymnVersion[]>([]);
+    const [currentVersionId, setCurrentVersionId] = useState<string>('default'); // 'default' or version ID
+    const [newVersionName, setNewVersionName] = useState('');
+
     const [newImageUrl, setNewImageUrl] = useState('');
     const [newYoutubeUrl, setNewYoutubeUrl] = useState('');
     const [newYoutubeTitle, setNewYoutubeTitle] = useState('');
@@ -83,7 +96,11 @@ export const PraiseGallery: React.FC<PraiseGalleryProps> = ({ isAdmin = false, c
                 setEditCode(selectedHymn.code || '');
                 setEditCategory(selectedHymn.category || '');
                 setEditYoutubeLinks(Array.isArray(selectedHymn.youtubeLinks) ? selectedHymn.youtubeLinks : []);
-                setEditImageUrls(getImagesForHymn(selectedHymn));
+
+                // Initialize versions
+                setEditVersions(selectedHymn.versions || []);
+                setCurrentVersionId('default'); // Always start with default
+                setEditImageUrls(getImagesForHymn(selectedHymn)); // Load default images first
 
                 setNewImageUrl('');
                 setNewYoutubeUrl('');
@@ -107,6 +124,8 @@ export const PraiseGallery: React.FC<PraiseGalleryProps> = ({ isAdmin = false, c
         setEditCategory('');
         setEditYoutubeLinks([]);
         setEditImageUrls([]);
+        setEditVersions([]);
+        setCurrentVersionId('default');
         setNewImageUrl('');
         setNewYoutubeUrl('');
         setNewYoutubeTitle('');
@@ -121,7 +140,79 @@ export const PraiseGallery: React.FC<PraiseGalleryProps> = ({ isAdmin = false, c
         });
     };
 
-    // Save changes
+    // Version Management
+    // Temporary storage for default images while editing other versions
+    const [defaultImageUrls, setDefaultImageUrls] = useState<string[]>([]);
+
+    // Sync default images when selectedHymn changes
+    useEffect(() => {
+        if (selectedHymn) {
+            setDefaultImageUrls(getImagesForHymn(selectedHymn));
+        } else {
+            setDefaultImageUrls([]);
+        }
+    }, [selectedHymn]);
+
+    const changeVersion = (targetId: string) => {
+        // 1. Save current work
+        if (currentVersionId === 'default') {
+            setDefaultImageUrls([...editImageUrls]);
+        } else {
+            setEditVersions(prev => prev.map(v =>
+                v.id === currentVersionId ? { ...v, imageUrls: [...editImageUrls] } : v
+            ));
+        }
+
+        // 2. Load target work
+        if (targetId === 'default') {
+            // Need to carefully handle switching back to default
+            // If we just saved to defaultImageUrls above (because we were on default), we use editImageUrls?
+            // No, if we call changeVersion('default'), implies targetId != currentVersionId unless redundant call.
+
+            if (currentVersionId === 'default') {
+                // No change needed
+            } else {
+                // Switching FROM a version TO default
+                // The `defaultImageUrls` state holds the latest default images
+                setEditImageUrls(defaultImageUrls);
+            }
+        } else {
+            const target = editVersions.find(v => v.id === targetId);
+            setEditImageUrls(target ? target.imageUrls : []);
+        }
+
+        setCurrentVersionId(targetId);
+    };
+
+    const handleVersionChange = (versionId: string) => {
+        changeVersion(versionId);
+    };
+
+    const addVersion = () => {
+        const name = newVersionName.trim();
+        if (!name) return;
+
+        const newVer: HymnVersion = {
+            id: Date.now().toString(),
+            name,
+            imageUrls: []
+        };
+        setEditVersions(prev => [...prev, newVer]);
+        setNewVersionName('');
+
+        // Optionally switch to it immediately
+        // changeVersion(newVer.id); 
+        // But we need to save current first.
+
+        // Let's just add it for now.
+    };
+
+    const removeVersion = (id: string) => {
+        setEditVersions(prev => prev.filter(v => v.id !== id));
+        if (currentVersionId === id) {
+            changeVersion('default');
+        }
+    };
     // Save changes
     const saveChanges = async () => {
         if (!selectedHymn && !isAddingNew) return;
@@ -129,8 +220,20 @@ export const PraiseGallery: React.FC<PraiseGalleryProps> = ({ isAdmin = false, c
 
         try {
             const batch = writeBatch(db);
-            const cleanedImageUrls = editImageUrls.map(u => u.trim()).filter(Boolean);
-            const primaryImageUrl = cleanedImageUrls[0] || '';
+
+            // Ensure current view's images are saved to state before processing
+            let finalDefaultImages = defaultImageUrls;
+            let finalVersions = editVersions;
+
+            if (currentVersionId === 'default') {
+                finalDefaultImages = editImageUrls.map(u => u.trim()).filter(Boolean);
+            } else {
+                finalVersions = editVersions.map(v =>
+                    v.id === currentVersionId ? { ...v, imageUrls: editImageUrls } : v
+                );
+            }
+
+            const primaryImageUrl = finalDefaultImages[0] || '';
             const timestamp = serverTimestamp();
 
             // Prepare data for the item being saved
@@ -140,8 +243,9 @@ export const PraiseGallery: React.FC<PraiseGalleryProps> = ({ isAdmin = false, c
                 code: editCode,
                 category: editCategory,
                 youtubeLinks: editYoutubeLinks,
-                imageUrls: cleanedImageUrls,
+                imageUrls: finalDefaultImages,
                 imageUrl: primaryImageUrl,
+                versions: finalVersions,
                 type: 'praise',
                 updatedAt: timestamp
             };
@@ -271,10 +375,14 @@ export const PraiseGallery: React.FC<PraiseGalleryProps> = ({ isAdmin = false, c
             setSelectedHymn(null);
             setIsAddingNew(false);
         }
+
         setEditNumber('');
         setEditLyrics('');
         setEditYoutubeLinks([]);
         setEditImageUrls([]);
+        setEditVersions([]);
+        setCurrentVersionId('default');
+
         setNewImageUrl('');
         setNewYoutubeUrl('');
         setNewYoutubeTitle('');
@@ -1072,10 +1180,62 @@ export const PraiseGallery: React.FC<PraiseGalleryProps> = ({ isAdmin = false, c
                                                 />
                                             </div>
 
+                                            {/* Version Management */}
+                                            <div>
+                                                <h3 className="text-xs uppercase tracking-wider text-white/40 mb-3 font-bold flex items-center gap-2">
+                                                    <List size={14} /> 버전 관리
+                                                </h3>
+                                                <div className="bg-white/5 border border-white/10 rounded-lg p-3 mb-4">
+                                                    <div className="flex items-center gap-2 mb-3">
+                                                        <select
+                                                            value={currentVersionId}
+                                                            onChange={(e) => handleVersionChange(e.target.value)}
+                                                            className="flex-1 bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-white/90 text-sm focus:outline-none focus:border-indigo-500/50"
+                                                        >
+                                                            <option value="default">기본 (Default)</option>
+                                                            {editVersions.map(v => (
+                                                                <option key={v.id} value={v.id}>{v.name}</option>
+                                                            ))}
+                                                        </select>
+                                                        {currentVersionId !== 'default' && (
+                                                            <button
+                                                                onClick={() => {
+                                                                    if (confirm('이 버전을 삭제하시겠습니까?')) {
+                                                                        removeVersion(currentVersionId);
+                                                                    }
+                                                                }}
+                                                                className="p-2 bg-red-500/20 text-red-300 rounded-lg hover:bg-red-500/30 transition-colors"
+                                                                title="버전 삭제"
+                                                            >
+                                                                <Trash2 size={16} />
+                                                            </button>
+                                                        )}
+                                                    </div>
+
+                                                    <div className="flex gap-2">
+                                                        <input
+                                                            type="text"
+                                                            value={newVersionName}
+                                                            onChange={(e) => setNewVersionName(e.target.value)}
+                                                            placeholder="새 버전 이름 (예: G Key, 드럼악보)"
+                                                            className="flex-1 bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-white/90 text-sm focus:outline-none focus:border-indigo-500/50 placeholder-white/30"
+                                                        />
+                                                        <button
+                                                            onClick={addVersion}
+                                                            disabled={!newVersionName.trim()}
+                                                            className="px-3 py-2 bg-indigo-500/20 text-indigo-300 rounded-lg hover:bg-indigo-500/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1 text-sm font-bold"
+                                                        >
+                                                            <Plus size={14} /> 추가
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            </div>
+
                                             {/* Image URLs Editor */}
                                             <div>
                                                 <h3 className="text-xs uppercase tracking-wider text-white/40 mb-3 font-bold flex items-center gap-2">
-                                                    <Music size={14} /> 악보 이미지
+                                                    <Music size={14} />
+                                                    {currentVersionId === 'default' ? '기본 악보 이미지' : `'${editVersions.find(v => v.id === currentVersionId)?.name}' 악보 이미지`}
                                                 </h3>
 
                                                 {/* Option 1: File Upload (Firebase) */}
@@ -1098,9 +1258,9 @@ export const PraiseGallery: React.FC<PraiseGalleryProps> = ({ isAdmin = false, c
 
                                                 {/* Option 2: Google Drive Link */}
                                                 <div className="bg-white/5 border border-white/10 rounded-lg p-3 mb-4 text-xs text-white/70 leading-relaxed">
-                                                    <p className="mb-2 font-bold text-emerald-400">💡 또는 Google Drive 이미지 사용하기</p>
+                                                    <p className="mb-2 font-bold text-emerald-400">💡 Google Drive 이미지 사용하기</p>
                                                     <ol className="list-decimal pl-4 space-y-1 text-white/60">
-                                                        <li>구글 드라이브에 이미지가 이미 있다면, <b>'링크 복사'</b>를 하여 아래 칸에 붙여넣으세요.</li>
+                                                        <li>구글 드라이브에 이미지가 있다면, <b>'링크 복사'</b>를 하여 아래 칸에 붙여넣으세요.</li>
                                                         <li><b>'추가'</b> 버튼을 누르면 자동으로 이미지 링크로 변환됩니다.</li>
                                                     </ol>
                                                 </div>
