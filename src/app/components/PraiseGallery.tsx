@@ -407,7 +407,21 @@ export const PraiseGallery: React.FC<PraiseGalleryProps> = ({ isAdmin = false, c
         }
 
         try {
-            await deleteDoc(doc(db, 'gallery', selectedHymn.id));
+            const deletedNumber = selectedHymn.number;
+            const batch = writeBatch(db);
+
+            // 1. 선택된 곡 삭제
+            batch.delete(doc(db, 'gallery', selectedHymn.id));
+
+            // 2. 삭제된 번호보다 큰 번호를 가진 모든 곡들의 번호를 1씩 감소
+            const songsToUpdate = hymns.filter(h => h.number > deletedNumber);
+            songsToUpdate.forEach(song => {
+                const songRef = doc(db, 'gallery', song.id);
+                batch.update(songRef, { number: song.number - 1 });
+            });
+
+            await batch.commit();
+
             alert('삭제되었습니다.');
             setSelectedHymn(null);
             setIsEditing(false);
