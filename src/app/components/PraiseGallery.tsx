@@ -1257,14 +1257,7 @@ export const PraiseGallery: React.FC<PraiseGalleryProps> = ({ isAdmin = false, c
                                                     )}
                                                 </div>
 
-                                                {/* Option 2: Google Drive Link */}
-                                                <div className="bg-white/5 border border-white/10 rounded-lg p-3 mb-4 text-xs text-white/70 leading-relaxed">
-                                                    <p className="mb-2 font-bold text-emerald-400">💡 Google Drive 이미지 사용하기</p>
-                                                    <ol className="list-decimal pl-4 space-y-1 text-white/60">
-                                                        <li>구글 드라이브에 이미지가 있다면, <b>'링크 복사'</b>를 하여 아래 칸에 붙여넣으세요.</li>
-                                                        <li><b>'추가'</b> 버튼을 누르면 자동으로 이미지 링크로 변환됩니다.</li>
-                                                    </ol>
-                                                </div>
+
 
                                                 <div className="space-y-2">
                                                     {editImageUrls.length === 0 && (
