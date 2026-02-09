@@ -7,7 +7,8 @@ import {
   deleteDoc,
   doc,
   query,
-  orderBy
+  orderBy,
+  writeBatch
 } from 'firebase/firestore';
 import { db } from '../firebase';
 
@@ -58,6 +59,7 @@ interface GalleryContextType {
   error: string | null;
   updateItem: (updatedItem: GalleryItemType) => Promise<void>;
   addItem: (newItem: Omit<GalleryItemType, 'id'>) => Promise<void>;
+  moveItem: (id: string, direction: 'left' | 'right') => Promise<void>;
   deleteItem: (id: string) => Promise<void>;
 }
 
@@ -110,6 +112,35 @@ export const GalleryProvider: React.FC<{ children: ReactNode }> = ({ children })
     }
   };
 
+  // 아이템 순서 변경
+  const moveItem = async (id: string, direction: 'left' | 'right') => {
+    const currentIndex = items.findIndex(item => item.id === id);
+    if (currentIndex === -1) return;
+
+    const targetIndex = direction === 'left' ? currentIndex - 1 : currentIndex + 1;
+    if (targetIndex < 0 || targetIndex >= items.length) return;
+
+    const currentItem = items[currentIndex];
+    const targetItem = items[targetIndex];
+
+    try {
+      // Swap index fields
+      // We assume index is something like "01", "02".
+      // Whatever they are, we swap them.
+      const batch = writeBatch(db);
+      const currentRef = doc(db, 'gallery', currentItem.id);
+      const targetRef = doc(db, 'gallery', targetItem.id);
+
+      batch.update(currentRef, { index: targetItem.index });
+      batch.update(targetRef, { index: currentItem.index });
+
+      await batch.commit();
+    } catch (err) {
+      console.error('Move error:', err);
+      throw new Error('순서 변경에 실패했습니다.');
+    }
+  };
+
   // 새 아이템 추가
   const addItem = async (newItem: Omit<GalleryItemType, 'id'>) => {
     try {
@@ -133,7 +164,7 @@ export const GalleryProvider: React.FC<{ children: ReactNode }> = ({ children })
   };
 
   return (
-    <GalleryContext.Provider value={{ items, loading, error, updateItem, addItem, deleteItem }}>
+    <GalleryContext.Provider value={{ items, loading, error, updateItem, addItem, deleteItem, moveItem }}>
       {children}
     </GalleryContext.Provider>
   );

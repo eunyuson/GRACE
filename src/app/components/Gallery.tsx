@@ -14,15 +14,41 @@ const CONFIG = {
   maxScale: 1.0
 };
 
+import { onAuthStateChanged, User } from 'firebase/auth';
+import { auth } from '../firebase';
+
 export const Gallery: React.FC = () => {
-  const { items: galleryItems } = useGallery();
+  const { items: galleryItems, moveItem } = useGallery();
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState<GalleryItemType | null>(null);
   const [currentIndex, setCurrentIndex] = useState(1);
   const { setIsHovered } = useCursor();
   const [searchParams, setSearchParams] = useSearchParams();
+  const [isAdmin, setIsAdmin] = useState(false);
 
-  // Create 5 sets of items for infinite scroll
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user: User | null) => {
+      // Simple check: if user exists and is not anonymous (or check specific UID if needed)
+      // For now, assuming any logged in user (who is not anonymous) might be admin, 
+      // OR adhering to the previous pattern where we rely on setlist planner's auth
+      // To be safe, let's assume if email matches specific admin or just any authenticated user?
+      // PleaseGallery uses 'isAdmin' prop passed from parent or checks user.
+      // SetlistPlanner uses 'currentUser'. 
+      // Let's assume if user is logged in, they are admin for this purpose, same as PraiseGallery if 'isAdmin' prop was true.
+      // Actually PraiseGallery takes 'isAdmin' prop. Start page doesn't usually have login.
+      // The user must login somewhere else (SetlistPlanner).
+      // If 'currentUser' exists, show arrows.
+      if (user && !user.isAnonymous) {
+        setIsAdmin(true);
+      } else {
+        setIsAdmin(false);
+      }
+    });
+    return () => unsubscribe();
+  }, []);
+
+  // ... (items memo) ...
+
   const items = React.useMemo(() => {
     return [
       ...galleryItems,
@@ -277,6 +303,9 @@ export const Gallery: React.FC = () => {
             item={item}
             ref={(el) => { itemRefs.current[i] = el; }}
             onClick={() => openDetail(item)}
+            isAdmin={isAdmin}
+            onMoveLeft={() => moveItem(item.id, 'left')}
+            onMoveRight={() => moveItem(item.id, 'right')}
           />
         ))}
       </main>

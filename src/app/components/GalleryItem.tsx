@@ -1,16 +1,17 @@
 import React, { forwardRef } from 'react';
 import { GalleryItemType } from '../data/gallery';
 import { useCursor } from '../context/CursorContext';
+import { ArrowLeft, ArrowRight } from 'lucide-react';
 
 interface GalleryItemProps {
   item: GalleryItemType;
   onClick: () => void;
-  // We might pass style for the transform if we were doing React-state animation, 
-  // but here we are doing ref-based manipulation, so style comes from parent imperatively mostly.
-  // Actually, the parent sets transform directly on the DOM element.
+  isAdmin?: boolean;
+  onMoveLeft?: () => void;
+  onMoveRight?: () => void;
 }
 
-export const GalleryItem = forwardRef<HTMLDivElement, GalleryItemProps>(({ item, onClick }, QX) => {
+export const GalleryItem = forwardRef<HTMLDivElement, GalleryItemProps>(({ item, onClick, isAdmin, onMoveLeft, onMoveRight }, QX) => {
   const { setIsHovered, setCursorText } = useCursor();
 
   // Extract YouTube ID
@@ -80,6 +81,26 @@ export const GalleryItem = forwardRef<HTMLDivElement, GalleryItemProps>(({ item,
       </span>
 
       <div className="image-wrapper w-full h-full overflow-hidden relative bg-[#111] rounded-[2px]">
+        {/* Admin Controls */}
+        {isAdmin && (
+          <div className="absolute top-4 left-4 z-50 flex gap-2" onClick={(e) => e.stopPropagation()}>
+            <button
+              onClick={(e) => { e.stopPropagation(); onMoveLeft?.(); }}
+              className="p-3 bg-black/60 text-white rounded-full hover:bg-white hover:text-black transition-colors backdrop-blur-md border border-white/20"
+              title="Move Left"
+            >
+              <ArrowLeft size={20} />
+            </button>
+            <button
+              onClick={(e) => { e.stopPropagation(); onMoveRight?.(); }}
+              className="p-3 bg-black/60 text-white rounded-full hover:bg-white hover:text-black transition-colors backdrop-blur-md border border-white/20"
+              title="Move Right"
+            >
+              <ArrowRight size={20} />
+            </button>
+          </div>
+        )}
+
         <img
           src={thumbnailUrl}
           alt={item.title}

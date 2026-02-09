@@ -16,6 +16,8 @@ interface Hymn {
     youtubeLinks?: { url: string; title: string }[];
     code?: string;
     category?: string;
+    viewCount?: number;
+    usageCount?: number;
 }
 
 interface PraiseGalleryProps {
@@ -391,17 +393,22 @@ export const PraiseGallery: React.FC<PraiseGalleryProps> = ({ isAdmin = false, c
         }
     };
 
-    const orderedHymns = useMemo(() => {
-        return [...hymns].sort((a, b) => (a.number || 0) - (b.number || 0));
-    }, [hymns]);
+    // Sorting
+    const [sortBy, setSortBy] = useState<'number' | 'alpha' | 'views' | 'usage'>('alpha');
 
-    const currentIndex = selectedHymn
-        ? orderedHymns.findIndex(h => h.id === selectedHymn.id)
-        : -1;
-    const prevHymn = currentIndex > 0 ? orderedHymns[currentIndex - 1] : null;
-    const nextHymn = currentIndex >= 0 && currentIndex < orderedHymns.length - 1
-        ? orderedHymns[currentIndex + 1]
-        : null;
+    const handleHymnClick = async (hymn: Hymn) => {
+        setSelectedHymn(hymn);
+
+        // Increment view count
+        try {
+            const hymnRef = doc(db, 'gallery', hymn.id);
+            await updateDoc(hymnRef, {
+                viewCount: (hymn.viewCount || 0) + 1
+            });
+        } catch (err) {
+            console.error('Failed to increment view count:', err);
+        }
+    };
 
     const navigateToHymn = (target: Hymn | null) => {
         if (!target) return;
@@ -410,12 +417,14 @@ export const PraiseGallery: React.FC<PraiseGalleryProps> = ({ isAdmin = false, c
             if (!ok) return;
         }
         cancelEditing();
-        setSelectedHymn(target);
+        handleHymnClick(target);
     };
 
-    // Filtering: number prefix + title contains
+    // Filtering & Sorting
     const filteredHymns = useMemo(() => {
-        let results = hymns;
+        let results = [...hymns]; // Clone for sorting
+
+        // Filter
         if (selectedCategories.length > 0) {
             results = results.filter(h => {
                 if (!h.category) return false;
@@ -425,15 +434,39 @@ export const PraiseGallery: React.FC<PraiseGalleryProps> = ({ isAdmin = false, c
         }
         if (selectedCodes.length > 0) results = results.filter(h => h.code && selectedCodes.includes(h.code));
 
-        if (!searchQuery) return results;
-        const q = searchQuery.toLowerCase().trim();
-        const isNumeric = /^\d+$/.test(q);
+        if (searchQuery) {
+            const q = searchQuery.toLowerCase().trim();
+            const isNumeric = /^\d+$/.test(q);
+            results = results.filter(h => {
+                if (isNumeric && h.number.toString().startsWith(q)) return true;
+                return h.title.toLowerCase().includes(q);
+            });
+        }
 
-        return results.filter(h => {
-            if (isNumeric && h.number.toString().startsWith(q)) return true;
-            return h.title.toLowerCase().includes(q);
+        // Sort
+        return results.sort((a, b) => {
+            switch (sortBy) {
+                case 'alpha':
+                    return a.title.localeCompare(b.title, 'ko');
+                case 'views':
+                    return (b.viewCount || 0) - (a.viewCount || 0);
+                case 'usage':
+                    return (b.usageCount || 0) - (a.usageCount || 0);
+                case 'number':
+                default:
+                    return (a.number || 0) - (b.number || 0);
+            }
         });
-    }, [hymns, searchQuery, selectedCategories, selectedCodes]);
+    }, [hymns, searchQuery, selectedCategories, selectedCodes, sortBy]);
+
+    // Navigation (Prev/Next) based on filtered list
+    const currentIndex = selectedHymn
+        ? filteredHymns.findIndex(h => h.id === selectedHymn.id)
+        : -1;
+    const prevHymn = currentIndex > 0 ? filteredHymns[currentIndex - 1] : null;
+    const nextHymn = currentIndex >= 0 && currentIndex < filteredHymns.length - 1
+        ? filteredHymns[currentIndex + 1]
+        : null;
 
     const selectedImages = selectedHymn ? getImagesForHymn(selectedHymn) : [];
     const primaryImage = selectedImages[0] || '';
@@ -666,7 +699,7 @@ export const PraiseGallery: React.FC<PraiseGalleryProps> = ({ isAdmin = false, c
                                     <motion.div
                                         key={hymn.id}
                                         layoutId={`praise-${hymn.id}`}
-                                        onClick={() => setSelectedHymn(hymn)}
+                                        onClick={() => handleHymnClick(hymn)}
                                         className="group cursor-pointer bg-white/5 border border-white/10 rounded-xl overflow-hidden hover:border-white/30 transition-all hover:-translate-y-1"
                                     >
                                         <div className="relative aspect-[3/4] overflow-hidden bg-gradient-to-br from-gray-900 to-black">
@@ -707,7 +740,7 @@ export const PraiseGallery: React.FC<PraiseGalleryProps> = ({ isAdmin = false, c
                                 {filteredHymns.map((hymn) => (
                                     <motion.div
                                         key={hymn.id}
-                                        onClick={() => setSelectedHymn(hymn)}
+                                        onClick={() => handleHymnClick(hymn)}
                                         className="flex items-center gap-4 p-3 bg-white/5 border border-white/10 rounded-xl hover:bg-white/10 cursor-pointer transition-colors"
                                     >
                                         <div className="w-12 h-12 bg-black/40 rounded-lg flex items-center justify-center flex-shrink-0 text-white font-bold border border-white/5">

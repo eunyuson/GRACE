@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState, useRef } from 'react';
 import { motion } from 'motion/react';
 import { onAuthStateChanged, signInAnonymously, User } from 'firebase/auth';
-import { addDoc, collection, doc, onSnapshot, query, serverTimestamp, updateDoc, where, deleteDoc } from 'firebase/firestore';
+import { addDoc, collection, doc, onSnapshot, query, serverTimestamp, updateDoc, where, deleteDoc, increment, writeBatch } from 'firebase/firestore';
 import { db, auth } from '../firebase';
 import { getAllCategories, getHymnByNumber } from '../data';
 import { Plus, Trash2, ArrowUp, ArrowDown, Save, Printer, X, Cloud, Search, Hash, Music, Image as ImageIcon } from 'lucide-react';
@@ -353,6 +353,26 @@ export const SetlistPlanner: React.FC = () => {
                 });
                 setActiveSetlistId(docRef.id);
             }
+
+            // Increment usageCount for items
+            try {
+                const batch = writeBatch(db);
+                const uniqueIds = new Set(sanitizedItems.map(i => i.sourceId).filter(Boolean));
+
+                uniqueIds.forEach(id => {
+                    const ref = doc(db, 'gallery', id);
+                    batch.update(ref, {
+                        usageCount: increment(1)
+                    });
+                });
+
+                // Fire and forget (or await if critical)
+                await batch.commit();
+            } catch (usageErr) {
+                console.error('Failed to update usage counts:', usageErr);
+                // Non-critical error
+            }
+
             alert('저장되었습니다.');
         } catch (err: any) {
             console.error('Setlist save failed:', err);
