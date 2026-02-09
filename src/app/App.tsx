@@ -94,7 +94,7 @@ const Home = () => {
 
       {/* Content based on active tab */}
       {activeTab === 'gallery' ? (
-        <Gallery />
+        <Gallery isAdmin={isAdmin} />
       ) : activeTab === 'updates' ? (
         <RecentUpdates isAdmin={isAdmin} />
       ) : activeTab === 'concepts' ? (
