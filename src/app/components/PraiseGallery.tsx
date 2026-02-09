@@ -246,6 +246,31 @@ export const PraiseGallery: React.FC<PraiseGalleryProps> = ({ isAdmin = false, c
         }
     };
 
+    const handleMoveHymn = async (hymn: Hymn, direction: 'up' | 'down') => {
+        if (!isAdmin) return;
+        const targetNumber = direction === 'up' ? hymn.number - 1 : hymn.number + 1;
+        if (targetNumber < 1) return;
+
+        const targetHymn = hymns.find(h => h.number === targetNumber);
+
+        try {
+            const batch = writeBatch(db);
+            const currentRef = doc(db, 'gallery', hymn.id);
+
+            if (targetHymn) {
+                const targetRef = doc(db, 'gallery', targetHymn.id);
+                batch.update(currentRef, { number: targetNumber });
+                batch.update(targetRef, { number: hymn.number });
+            } else {
+                batch.update(currentRef, { number: targetNumber });
+            }
+            await batch.commit();
+        } catch (error: any) {
+            console.error('Failed to move hymn:', error);
+            alert(`순서 변경 실패: ${error.message}`);
+        }
+    };
+
     const handleImageUpload = async (files: FileList | null) => {
         if (!files || files.length === 0) return;
         if (!selectedHymn) return;
@@ -695,6 +720,25 @@ export const PraiseGallery: React.FC<PraiseGalleryProps> = ({ isAdmin = false, c
                                             )}
                                         </div>
                                         {hymn.imageUrl && <div className="text-xs text-white/30 px-2 py-1 border border-white/10 rounded bg-black/20">악보</div>}
+
+                                        {isAdmin && (
+                                            <div className="flex flex-col gap-1 ml-2" onClick={(e) => e.stopPropagation()}>
+                                                <button
+                                                    onClick={() => handleMoveHymn(hymn, 'up')}
+                                                    className="p-1 text-white/40 hover:text-white hover:bg-white/10 rounded transition-colors"
+                                                    title="위로 (순서 변경)"
+                                                >
+                                                    <ArrowUp size={14} />
+                                                </button>
+                                                <button
+                                                    onClick={() => handleMoveHymn(hymn, 'down')}
+                                                    className="p-1 text-white/40 hover:text-white hover:bg-white/10 rounded transition-colors"
+                                                    title="아래로 (순서 변경)"
+                                                >
+                                                    <ArrowDown size={14} />
+                                                </button>
+                                            </div>
+                                        )}
                                     </motion.div>
                                 ))}
                             </div>
