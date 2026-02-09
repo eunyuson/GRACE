@@ -992,6 +992,8 @@ export const PraiseGallery: React.FC<PraiseGalleryProps> = ({ isAdmin = false, c
                                                     {selectedHymn.code}
                                                 </span>
                                             )}
+                                        </div>
+                                        <div className="flex flex-wrap items-center gap-2 mb-2">
                                             {selectedHymn.category && selectedHymn.category.split(',').map(tag => (
                                                 <span key={tag} className="px-3 py-1 bg-white/10 text-white/60 rounded text-xs border border-white/10">
                                                     #{tag.replace(/#/g, '').trim()}
