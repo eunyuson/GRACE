@@ -1078,11 +1078,29 @@ export const PraiseGallery: React.FC<PraiseGalleryProps> = ({ isAdmin = false, c
                                                     <Music size={14} /> 악보 이미지
                                                 </h3>
 
+                                                {/* Option 1: File Upload (Firebase) */}
+                                                <div className="flex flex-wrap items-center gap-2 mb-3">
+                                                    <label className="px-3 py-2 bg-indigo-500/20 text-indigo-300 rounded-lg border border-indigo-500/30 hover:bg-indigo-500/30 cursor-pointer text-xs font-bold transition-all">
+                                                        {uploading ? '업로드 중...' : '파일 직접 업로드'}
+                                                        <input
+                                                            type="file"
+                                                            accept="image/*"
+                                                            multiple
+                                                            className="hidden"
+                                                            onChange={(e) => handleImageUpload(e.target.files)}
+                                                            disabled={uploading}
+                                                        />
+                                                    </label>
+                                                    {uploadError && (
+                                                        <span className="text-xs text-red-400">{uploadError}</span>
+                                                    )}
+                                                </div>
+
+                                                {/* Option 2: Google Drive Link */}
                                                 <div className="bg-white/5 border border-white/10 rounded-lg p-3 mb-4 text-xs text-white/70 leading-relaxed">
-                                                    <p className="mb-2 font-bold text-indigo-300">💡 Google Drive로 이미지 관리하기</p>
+                                                    <p className="mb-2 font-bold text-emerald-400">💡 또는 Google Drive 이미지 사용하기</p>
                                                     <ol className="list-decimal pl-4 space-y-1 text-white/60">
-                                                        <li>구글 드라이브(Google Drive)에 악보 이미지를 업로드하세요.</li>
-                                                        <li>이미지의 <b>'링크 복사'</b>를 하여 아래 칸에 붙여넣으세요.</li>
+                                                        <li>구글 드라이브에 이미지가 이미 있다면, <b>'링크 복사'</b>를 하여 아래 칸에 붙여넣으세요.</li>
                                                         <li><b>'추가'</b> 버튼을 누르면 자동으로 이미지 링크로 변환됩니다.</li>
                                                     </ol>
                                                 </div>
