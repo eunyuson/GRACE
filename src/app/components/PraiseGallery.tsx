@@ -1015,16 +1015,7 @@ export const PraiseGallery: React.FC<PraiseGalleryProps> = ({ isAdmin = false, c
                                     </button>
                                 )}
 
-                                {/* Admin Merge Button */}
-                                {isAdmin && !isEditing && (
-                                    <button
-                                        onClick={mergeWithNext}
-                                        disabled={isMerging}
-                                        className="absolute top-2 right-20 md:top-4 md:right-24 z-20 px-2 py-1.5 bg-amber-500/20 rounded-full text-amber-300 hover:bg-amber-500/40 transition-all border border-amber-500/30 text-[10px] md:text-xs disabled:opacity-60"
-                                    >
-                                        {isMerging ? '합치는 중...' : '다음과 합치기'}
-                                    </button>
-                                )}
+
 
                                 {/* Admin Edit Button */}
                                 {isAdmin && !isEditing && (
