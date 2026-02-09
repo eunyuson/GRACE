@@ -76,6 +76,9 @@ export const PraiseGallery: React.FC<PraiseGalleryProps> = ({ isAdmin = false, c
     const [currentVersionId, setCurrentVersionId] = useState<string>('default'); // 'default' or version ID
     const [newVersionName, setNewVersionName] = useState('');
 
+    // View mode version selection
+    const [viewVersionId, setViewVersionId] = useState<string>('default');
+
     const [newImageUrl, setNewImageUrl] = useState('');
     const [newYoutubeUrl, setNewYoutubeUrl] = useState('');
     const [newYoutubeTitle, setNewYoutubeTitle] = useState('');
@@ -654,6 +657,22 @@ export const PraiseGallery: React.FC<PraiseGalleryProps> = ({ isAdmin = false, c
     const selectedImages = selectedHymn ? getImagesForHymn(selectedHymn) : [];
     const primaryImage = selectedImages[0] || '';
 
+    // Get images based on selected view version
+    const getViewImages = () => {
+        if (!selectedHymn) return [];
+        if (viewVersionId === 'default') {
+            return getImagesForHymn(selectedHymn);
+        }
+        const version = selectedHymn.versions?.find(v => v.id === viewVersionId);
+        return version?.imageUrls || [];
+    };
+    const viewImages = getViewImages();
+
+    // Reset viewVersionId when selectedHymn changes
+    useEffect(() => {
+        setViewVersionId('default');
+    }, [selectedHymn?.id]);
+
     return (
         <div className="w-full h-full overflow-hidden flex flex-col pt-40 md:pt-60 px-4 md:px-10 pb-10 relative">
             {/* Filters & Toggle (Right Top) */}
@@ -1031,11 +1050,38 @@ export const PraiseGallery: React.FC<PraiseGalleryProps> = ({ isAdmin = false, c
                                 {/* Desktop: Horizontal layout */}
 
                                 {/* Image Section - fits to screen */}
-                                <div className="flex-1 md:flex-[1.2] bg-black flex flex-col items-center justify-center p-2 md:p-4 overflow-hidden relative group min-h-0">
-                                    {selectedImages.length > 0 ? (
-                                        <div className="w-full h-full flex flex-col items-center justify-center gap-4">
-                                            {selectedImages.map((url, index) => (
-                                                <div key={`${url}-${index}`} className="relative max-w-full max-h-full flex items-center justify-center rounded-lg overflow-hidden">
+                                <div className="flex-1 md:flex-[1.2] bg-black flex flex-col items-center justify-start p-2 md:p-4 overflow-y-auto relative group min-h-0">
+                                    {/* Version Tabs - only show if versions exist */}
+                                    {selectedHymn.versions && selectedHymn.versions.length > 0 && !isEditing && (
+                                        <div className="w-full flex gap-2 mb-4 overflow-x-auto pb-2 flex-shrink-0 sticky top-0 z-10 bg-black/80 backdrop-blur-sm py-2">
+                                            <button
+                                                onClick={() => setViewVersionId('default')}
+                                                className={`px-4 py-2 rounded-lg text-sm font-bold whitespace-nowrap transition-all ${viewVersionId === 'default'
+                                                        ? 'bg-indigo-500/30 text-indigo-300 border border-indigo-500/50'
+                                                        : 'bg-white/10 text-white/60 border border-white/10 hover:bg-white/20'
+                                                    }`}
+                                            >
+                                                기본
+                                            </button>
+                                            {selectedHymn.versions.map(v => (
+                                                <button
+                                                    key={v.id}
+                                                    onClick={() => setViewVersionId(v.id)}
+                                                    className={`px-4 py-2 rounded-lg text-sm font-bold whitespace-nowrap transition-all ${viewVersionId === v.id
+                                                            ? 'bg-emerald-500/30 text-emerald-300 border border-emerald-500/50'
+                                                            : 'bg-white/10 text-white/60 border border-white/10 hover:bg-white/20'
+                                                        }`}
+                                                >
+                                                    {v.name}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    )}
+
+                                    {viewImages.length > 0 ? (
+                                        <div className="w-full flex flex-col items-center gap-4">
+                                            {viewImages.map((url, index) => (
+                                                <div key={`${url}-${index}`} className="relative max-w-full flex items-center justify-center rounded-lg overflow-hidden">
                                                     {/* Placeholder */}
                                                     <div className="absolute inset-0 flex items-center justify-center text-white/10 z-0">
                                                         <Music size={64} />
@@ -1044,7 +1090,7 @@ export const PraiseGallery: React.FC<PraiseGalleryProps> = ({ isAdmin = false, c
                                                     <img
                                                         src={url}
                                                         alt={selectedHymn.title}
-                                                        className="relative z-10 max-w-full max-h-full object-contain"
+                                                        className="relative z-10 max-w-full object-contain"
                                                         loading="lazy"
                                                         onError={(e) => {
                                                             e.currentTarget.style.display = 'none';
