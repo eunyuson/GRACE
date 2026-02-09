@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { X, Download, Music, Grid, List, Edit3, Save, Youtube, Plus, Trash2, ExternalLink, ChevronLeft, ChevronRight, ArrowUp, ArrowDown, Hash, Search } from 'lucide-react';
-import { collection, query, onSnapshot, where, doc, updateDoc, deleteDoc, writeBatch, addDoc } from 'firebase/firestore';
+import { collection, query, onSnapshot, where, doc, updateDoc, deleteDoc, writeBatch, addDoc, serverTimestamp } from 'firebase/firestore';
 import { getDownloadURL, ref as storageRef, uploadBytes } from 'firebase/storage';
 import { db, storage } from '../firebase';
 
@@ -122,14 +122,19 @@ export const PraiseGallery: React.FC<PraiseGalleryProps> = ({ isAdmin = false, c
     };
 
     // Save changes
+    // Save changes
     const saveChanges = async () => {
-        if (!selectedHymn) return;
+        if (!selectedHymn && !isAddingNew) return;
         setSaving(true);
+
         try {
+            const batch = writeBatch(db);
             const cleanedImageUrls = editImageUrls.map(u => u.trim()).filter(Boolean);
             const primaryImageUrl = cleanedImageUrls[0] || '';
-            const hymnData = {
-                number: Number(editNumber),
+            const timestamp = serverTimestamp();
+
+            // Prepare data for the item being saved
+            const currentItemData = {
                 title: editTitle,
                 lyrics: editLyrics,
                 code: editCode,
@@ -138,39 +143,93 @@ export const PraiseGallery: React.FC<PraiseGalleryProps> = ({ isAdmin = false, c
                 imageUrls: cleanedImageUrls,
                 imageUrl: primaryImageUrl,
                 type: 'praise',
-                updatedAt: new Date()
+                updatedAt: timestamp
             };
 
+            let targetId = '';
+
             if (isAddingNew) {
-                const galleryRef = collection(db, 'gallery');
-                await addDoc(galleryRef, {
-                    ...hymnData,
-                    createdAt: new Date()
-                });
-                alert('새 곡이 추가되었습니다.');
+                // Generate ID for new item
+                const newRef = doc(collection(db, 'gallery'));
+                targetId = newRef.id;
             } else {
-                const hymnRef = doc(db, 'gallery', selectedHymn.id);
-                await updateDoc(hymnRef, hymnData);
+                targetId = selectedHymn?.id || '';
             }
 
+            if (!targetId) throw new Error('Target ID not found');
+
+            // Construct full list for sorting
+            // We use 'hymns' which contains existing praise songs
+            let listForSorting: any[] = [];
+
+            if (isAddingNew) {
+                listForSorting = [
+                    ...hymns,
+                    {
+                        id: targetId,
+                        ...currentItemData,
+                        number: 0, // placeholder
+                        createdAt: timestamp
+                    }
+                ];
+            } else {
+                listForSorting = hymns.map(h =>
+                    h.id === targetId
+                        ? { ...h, ...currentItemData }
+                        : h
+                );
+            }
+
+            // Sort by title (Korean)
+            listForSorting.sort((a, b) => (a.title || '').localeCompare(b.title || '', 'ko-KR'));
+
+            // Assign numbers sequentially and queue batch updates
+            listForSorting.forEach((item, index) => {
+                const newNumber = index + 1;
+                item.number = newNumber; // Update local object for state
+                const ref = doc(db, 'gallery', item.id);
+
+                if (item.id === targetId) {
+                    if (isAddingNew) {
+                        // Create new document
+                        batch.set(ref, {
+                            ...currentItemData,
+                            number: newNumber,
+                            createdAt: timestamp,
+                            viewCount: 0,
+                            usageCount: 0
+                        });
+                    } else {
+                        // Update existing document
+                        batch.update(ref, {
+                            ...currentItemData,
+                            number: newNumber
+                        });
+                    }
+                } else {
+                    // Update other documents only if number changed
+                    if (item.number !== newNumber) {
+                        batch.update(ref, { number: newNumber });
+                    }
+                }
+            });
+
+            await batch.commit();
+
+            alert(isAddingNew ? '새 곡이 추가되었습니다.' : '저장되었습니다.');
             setIsEditing(false);
+
             if (isAddingNew) {
                 setSelectedHymn(null);
                 setIsAddingNew(false);
             } else {
-                // Update local state for selectedHymn
-                setSelectedHymn({
-                    ...selectedHymn,
-                    number: Number(editNumber),
-                    title: editTitle,
-                    lyrics: editLyrics,
-                    code: editCode,
-                    category: editCategory,
-                    youtubeLinks: editYoutubeLinks,
-                    imageUrls: cleanedImageUrls,
-                    imageUrl: primaryImageUrl
-                });
+                // Update local selected hymn state to reflect changes immediately
+                const updatedHymn = listForSorting.find(h => h.id === targetId);
+                if (updatedHymn) {
+                    setSelectedHymn(updatedHymn);
+                }
             }
+
         } catch (error: any) {
             console.error('Error saving hymn:', error);
             alert(`저장 중 오류가 발생했습니다: ${error.message || '알 수 없는 오류'}`);
