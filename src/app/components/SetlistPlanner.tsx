@@ -36,6 +36,7 @@ interface SetlistDoc {
     items: SetlistItem[];
     updatedAt?: any;
     createdAt?: any;
+    memo?: string;
 }
 
 const MAX_QUERY_LENGTH = 20;
@@ -55,6 +56,7 @@ export const SetlistPlanner: React.FC = () => {
     const [praiseItems, setPraiseItems] = useState<LibraryItem[]>([]);
 
     const [setlistTitle, setSetlistTitle] = useState('');
+    const [setlistMemo, setSetlistMemo] = useState('');
     const [setlistItems, setSetlistItems] = useState<SetlistItem[]>([]);
     const [savedSetlists, setSavedSetlists] = useState<SetlistDoc[]>([]);
     const [activeSetlistId, setActiveSetlistId] = useState<string>('');
@@ -340,6 +342,7 @@ export const SetlistPlanner: React.FC = () => {
                 await updateDoc(doc(db, 'gallery', activeSetlistId), {
                     title,
                     items: sanitizedItems,
+                    memo: setlistMemo.trim(),
                     updatedAt: serverTimestamp()
                 });
             } else {
@@ -348,6 +351,7 @@ export const SetlistPlanner: React.FC = () => {
                     ownerId: currentUser.uid,
                     title,
                     items: sanitizedItems,
+                    memo: setlistMemo.trim(),
                     createdAt: serverTimestamp(),
                     updatedAt: serverTimestamp()
                 });
@@ -386,12 +390,14 @@ export const SetlistPlanner: React.FC = () => {
         setActiveSetlistId(id);
         if (!id) {
             setSetlistTitle('');
+            setSetlistMemo('');
             setSetlistItems([]);
             return;
         }
         const target = savedSetlists.find(s => s.id === id);
         if (target) {
             setSetlistTitle(target.title || '');
+            setSetlistMemo(target.memo || '');
             setSetlistItems(target.items || []);
         }
     };
@@ -416,6 +422,7 @@ export const SetlistPlanner: React.FC = () => {
     const handleNewSetlist = () => {
         setActiveSetlistId('');
         setSetlistTitle('');
+        setSetlistMemo('');
         setSetlistItems([]);
     };
 
@@ -627,6 +634,14 @@ export const SetlistPlanner: React.FC = () => {
                                 <span className="text-xs font-bold">인쇄</span>
                             </button>
                         </div>
+
+                        <textarea
+                            value={setlistMemo}
+                            onChange={(e) => setSetlistMemo(e.target.value)}
+                            placeholder="콘티 메모 (인도/반주 특이사항 등)"
+                            className="w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-sm text-white/90 focus:outline-none focus:border-emerald-500/40 resize-none h-20 placeholder-white/30"
+                        />
+
                         <div className="flex items-center gap-2">
                             <select
                                 value={activeSetlistId}
@@ -718,6 +733,11 @@ export const SetlistPlanner: React.FC = () => {
 
                     <div className="print-area bg-white text-black rounded-2xl p-4">
                         <div className="text-lg font-bold mb-4 print-header">{setlistTitle || '콘티'}</div>
+                        {setlistMemo && (
+                            <div className="mb-6 bg-gray-50 p-3 rounded-lg border border-gray-200 text-sm whitespace-pre-wrap leading-relaxed print-memo">
+                                {setlistMemo}
+                            </div>
+                        )}
                         {setlistItems.length === 0 && (
                             <div className="text-sm text-black/50 print-hide">콘티에 곡을 추가해 주세요.</div>
                         )}
