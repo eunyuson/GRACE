@@ -394,7 +394,7 @@ export const PraiseGallery: React.FC<PraiseGalleryProps> = ({ isAdmin = false, c
     };
 
     // Sorting
-    const [sortBy, setSortBy] = useState<'number' | 'alpha' | 'views' | 'usage'>('alpha');
+    const [sortBy, setSortBy] = useState<'number' | 'alpha' | 'views' | 'usage'>('number');
 
     const handleHymnClick = async (hymn: Hymn) => {
         setSelectedHymn(hymn);
