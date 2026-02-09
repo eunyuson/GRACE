@@ -301,7 +301,10 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
     };
 
     const handleSaveTOC = () => {
-        saveTOC(url, tocItems);
+        // Sort by page number
+        const sortedItems = [...tocItems].sort((a, b) => a.page - b.page);
+        setTocItems(sortedItems);
+        saveTOC(url, sortedItems);
         setIsEditingTOC(false);
     };
 
