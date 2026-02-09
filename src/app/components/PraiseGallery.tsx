@@ -40,6 +40,7 @@ export const PraiseGallery: React.FC<PraiseGalleryProps> = ({ isAdmin = false, c
     const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
     const [selectedCodes, setSelectedCodes] = useState<string[]>([]);
     const [showCategoryPicker, setShowCategoryPicker] = useState(false);
+    const [isMobileTagsOpen, setIsMobileTagsOpen] = useState(false);
     const codes = useMemo(() => Array.from(new Set(hymns.map(h => h.code).filter((c): c is string => !!c))).sort(), [hymns]);
     const categories = useMemo(() => {
         const uniqueTags = new Set<string>();
@@ -504,11 +505,20 @@ export const PraiseGallery: React.FC<PraiseGalleryProps> = ({ isAdmin = false, c
                             >
                                 All
                             </button>
+
+                            {/* Mobile Toggle */}
+                            <button
+                                onClick={() => setIsMobileTagsOpen(!isMobileTagsOpen)}
+                                className={`md:hidden px-2.5 py-1 text-[10px] rounded-full transition-all border ${isMobileTagsOpen ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' : 'bg-white/5 text-white/50 border-white/10 hover:bg-white/10'}`}
+                            >
+                                {isMobileTagsOpen ? '접기' : '태그'}
+                            </button>
+
                             {categories.slice(0, showCategoryPicker ? categories.length : 15).map(cat => (
                                 <button
                                     key={cat}
                                     onClick={() => setSelectedCategories(prev => prev.includes(cat) ? prev.filter(c => c !== cat) : [...prev, cat])}
-                                    className={`px-2.5 py-1 text-[10px] rounded-full transition-all border ${selectedCategories.includes(cat) ? 'bg-emerald-500/30 text-emerald-300 border-emerald-500/50' : 'bg-white/5 text-white/50 border-white/10 hover:bg-white/10'}`}
+                                    className={`px-2.5 py-1 text-[10px] rounded-full transition-all border ${selectedCategories.includes(cat) ? 'bg-emerald-500/30 text-emerald-300 border-emerald-500/50' : 'bg-white/5 text-white/50 border-white/10 hover:bg-white/10'} ${isMobileTagsOpen ? 'inline-block' : 'hidden md:inline-block'}`}
                                 >
                                     #{cat}
                                 </button>
@@ -516,7 +526,7 @@ export const PraiseGallery: React.FC<PraiseGalleryProps> = ({ isAdmin = false, c
                             {categories.length > 15 && (
                                 <button
                                     onClick={() => setShowCategoryPicker(!showCategoryPicker)}
-                                    className="px-2.5 py-1 text-[10px] rounded-full bg-white/5 text-white/50 border border-white/10 hover:bg-white/10"
+                                    className={`px-2.5 py-1 text-[10px] rounded-full bg-white/5 text-white/50 border border-white/10 hover:bg-white/10 ${isMobileTagsOpen ? 'inline-block' : 'hidden md:inline-block'}`}
                                 >
                                     {showCategoryPicker ? '접기' : `+${categories.length - 15}`}
                                 </button>
@@ -847,21 +857,21 @@ export const PraiseGallery: React.FC<PraiseGalleryProps> = ({ isAdmin = false, c
                                 {/* Mobile: Vertical layout with full-height image */}
                                 {/* Desktop: Horizontal layout */}
 
-                                {/* Image Section - fills available height on mobile */}
-                                <div className="flex-1 md:flex-[1.2] bg-black flex flex-col items-center justify-start p-2 md:p-8 overflow-auto relative group min-h-0">
+                                {/* Image Section - fits to screen */}
+                                <div className="flex-1 md:flex-[1.2] bg-black flex flex-col items-center justify-center p-2 md:p-4 overflow-hidden relative group min-h-0">
                                     {selectedImages.length > 0 ? (
-                                        <div className="w-full h-full flex flex-col items-center gap-4 py-4">
+                                        <div className="w-full h-full flex flex-col items-center justify-center gap-4">
                                             {selectedImages.map((url, index) => (
-                                                <div key={`${url}-${index}`} className="relative w-full h-auto md:w-auto md:max-w-full shadow-2xl min-h-[300px] flex items-center justify-center bg-gray-900/50 rounded-lg overflow-hidden">
+                                                <div key={`${url}-${index}`} className="relative max-w-full max-h-full flex items-center justify-center rounded-lg overflow-hidden">
                                                     {/* Placeholder */}
-                                                    <div className="absolute inset-0 flex items-center justify-center text-white/10">
+                                                    <div className="absolute inset-0 flex items-center justify-center text-white/10 z-0">
                                                         <Music size={64} />
                                                     </div>
 
                                                     <img
                                                         src={url}
                                                         alt={selectedHymn.title}
-                                                        className="relative z-10 w-full h-auto object-contain"
+                                                        className="relative z-10 max-w-full max-h-full object-contain"
                                                         loading="lazy"
                                                         onError={(e) => {
                                                             e.currentTarget.style.display = 'none';
