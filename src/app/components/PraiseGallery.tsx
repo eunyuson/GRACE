@@ -1077,29 +1077,25 @@ export const PraiseGallery: React.FC<PraiseGalleryProps> = ({ isAdmin = false, c
                                                 <h3 className="text-xs uppercase tracking-wider text-white/40 mb-3 font-bold flex items-center gap-2">
                                                     <Music size={14} /> 악보 이미지
                                                 </h3>
-                                                <div className="flex flex-wrap items-center gap-2 mb-3">
-                                                    <label className="px-3 py-2 bg-white/10 text-white/80 rounded-lg border border-white/10 hover:bg-white/15 cursor-pointer text-xs">
-                                                        {uploading ? '업로드 중...' : '이미지 업로드'}
-                                                        <input
-                                                            type="file"
-                                                            accept="image/*"
-                                                            multiple
-                                                            className="hidden"
-                                                            onChange={(e) => handleImageUpload(e.target.files)}
-                                                            disabled={uploading}
-                                                        />
-                                                    </label>
-                                                    {uploadError && (
-                                                        <span className="text-xs text-red-400">{uploadError}</span>
-                                                    )}
-                                                    <span className="text-[10px] text-white/30">업로드 후 저장을 눌러야 반영됩니다.</span>
+
+                                                <div className="bg-white/5 border border-white/10 rounded-lg p-3 mb-4 text-xs text-white/70 leading-relaxed">
+                                                    <p className="mb-2 font-bold text-indigo-300">💡 Google Drive로 이미지 관리하기</p>
+                                                    <ol className="list-decimal pl-4 space-y-1 text-white/60">
+                                                        <li>구글 드라이브(Google Drive)에 악보 이미지를 업로드하세요.</li>
+                                                        <li>이미지의 <b>'링크 복사'</b>를 하여 아래 칸에 붙여넣으세요.</li>
+                                                        <li><b>'추가'</b> 버튼을 누르면 자동으로 이미지 링크로 변환됩니다.</li>
+                                                    </ol>
                                                 </div>
+
                                                 <div className="space-y-2">
                                                     {editImageUrls.length === 0 && (
                                                         <div className="text-white/30 text-sm">등록된 이미지가 없습니다.</div>
                                                     )}
                                                     {editImageUrls.map((url, index) => (
                                                         <div key={`${url}-${index}`} className="flex items-center gap-2 bg-black/40 border border-white/10 rounded-lg p-2">
+                                                            <div className="w-8 h-8 rounded overflow-hidden bg-black/20 flex-shrink-0">
+                                                                <img src={url} alt="" className="w-full h-full object-cover" />
+                                                            </div>
                                                             <input
                                                                 type="text"
                                                                 value={url}
@@ -1141,13 +1137,38 @@ export const PraiseGallery: React.FC<PraiseGalleryProps> = ({ isAdmin = false, c
                                                         type="text"
                                                         value={newImageUrl}
                                                         onChange={(e) => setNewImageUrl(e.target.value)}
-                                                        placeholder="이미지 URL 추가..."
+                                                        onPaste={(e) => {
+                                                            // Auto-convert on paste
+                                                            const text = e.clipboardData.getData('text');
+                                                            // Google Drive Regex
+                                                            const driveRegex = /(?:drive\.google\.com\/(?:file\/d\/|open\?id=)|Docs\.google\.com\/file\/d\/)([-0-9a-zA-Z_]+)/;
+                                                            const match = text.match(driveRegex);
+                                                            if (match && match[1]) {
+                                                                e.preventDefault();
+                                                                // Use specific Google hosting domain that works for img tags
+                                                                const directLink = `https://lh3.googleusercontent.com/d/${match[1]}`;
+                                                                setNewImageUrl(directLink);
+                                                            }
+                                                        }}
+                                                        placeholder="이미지 URL 또는 구글 드라이브 링크 붙여넣기..."
                                                         className="flex-1 bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-white/90 text-sm focus:outline-none focus:border-indigo-500/50 placeholder-white/30"
                                                     />
                                                     <button
                                                         onClick={() => {
-                                                            const next = newImageUrl.trim();
+                                                            let next = newImageUrl.trim();
                                                             if (!next) return;
+
+                                                            // Manual check in case paste didn't catch it or user typed it
+                                                            const driveRegex = /(?:drive\.google\.com\/(?:file\/d\/|open\?id=)|Docs\.google\.com\/file\/d\/)([-0-9a-zA-Z_]+)/;
+                                                            const match = next.match(driveRegex);
+                                                            if (match && match[1]) {
+                                                                next = `https://lh3.googleusercontent.com/d/${match[1]}`;
+                                                            } else if (next.includes('drive.google.com') && !next.includes('lh3.googleusercontent.com')) {
+                                                                // Fallback for other formats
+                                                                // Try to find ID by length or pattern if regex failed
+                                                                // But regex covers most sharing links.
+                                                            }
+
                                                             setEditImageUrls(prev => [...prev, next]);
                                                             setNewImageUrl('');
                                                         }}
