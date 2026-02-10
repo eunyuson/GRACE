@@ -137,6 +137,33 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
         return () => window.removeEventListener('resize', checkMobile);
     }, []);
 
+    // Touch swipe handling for mobile
+    const touchStartX = useRef<number>(0);
+    const touchEndX = useRef<number>(0);
+
+    const handleTouchStart = (e: React.TouchEvent) => {
+        touchStartX.current = e.touches[0].clientX;
+    };
+
+    const handleTouchMove = (e: React.TouchEvent) => {
+        touchEndX.current = e.touches[0].clientX;
+    };
+
+    const handleTouchEnd = () => {
+        const swipeThreshold = 50; // Minimum swipe distance
+        const diff = touchStartX.current - touchEndX.current;
+
+        if (Math.abs(diff) > swipeThreshold) {
+            if (diff > 0) {
+                // Swiped left - next page
+                changePage(1);
+            } else {
+                // Swiped right - previous page
+                changePage(-1);
+            }
+        }
+    };
+
     // Container Resize Observer
     useEffect(() => {
         if (!containerRef.current) return;
@@ -503,12 +530,15 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
                 <div
                     ref={containerRef}
                     className="flex-1 overflow-auto flex justify-center items-center bg-[#0a0a0a] relative"
+                    onTouchStart={handleTouchStart}
+                    onTouchMove={handleTouchMove}
+                    onTouchEnd={handleTouchEnd}
                 >
-                    {/* Floating Navigation Arrows */}
+                    {/* Floating Navigation Arrows - More transparent, less intrusive */}
                     <button
                         onClick={() => changePage(-1)}
                         disabled={pageNumber <= 1}
-                        className="absolute left-4 top-1/2 -translate-y-1/2 z-30 w-12 h-12 rounded-full bg-black/40 hover:bg-indigo-600/80 backdrop-blur-sm border border-white/10 flex items-center justify-center text-white transition-all transform hover:scale-110 disabled:opacity-0 disabled:pointer-events-none group"
+                        className="absolute left-4 top-1/2 -translate-y-1/2 z-30 w-12 h-12 rounded-full bg-black/10 hover:bg-black/60 hover:backdrop-blur-sm border border-white/5 hover:border-white/20 flex items-center justify-center text-white/40 hover:text-white transition-all transform hover:scale-110 disabled:opacity-0 disabled:pointer-events-none group"
                     >
                         <ChevronLeft size={28} className="group-hover:-translate-x-0.5 transition-transform" />
                     </button>
@@ -516,7 +546,7 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
                     <button
                         onClick={() => changePage(1)}
                         disabled={pageNumber >= (numPages || 1)}
-                        className="absolute right-4 top-1/2 -translate-y-1/2 z-30 w-12 h-12 rounded-full bg-black/40 hover:bg-indigo-600/80 backdrop-blur-sm border border-white/10 flex items-center justify-center text-white transition-all transform hover:scale-110 disabled:opacity-0 disabled:pointer-events-none group"
+                        className="absolute right-4 top-1/2 -translate-y-1/2 z-30 w-12 h-12 rounded-full bg-black/10 hover:bg-black/60 hover:backdrop-blur-sm border border-white/5 hover:border-white/20 flex items-center justify-center text-white/40 hover:text-white transition-all transform hover:scale-110 disabled:opacity-0 disabled:pointer-events-none group"
                     >
                         <ChevronRight size={28} className="group-hover:translate-x-0.5 transition-transform" />
                     </button>
