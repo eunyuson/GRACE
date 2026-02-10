@@ -512,6 +512,21 @@ export const HymnGallery: React.FC<HymnGalleryProps> = ({ isAdmin = false, curre
                                             <div className="absolute top-2 left-2 bg-black/60 backdrop-blur-md px-2 py-0.5 rounded text-xs font-bold text-white border border-white/10">
                                                 {hymn.number}장
                                             </div>
+
+                                            {/* YouTube Play Button */}
+                                            {hymn.youtubeLinks && hymn.youtubeLinks.length > 0 && (
+                                                <button
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        const link = hymn.youtubeLinks![0];
+                                                        window.open(link.url.replace('/embed/', '/watch?v='), '_blank');
+                                                    }}
+                                                    className="absolute top-2 right-2 p-2 bg-red-600/90 hover:bg-red-500 rounded-full text-white transition-all shadow-lg hover:scale-110"
+                                                    title={hymn.youtubeLinks[0].title || '유튜브에서 듣기'}
+                                                >
+                                                    <Youtube size={16} />
+                                                </button>
+                                            )}
                                         </div>
                                         <div className="p-3">
                                             <h3 className="text-white/90 text-sm font-medium truncate">{hymn.title}</h3>
@@ -537,6 +552,21 @@ export const HymnGallery: React.FC<HymnGalleryProps> = ({ isAdmin = false, curre
                                             )}
                                         </div>
                                         {hymn.imageUrl && <div className="text-xs text-white/30 px-2 py-1 border border-white/10 rounded bg-black/20">악보</div>}
+
+                                        {/* YouTube Button in List View */}
+                                        {hymn.youtubeLinks && hymn.youtubeLinks.length > 0 && (
+                                            <button
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    const link = hymn.youtubeLinks![0];
+                                                    window.open(link.url.replace('/embed/', '/watch?v='), '_blank');
+                                                }}
+                                                className="p-2 bg-red-600/80 hover:bg-red-500 rounded-lg text-white transition-all"
+                                                title={hymn.youtubeLinks[0].title || '유튜브에서 듣기'}
+                                            >
+                                                <Youtube size={16} />
+                                            </button>
+                                        )}
                                     </motion.div>
                                 ))}
                             </div>
