@@ -4,7 +4,7 @@ import { ChevronLeft, ChevronRight, ZoomIn, ZoomOut, Save, Menu, X, List, Edit2,
 import 'react-pdf/dist/Page/AnnotationLayer.css';
 import 'react-pdf/dist/Page/TextLayer.css';
 import { db } from '../firebase';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, onSnapshot } from 'firebase/firestore';
 
 // Configure worker
 pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
@@ -147,21 +147,48 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
 
     // Initialization & Responsive Logic
     useEffect(() => {
-        // Load saved TOC - priority: Firestore > localStorage > prop tableOfContents > DEFAULT_TOC
+        let unsubscribe: (() => void) | undefined;
+
+        // Load saved TOC - priority: Firestore (Real-time) > localStorage > prop tableOfContents > DEFAULT_TOC
         const loadTOC = async () => {
             if (!isDailyReading) {
                 // Try Firestore first if pdfId is provided
                 if (pdfId) {
-                    const firestoreTOC = await getFirestoreTOC(pdfId);
-                    if (firestoreTOC && firestoreTOC.length > 0) {
-                        setTocItems(firestoreTOC);
-                        // Also save to localStorage as backup
-                        saveTOC(url, firestoreTOC);
-                        return;
+                    try {
+                        const docRef = doc(db, 'pdfTocs', pdfId);
+                        // Real-time listener
+                        unsubscribe = onSnapshot(docRef, (docSnap) => {
+                            if (docSnap.exists()) {
+                                const data = docSnap.data();
+                                const firestoreTOC = data.toc;
+                                if (firestoreTOC && firestoreTOC.length > 0) {
+                                    setTocItems(firestoreTOC);
+                                    // Also save to localStorage as backup
+                                    saveTOC(url, firestoreTOC);
+                                }
+                            } else {
+                                // If document doesn't exist in Firestore, fallback to localStorage
+                                const savedTOC = getSavedTOC(url);
+                                if (savedTOC) {
+                                    setTocItems(savedTOC);
+                                } else {
+                                    setTocItems(tableOfContents || DEFAULT_TOC);
+                                }
+                            }
+                        }, (error) => {
+                            console.error('Error listening to TOC updates:', error);
+                            // Fallback on error
+                            const savedTOC = getSavedTOC(url);
+                            if (savedTOC) setTocItems(savedTOC);
+                            else setTocItems(tableOfContents || DEFAULT_TOC);
+                        });
+                        return; // Exit here, let the listener handle updates
+                    } catch (error) {
+                        console.error('Error setting up listener:', error);
                     }
                 }
 
-                // Fallback to localStorage
+                // Fallback to localStorage immediately if no pdfId or setup failed
                 const savedTOC = getSavedTOC(url);
                 if (savedTOC) {
                     setTocItems(savedTOC);
@@ -176,6 +203,10 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
         };
 
         loadTOC();
+
+        return () => {
+            if (unsubscribe) unsubscribe();
+        };
     }, [url, pdfId, isDailyReading, tableOfContents]);
 
     useEffect(() => {
