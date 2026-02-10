@@ -8,7 +8,8 @@ import { useGallery, GalleryItemType, GalleryContentSection } from '../context/G
 import { AdminLogin } from './AdminLogin';
 import { DndProvider, useDrag, useDrop } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
-
+import Cropper, { Area } from 'react-easy-crop';
+import getCroppedImg from '../../utils/cropImage';
 
 const EmptyItem: Omit<GalleryItemType, 'id'> = {
   index: '00',
@@ -21,9 +22,6 @@ const EmptyItem: Omit<GalleryItemType, 'id'> = {
   type: 'image',
   videoUrl: ''
 };
-
-import Cropper, { Area } from 'react-easy-crop';
-import getCroppedImg from '../../utils/cropImage';
 
 // 이미지 업로드 컴포넌트
 const ImageUploader: React.FC<{

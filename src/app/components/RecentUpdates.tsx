@@ -157,7 +157,14 @@ export const RecentUpdates: React.FC<RecentUpdatesProps> = ({ isAdmin = false })
                             image: typeof data.image === 'string' ? data.image : undefined,
                             // Content가 배열이 아닌 경우(예: 레거시 문자열 데이터) 빈 배열로 처리하여 크래시 방지
                             content: Array.isArray(data.content) ? data.content : [],
-                            createdAt: data.createdAt
+                            createdAt: data.createdAt,
+                            // 누락된 필드 추가
+                            question: data.question || '',
+                            sheetRowId: data.sheetRowId,
+                            externalLinks: Array.isArray(data.externalLinks) ? data.externalLinks : [],
+                            additionalImages: Array.isArray(data.additionalImages) ? data.additionalImages : [],
+                            relatedIds: Array.isArray(data.relatedIds) ? data.relatedIds : [],
+                            imageRotation: typeof data.imageRotation === 'number' ? data.imageRotation : 0
                         } as UpdateItem;
                     });
 
