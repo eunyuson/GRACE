@@ -4,6 +4,7 @@ import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { db, auth, storage } from '../firebase';
 import { LinkToConceptModal } from './ui/LinkToConceptModal';
+import { Search, Hash, LayoutGrid, List } from 'lucide-react';
 
 interface Memo {
     id: string;
@@ -46,6 +47,35 @@ export const RecentUpdates: React.FC<RecentUpdatesProps> = ({ isAdmin = false })
     // 태그 필터: 'include' = 포함, 'exclude' = 제외
     const [tagFilters, setTagFilters] = useState<{ [tag: string]: 'include' | 'exclude' }>({});
     const [allTags, setAllTags] = useState<{ tag: string; count: number }[]>([]);
+    const [activeCategory, setActiveCategory] = useState("전체");
+    const [showSuggestions, setShowSuggestions] = useState(false);
+
+    // Constants for Category Tabs
+    const CATEGORIES = ['전체', '신앙', '삶', '사회', '기술'];
+    const CATEGORY_KEYWORDS: Record<string, string[]> = {
+        '신앙': ['기도', '말씀', '찬양', '예배', '은혜', '교회', '하나님', '예수님', '성령', '묵상', '설교', 'Q.T', '신학', '믿음', '사랑', '소망'],
+        '삶': ['감사', '가정', '육아', '일상', '부부', '자녀', '결혼', '직장', '학교', '건강', '취미', '여행', '독서', '관계', '행복', '고민'],
+        '사회': ['뉴스', '정치', '경제', '문화', '역사', '환경', '교육', '법', '인권', '평화', '사회', '이슈'],
+        '기술': ['IT', 'AI', '개발', '과학', '테크', '앱', '웹', '디자인', '스타트업', '기술', '도구', '장비']
+    };
+
+    const getCategory = (tag: string) => {
+        const cleanTag = tag.replace(/^#+/, '');
+        for (const [cat, keywords] of Object.entries(CATEGORY_KEYWORDS)) {
+            if (keywords.some(k => cleanTag.includes(k))) return cat;
+        }
+        return '기타';
+    };
+
+    const filteredTagsByCategory = useMemo(() => {
+        if (activeCategory === '전체') return allTags;
+        return allTags.filter(t => getCategory(t.tag) === activeCategory);
+    }, [allTags, activeCategory]);
+
+    const suggestions = useMemo(() => {
+        if (!searchQuery) return [];
+        return allTags.filter(t => t.tag.toLowerCase().includes(searchQuery.toLowerCase())).slice(0, 5);
+    }, [allTags, searchQuery]);
     const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
     const [saving, setSaving] = useState(false);
     const [uploading, setUploading] = useState(false);
@@ -1703,155 +1733,126 @@ export const RecentUpdates: React.FC<RecentUpdatesProps> = ({ isAdmin = false })
                         </div>
                     </div>
 
-                    {/* Tag Cloud */}
+                    {/* Tag Cloud & Category Tabs */}
                     {allTags.length > 0 && (
-                        <div className="mb-6 p-4 bg-white/5 rounded-2xl border border-white/10">
-                            <div className="flex items-center gap-2 mb-3">
-                                <span className="text-white/50 text-xs uppercase tracking-wider">태그</span>
-                                <span className="text-white/30 text-[10px]">(클릭: 포함 → 제외 → 해제)</span>
-                                {Object.keys(tagFilters).length > 0 && (
+                        <div className="mb-6 bg-white/5 rounded-2xl border border-white/10 overflow-hidden">
+                            {/* Category Tabs */}
+                            <div className="flex overflow-x-auto no-scrollbar border-b border-white/10">
+                                {CATEGORIES.map(cat => (
                                     <button
-                                        onClick={() => setTagFilters({})}
-                                        className="text-xs text-blue-400 hover:text-blue-300 ml-auto"
+                                        key={cat}
+                                        onClick={() => setActiveCategory(cat)}
+                                        className={`flex-1 min-w-[60px] px-4 py-3 text-sm font-medium whitespace-nowrap transition-colors relative ${activeCategory === cat ? 'text-white bg-white/5' : 'text-white/40 hover:text-white/70 hover:bg-white/5'
+                                            }`}
                                     >
-                                        필터 초기화
+                                        {cat}
+                                        {activeCategory === cat && (
+                                            <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-500 shadow-[0_0_10px_rgba(59,130,246,0.5)]" />
+                                        )}
                                     </button>
-                                )}
+                                ))}
                             </div>
-                            <div className="flex flex-col gap-3">
-                                {/* Level 1 Tags (# or No Hash) */}
-                                {allTags.filter(t => !t.tag.startsWith('##') && (dynamicTagCounts[t.tag] || 0) > 0).length > 0 && (
-                                    <div className="flex flex-col gap-3">
-                                        <div className="flex flex-wrap gap-2">
-                                            {allTags.filter(t => !t.tag.startsWith('##') && (dynamicTagCounts[t.tag] || 0) > 0).map(({ tag }) => {
-                                                const filterMode = tagFilters[tag];
-                                                const dynamicCount = dynamicTagCounts[tag] || 0;
-                                                return (
-                                                    <button
-                                                        key={tag}
-                                                        onClick={() => setTagFilters(prev => {
-                                                            const current = prev[tag];
-                                                            if (!current) {
-                                                                return { ...prev, [tag]: 'include' };
-                                                            } else if (current === 'include') {
-                                                                return { ...prev, [tag]: 'exclude' };
-                                                            } else {
-                                                                const { [tag]: _, ...rest } = prev;
-                                                                return rest;
-                                                            }
-                                                        })}
-                                                        className={`px-3 py-1.5 text-xs rounded-full transition-all flex items-center gap-1 ${filterMode === 'include'
-                                                            ? 'bg-gradient-to-r from-blue-500 to-purple-500 text-white shadow-lg'
-                                                            : filterMode === 'exclude'
-                                                                ? 'bg-gradient-to-r from-red-500 to-orange-500 text-white shadow-lg line-through'
-                                                                : 'bg-white/5 text-blue-200/60 border border-blue-500/10 hover:border-blue-500/30'
-                                                            }`}
-                                                    >
-                                                        {filterMode === 'include' && <span>✓</span>}
-                                                        {filterMode === 'exclude' && <span>✗</span>}
-                                                        {tag.replace(/^#/, '')}
-                                                        <span className="ml-1 text-[10px] opacity-60">
-                                                            {dynamicCount}
-                                                        </span>
-                                                    </button>
-                                                );
-                                            })}
+
+                            <div className="p-4">
+                                <div className="flex items-center gap-2 mb-3">
+                                    <span className="text-white/50 text-xs uppercase tracking-wider">{activeCategory} 태그</span>
+                                    <span className="text-white/30 text-[10px]">(클릭하여 필터링)</span>
+                                    {Object.keys(tagFilters).length > 0 && (
+                                        <button
+                                            onClick={() => setTagFilters({})}
+                                            className="text-xs text-blue-400 hover:text-blue-300 ml-auto"
+                                        >
+                                            필터 초기화
+                                        </button>
+                                    )}
+                                </div>
+                                <div className="flex flex-wrap gap-2">
+                                    {filteredTagsByCategory.filter(t => (dynamicTagCounts[t.tag] || 0) > 0).map(({ tag }) => {
+                                        const filterMode = tagFilters[tag];
+                                        const dynamicCount = dynamicTagCounts[tag] || 0;
+                                        const isL3 = tag.startsWith('###');
+                                        const isL2 = tag.startsWith('##') && !isL3;
+                                        const baseColor = isL3 ? 'pink' : isL2 ? 'purple' : 'blue';
+
+                                        return (
+                                            <button
+                                                key={tag}
+                                                onClick={() => setTagFilters(prev => {
+                                                    const current = prev[tag];
+                                                    if (!current) {
+                                                        return { ...prev, [tag]: 'include' };
+                                                    } else if (current === 'include') {
+                                                        return { ...prev, [tag]: 'exclude' };
+                                                    } else {
+                                                        const { [tag]: _, ...rest } = prev;
+                                                        return rest;
+                                                    }
+                                                })}
+                                                className={`px-3 py-2 text-sm rounded-full transition-all flex items-center gap-1.5 ${filterMode === 'include'
+                                                    ? `bg-gradient-to-r from-${baseColor}-500 to-${isL3 ? 'yellow' : isL2 ? 'pink' : 'purple'}-500 text-white shadow-lg`
+                                                    : filterMode === 'exclude'
+                                                        ? 'bg-gradient-to-r from-red-500 to-orange-500 text-white shadow-lg line-through'
+                                                        : `bg-white/5 text-${baseColor}-200/60 border border-${baseColor}-500/10 hover:border-${baseColor}-500/30 hover:bg-white/10`
+                                                    }`}
+                                            >
+                                                {filterMode === 'include' && <span>✓</span>}
+                                                {filterMode === 'exclude' && <span>✗</span>}
+                                                {tag.replace(/^#{1,3}/, '')}
+                                                <span className="ml-1 text-[10px] opacity-60">
+                                                    {dynamicCount}
+                                                </span>
+                                            </button>
+                                        );
+                                    })}
+                                    {filteredTagsByCategory.length === 0 && (
+                                        <div className="text-white/30 text-sm py-4 w-full text-center">
+                                            해당 카테고리의 태그가 없습니다.
                                         </div>
-                                    </div>
-                                )}
-
-                                {/* Level 2 Tags (##) */}
-                                {allTags.filter(t => t.tag.startsWith('##') && !t.tag.startsWith('###') && (dynamicTagCounts[t.tag] || 0) > 0).length > 0 && (
-                                    <div className="flex flex-wrap gap-2">
-                                        {allTags.filter(t => t.tag.startsWith('##') && !t.tag.startsWith('###') && (dynamicTagCounts[t.tag] || 0) > 0).map(({ tag }) => {
-                                            const filterMode = tagFilters[tag];
-                                            const dynamicCount = dynamicTagCounts[tag] || 0;
-                                            return (
-                                                <button
-                                                    key={tag}
-                                                    onClick={() => setTagFilters(prev => {
-                                                        const current = prev[tag];
-                                                        if (!current) {
-                                                            return { ...prev, [tag]: 'include' };
-                                                        } else if (current === 'include') {
-                                                            return { ...prev, [tag]: 'exclude' };
-                                                        } else {
-                                                            const { [tag]: _, ...rest } = prev;
-                                                            return rest;
-                                                        }
-                                                    })}
-                                                    className={`px-3 py-1.5 text-xs rounded-full transition-all flex items-center gap-1 ${filterMode === 'include'
-                                                        ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-lg'
-                                                        : filterMode === 'exclude'
-                                                            ? 'bg-gradient-to-r from-red-500 to-orange-500 text-white shadow-lg line-through'
-                                                            : 'bg-white/5 text-purple-200/60 border border-purple-500/10 hover:border-purple-500/30'
-                                                        }`}
-                                                >
-                                                    {filterMode === 'include' && <span>✓</span>}
-                                                    {filterMode === 'exclude' && <span>✗</span>}
-                                                    {tag.replace(/^##/, '')}
-                                                    <span className="ml-1 text-[10px] opacity-60">
-                                                        {dynamicCount}
-                                                    </span>
-                                                </button>
-                                            );
-                                        })}
-                                    </div>
-                                )}
-
-                                {/* Level 3 Tags (###) */}
-                                {allTags.filter(t => t.tag.startsWith('###') && (dynamicTagCounts[t.tag] || 0) > 0).length > 0 && (
-                                    <div className="flex flex-wrap gap-2">
-                                        {allTags.filter(t => t.tag.startsWith('###') && (dynamicTagCounts[t.tag] || 0) > 0).map(({ tag }) => {
-                                            const filterMode = tagFilters[tag];
-                                            const dynamicCount = dynamicTagCounts[tag] || 0;
-                                            return (
-                                                <button
-                                                    key={tag}
-                                                    onClick={() => setTagFilters(prev => {
-                                                        const current = prev[tag];
-                                                        if (!current) {
-                                                            return { ...prev, [tag]: 'include' };
-                                                        } else if (current === 'include') {
-                                                            return { ...prev, [tag]: 'exclude' };
-                                                        } else {
-                                                            const { [tag]: _, ...rest } = prev;
-                                                            return rest;
-                                                        }
-                                                    })}
-                                                    className={`px-3 py-1.5 text-xs rounded-full transition-all flex items-center gap-1 ${filterMode === 'include'
-                                                        ? 'bg-gradient-to-r from-pink-500 to-yellow-500 text-white shadow-lg'
-                                                        : filterMode === 'exclude'
-                                                            ? 'bg-gradient-to-r from-red-500 to-orange-500 text-white shadow-lg line-through'
-                                                            : 'bg-white/5 text-pink-200/30 hover:bg-white/10 hover:text-pink-200/50'
-                                                        }`}
-                                                >
-                                                    {filterMode === 'include' && <span>✓</span>}
-                                                    {filterMode === 'exclude' && <span>✗</span>}
-                                                    {tag.replace(/^###/, '')}
-                                                    <span className="ml-1 text-[10px] opacity-60">
-                                                        {dynamicCount}
-                                                    </span>
-                                                </button>
-                                            );
-                                        })}
-                                    </div>
-                                )}
+                                    )}
+                                </div>
                             </div>
                         </div>
                     )}
 
-                    {/* Search Bar */}
-                    <div className="mb-8">
+                    {/* Search Bar - with Autocomplete */}
+                    <div className="mb-8 relative z-50">
                         <div className="relative max-w-md">
                             <input
                                 type="text"
                                 placeholder="검색..."
                                 value={searchQuery}
-                                onChange={(e) => setSearchQuery(e.target.value)}
+                                onChange={(e) => {
+                                    setSearchQuery(e.target.value);
+                                    setShowSuggestions(true);
+                                }}
+                                onFocus={() => setShowSuggestions(true)}
+                                onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
                                 className="w-full px-5 py-3 pl-12 rounded-2xl bg-white/5 border border-white/10 text-white placeholder-white/30 focus:outline-none focus:border-blue-500/50 focus:bg-white/10 transition-all"
                             />
-                            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-white/30">🔍</span>
+                            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-white/30">
+                                <Search size={18} />
+                            </span>
+
+                            {/* Suggestions Dropdown */}
+                            {showSuggestions && searchQuery && suggestions.length > 0 && (
+                                <div className="absolute top-full left-0 right-0 mt-2 bg-[#1a1a2e] border border-white/10 rounded-xl shadow-2xl overflow-hidden z-50">
+                                    {suggestions.map(({ tag }) => (
+                                        <button
+                                            key={tag}
+                                            onClick={() => {
+                                                setSearchQuery(tag.replace(/^#+/, ''));
+                                                // Optionally auto-filter by this tag
+                                                setTagFilters(prev => ({ ...prev, [tag]: 'include' }));
+                                                setShowSuggestions(false);
+                                            }}
+                                            className="w-full px-4 py-3 text-left hover:bg-white/10 text-white/80 transition-colors flex items-center justify-between group"
+                                        >
+                                            <span>{tag}</span>
+                                            <span className="opacity-0 group-hover:opacity-100 text-blue-400 text-xs">선택</span>
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
                         </div>
                     </div>
 
