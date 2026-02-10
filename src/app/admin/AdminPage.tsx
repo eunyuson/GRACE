@@ -6,6 +6,9 @@ import heic2any from 'heic2any';
 import { auth, storage } from '../firebase';
 import { useGallery, GalleryItemType, GalleryContentSection } from '../context/GalleryContext';
 import { AdminLogin } from './AdminLogin';
+import { DndProvider, useDrag, useDrop } from 'react-dnd';
+import { HTML5Backend } from 'react-dnd-html5-backend';
+
 
 const EmptyItem: Omit<GalleryItemType, 'id'> = {
   index: '00',
@@ -417,13 +420,129 @@ const PdfUploader: React.FC<{
   );
 };
 
+// Draggable Gallery Item Component
+const DraggableGalleryItem: React.FC<{
+  item: GalleryItemType;
+  index: number;
+  moveItem: (dragIndex: number, hoverIndex: number) => void;
+  onDragEnd: () => void;
+  onEdit: (item: GalleryItemType) => void;
+  onDelete: (id: string) => void;
+}> = ({ item, index, moveItem, onDragEnd, onEdit, onDelete }) => {
+  const ref = useRef<HTMLDivElement>(null);
+
+  const [{ isDragging }, drag] = useDrag({
+    type: 'GALLERY_ITEM',
+    item: { index },
+    collect: (monitor) => ({
+      isDragging: monitor.isDragging(),
+    }),
+    end: () => {
+      onDragEnd();
+    },
+  });
+
+  const [{ isOver }, drop] = useDrop({
+    accept: 'GALLERY_ITEM',
+    hover: (draggedItem: { index: number }) => {
+      if (draggedItem.index !== index) {
+        moveItem(draggedItem.index, index);
+        draggedItem.index = index;
+      }
+    },
+    collect: (monitor) => ({
+      isOver: monitor.isOver(),
+    }),
+  });
+
+  drag(drop(ref));
+
+  return (
+    <div
+      ref={ref}
+      className={`bg-[#161616] p-4 flex gap-6 items-center border transition-all cursor-move group ${isDragging ? 'opacity-50 border-blue-500' : isOver ? 'border-blue-500/50' : 'border-white/5 hover:border-white/20'
+        }`}
+    >
+      {/* Drag Handle */}
+      <div className="flex items-center justify-center w-6 text-white/20 group-hover:text-white/40 transition-colors">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <line x1="4" y1="8" x2="20" y2="8"></line>
+          <line x1="4" y1="16" x2="20" y2="16"></line>
+        </svg>
+      </div>
+
+      {/* Thumbnail */}
+      <div
+        className="w-16 h-16 bg-[#222] shrink-0 overflow-hidden cursor-pointer"
+        onClick={() => {
+          window.location.href = `/?item=${item.id}`;
+        }}
+      >
+        {(() => {
+          // YouTube 썸네일 지원
+          if (item.type === 'video' && item.videoUrl) {
+            const ytId = item.videoUrl.match(/^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/)?.[2];
+            if (ytId && ytId.length === 11) {
+              return <img src={`https://img.youtube.com/vi/${ytId}/hqdefault.jpg`} alt={item.title} className="w-full h-full object-cover opacity-70 group-hover:opacity-100 transition-opacity" />;
+            }
+          }
+          return <img src={item.image} alt={item.title} className="w-full h-full object-cover opacity-70 group-hover:opacity-100 transition-opacity" />;
+        })()}
+      </div>
+
+      {/* Content */}
+      <div className="flex-1 min-w-0">
+        <div className="flex items-baseline gap-4 mb-1">
+          <span className="font-['Anton'] text-lg text-white/40 group-hover:text-white/60 transition-colors">{item.index}</span>
+          <h3 className="font-bold text-lg group-hover:text-white transition-colors">{item.title}</h3>
+        </div>
+        <p className="text-xs text-white/50 truncate">{item.subtitle}</p>
+      </div>
+
+      {/* Actions */}
+      <div className="flex gap-3">
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            window.location.href = `/?item=${item.id}`;
+          }}
+          className="px-4 py-2 border border-blue-500/50 text-[10px] tracking-widest text-blue-400 hover:bg-blue-500/20 transition-colors"
+        >
+          VIEW
+        </button>
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onEdit(item);
+          }}
+          className="px-4 py-2 border border-white/20 text-[10px] tracking-widest hover:bg-white hover:text-black transition-colors"
+        >
+          EDIT
+        </button>
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onDelete(item.id);
+          }}
+          className="px-4 py-2 border border-red-900/50 text-[10px] tracking-widest text-red-500 hover:bg-red-900/20 transition-colors"
+        >
+          DELETE
+        </button>
+      </div>
+    </div>
+  );
+};
+
 export const AdminPage: React.FC = () => {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
-  const { items, loading, error, addItem, updateItem, deleteItem } = useGallery();
+  const { items, loading, error, addItem, updateItem, deleteItem, reorderItems } = useGallery();
   const [editingItem, setEditingItem] = useState<GalleryItemType | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [newItem, setNewItem] = useState<Omit<GalleryItemType, 'id'>>(EmptyItem);
   const [saving, setSaving] = useState(false);
+
+  // Local display items for optimistic UI during drag
+  const [displayItems, setDisplayItems] = useState<GalleryItemType[]>([]);
 
   // Quick Upload State
   const [showQuickUpload, setShowQuickUpload] = useState(false);
@@ -520,6 +639,41 @@ export const AdminPage: React.FC = () => {
       setEditingItem({ ...editingItem, [field]: value });
     }
   };
+
+  // Sync displayItems with items
+  useEffect(() => {
+    setDisplayItems(items);
+  }, [items]);
+
+  // Handle drag and drop move
+  const handleMoveItem = useCallback((dragIndex: number, hoverIndex: number) => {
+    setDisplayItems((prevItems) => {
+      const newItems = [...prevItems];
+      const [draggedItem] = newItems.splice(dragIndex, 1);
+      newItems.splice(hoverIndex, 0, draggedItem);
+      return newItems;
+    });
+  }, []);
+
+  // Handle drag end - save to database
+  const handleDragEnd = useCallback(async () => {
+    // Find the differences between displayItems and items
+    const hasChanges = displayItems.some((item, idx) => item.id !== items[idx]?.id);
+    if (hasChanges) {
+      const startIndex = items.findIndex((item, idx) => item.id !== displayItems[idx]?.id);
+      const endIndex = displayItems.findIndex((item, idx) => item.id !== items[idx]?.id);
+      if (startIndex !== -1 && endIndex !== -1) {
+        try {
+          await reorderItems(startIndex, endIndex);
+        } catch (err) {
+          console.error('Failed to reorder items:', err);
+          // Revert to original order on error
+          setDisplayItems(items);
+        }
+      }
+    }
+  }, [displayItems, items, reorderItems]);
+
 
   // Content Section Handlers
   const addContentSection = (isNew: boolean) => {
@@ -1077,67 +1231,21 @@ export const AdminPage: React.FC = () => {
           </div>
         )}
 
-        <div className="grid gap-4">
-          {items.map(item => (
-            <div
-              key={item.id}
-              className="bg-[#161616] p-4 flex gap-6 items-center border border-white/5 hover:border-white/20 transition-all cursor-pointer group"
-              onClick={() => {
-                // Navigate to home page with the item selected
-                window.location.href = `/?item=${item.id}`;
-              }}
-            >
-              <div className="w-16 h-16 bg-[#222] shrink-0 overflow-hidden">
-                {(() => {
-                  // YouTube 썸네일 지원
-                  if (item.type === 'video' && item.videoUrl) {
-                    const ytId = item.videoUrl.match(/^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&?]*).*/)?.[2];
-                    if (ytId && ytId.length === 11) {
-                      return <img src={`https://img.youtube.com/vi/${ytId}/hqdefault.jpg`} alt={item.title} className="w-full h-full object-cover opacity-70 group-hover:opacity-100 transition-opacity" />;
-                    }
-                  }
-                  return <img src={item.image} alt={item.title} className="w-full h-full object-cover opacity-70 group-hover:opacity-100 transition-opacity" />;
-                })()}
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-baseline gap-4 mb-1">
-                  <span className="font-['Anton'] text-lg text-white/40 group-hover:text-white/60 transition-colors">{item.index}</span>
-                  <h3 className="font-bold text-lg group-hover:text-white transition-colors">{item.title}</h3>
-                </div>
-                <p className="text-xs text-white/50 truncate">{item.subtitle}</p>
-              </div>
-              <div className="flex gap-3">
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    window.location.href = `/?item=${item.id}`;
-                  }}
-                  className="px-4 py-2 border border-blue-500/50 text-[10px] tracking-widest text-blue-400 hover:bg-blue-500/20 transition-colors"
-                >
-                  VIEW
-                </button>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation(); // Prevent navigation when clicking EDIT
-                    setEditingItem(item);
-                  }}
-                  className="px-4 py-2 border border-white/20 text-[10px] tracking-widest hover:bg-white hover:text-black transition-colors"
-                >
-                  EDIT
-                </button>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation(); // Prevent navigation when clicking DELETE
-                    handleDelete(item.id);
-                  }}
-                  className="px-4 py-2 border border-red-900/50 text-[10px] tracking-widest text-red-500 hover:bg-red-900/20 transition-colors"
-                >
-                  DELETE
-                </button>
-              </div>
-            </div>
-          ))}
-        </div>
+        <DndProvider backend={HTML5Backend}>
+          <div className="grid gap-4">
+            {displayItems.map((item, index) => (
+              <DraggableGalleryItem
+                key={item.id}
+                item={item}
+                index={index}
+                moveItem={handleMoveItem}
+                onDragEnd={handleDragEnd}
+                onEdit={setEditingItem}
+                onDelete={handleDelete}
+              />
+            ))}
+          </div>
+        </DndProvider>
       </div>
 
       {/* Edit Modal */}

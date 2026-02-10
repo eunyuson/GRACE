@@ -60,6 +60,7 @@ interface GalleryContextType {
   updateItem: (updatedItem: GalleryItemType) => Promise<void>;
   addItem: (newItem: Omit<GalleryItemType, 'id'>) => Promise<void>;
   moveItem: (id: string, direction: 'left' | 'right') => Promise<void>;
+  reorderItems: (startIndex: number, endIndex: number) => Promise<void>;
   deleteItem: (id: string) => Promise<void>;
 }
 
@@ -141,6 +142,32 @@ export const GalleryProvider: React.FC<{ children: ReactNode }> = ({ children })
     }
   };
 
+  // 드래그 앤 드롭으로 아이템 순서 재정렬
+  const reorderItems = async (startIndex: number, endIndex: number) => {
+    if (startIndex === endIndex) return;
+    if (startIndex < 0 || startIndex >= items.length) return;
+    if (endIndex < 0 || endIndex >= items.length) return;
+
+    try {
+      const batch = writeBatch(db);
+      const reorderedItems = [...items];
+      const [movedItem] = reorderedItems.splice(startIndex, 1);
+      reorderedItems.splice(endIndex, 0, movedItem);
+
+      // Update index for all affected items
+      reorderedItems.forEach((item, idx) => {
+        const itemRef = doc(db, 'gallery', item.id);
+        batch.update(itemRef, { index: items[idx].index });
+      });
+
+      await batch.commit();
+    } catch (err) {
+      console.error('Reorder error:', err);
+      throw new Error('순서 변경에 실패했습니다.');
+    }
+  };
+
+
   // 새 아이템 추가
   const addItem = async (newItem: Omit<GalleryItemType, 'id'>) => {
     try {
@@ -164,7 +191,7 @@ export const GalleryProvider: React.FC<{ children: ReactNode }> = ({ children })
   };
 
   return (
-    <GalleryContext.Provider value={{ items, loading, error, updateItem, addItem, deleteItem, moveItem }}>
+    <GalleryContext.Provider value={{ items, loading, error, updateItem, addItem, deleteItem, moveItem, reorderItems }}>
       {children}
     </GalleryContext.Provider>
   );
