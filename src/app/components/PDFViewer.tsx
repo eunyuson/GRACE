@@ -3,6 +3,8 @@ import { Document, Page, pdfjs } from 'react-pdf';
 import { ChevronLeft, ChevronRight, ZoomIn, ZoomOut, Save, Menu, X, List, Edit2, Plus, Trash, Check, RefreshCw, Maximize, Minimize, Book } from 'lucide-react';
 import 'react-pdf/dist/Page/AnnotationLayer.css';
 import 'react-pdf/dist/Page/TextLayer.css';
+import { db } from '../firebase';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
 
 // Configure worker
 pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
@@ -64,6 +66,34 @@ const saveTOC = (url: string, toc: TOCItem[]) => {
     } catch { }
 };
 
+// Firestore TOC helpers
+const getFirestoreTOC = async (pdfId: string): Promise<TOCItem[] | null> => {
+    try {
+        const docRef = doc(db, 'pdfTocs', pdfId);
+        const docSnap = await getDoc(docRef);
+        if (docSnap.exists()) {
+            const data = docSnap.data();
+            return data.toc || null;
+        }
+        return null;
+    } catch (error) {
+        console.error('Error fetching TOC from Firestore:', error);
+        return null;
+    }
+};
+
+const saveFirestoreTOC = async (pdfId: string, toc: TOCItem[]) => {
+    try {
+        const docRef = doc(db, 'pdfTocs', pdfId);
+        await setDoc(docRef, {
+            toc,
+            updatedAt: new Date().toISOString()
+        });
+    } catch (error) {
+        console.error('Error saving TOC to Firestore:', error);
+    }
+};
+
 export interface TOCItem {
     title: string;
     page: number;
@@ -71,6 +101,7 @@ export interface TOCItem {
 
 interface PDFViewerProps {
     url: string;
+    pdfId?: string; // Unique identifier for this PDF in Firestore
     initialPage?: number;
     tableOfContents?: TOCItem[];
     isDailyReading?: boolean;
@@ -83,6 +114,7 @@ const DEFAULT_TOC: TOCItem[] = [
 
 export const PDFViewer: React.FC<PDFViewerProps> = ({
     url,
+    pdfId,
     initialPage = 1,
     tableOfContents = DEFAULT_TOC,
     isDailyReading = false,
@@ -115,15 +147,36 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
 
     // Initialization & Responsive Logic
     useEffect(() => {
-        // Load saved TOC if exists and not daily reading (daily reading usually fixed)
-        if (!isDailyReading) {
-            const savedTOC = getSavedTOC(url);
-            if (savedTOC) setTocItems(savedTOC);
-            else setTocItems(tableOfContents || DEFAULT_TOC);
-        } else {
-            setTocItems(tableOfContents || DEFAULT_TOC);
-        }
-    }, [url, isDailyReading, tableOfContents]);
+        // Load saved TOC - priority: Firestore > localStorage > prop tableOfContents > DEFAULT_TOC
+        const loadTOC = async () => {
+            if (!isDailyReading) {
+                // Try Firestore first if pdfId is provided
+                if (pdfId) {
+                    const firestoreTOC = await getFirestoreTOC(pdfId);
+                    if (firestoreTOC && firestoreTOC.length > 0) {
+                        setTocItems(firestoreTOC);
+                        // Also save to localStorage as backup
+                        saveTOC(url, firestoreTOC);
+                        return;
+                    }
+                }
+
+                // Fallback to localStorage
+                const savedTOC = getSavedTOC(url);
+                if (savedTOC) {
+                    setTocItems(savedTOC);
+                    return;
+                }
+
+                // Fallback to prop or default
+                setTocItems(tableOfContents || DEFAULT_TOC);
+            } else {
+                setTocItems(tableOfContents || DEFAULT_TOC);
+            }
+        };
+
+        loadTOC();
+    }, [url, pdfId, isDailyReading, tableOfContents]);
 
     useEffect(() => {
         const checkMobile = () => {
@@ -297,6 +350,7 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
                 if (newTOC.length > 0) {
                     setTocItems(newTOC);
                     saveTOC(url, newTOC);
+                    if (pdfId) await saveFirestoreTOC(pdfId, newTOC);
                     alert(`성공적으로 ${newTOC.length}개의 목차를 가져왔습니다.`);
                 } else {
                     alert('PDF 내에 읽을 수 있는 목차 정보가 없습니다.');
@@ -327,11 +381,12 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
         }
     };
 
-    const handleSaveTOC = () => {
+    const handleSaveTOC = async () => {
         // Sort by page number
         const sortedItems = [...tocItems].sort((a, b) => a.page - b.page);
         setTocItems(sortedItems);
         saveTOC(url, sortedItems);
+        if (pdfId) await saveFirestoreTOC(pdfId, sortedItems);
         setIsEditingTOC(false);
     };
 

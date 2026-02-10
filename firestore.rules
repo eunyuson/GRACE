@@ -101,5 +101,15 @@ service cloud.firestore {
       allow read, update, delete: if request.auth != null && resource.data.ownerId == request.auth.uid;
       allow create: if request.auth != null && request.resource.data.ownerId == request.auth.uid;
     }
+
+    // PDF 목차(Table of Contents) 컬렉션 규칙
+    match /pdfTocs/{pdfId} {
+      // 누구나 읽기 가능 (목차 동기화)
+      allow read: if true;
+      
+      // 누구나 쓰기 가능 (로그인 없이도 목차 편집 가능)
+      // 필요시 request.auth != null로 변경하여 로그인 필수로 설정 가능
+      allow write: if true;
+    }
   }
 }

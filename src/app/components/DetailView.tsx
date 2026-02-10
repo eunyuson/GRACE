@@ -501,6 +501,7 @@ export const DetailView: React.FC<DetailViewProps> = ({ isOpen, onClose, item, o
                         return (
                           <PDFViewer
                             key={activeTab + '-pdf-qt'}
+                            pdfId={`gallery-${item.id}-${activeTab}`}
                             url={displayPdfUrl}
                             initialPage={pdfPage}
                             isDailyReading={true}
@@ -846,6 +847,7 @@ export const DetailView: React.FC<DetailViewProps> = ({ isOpen, onClose, item, o
                       return (
                         <PDFViewer
                           key={activeTab + '-pdf'}
+                          pdfId={`gallery-${item.id}-${activeTab}`}
                           url={displayPdfUrl}
                           initialPage={pdfPage}
                           isDailyReading={false}
