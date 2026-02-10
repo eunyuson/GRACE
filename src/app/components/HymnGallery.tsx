@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, Download, Music, Grid, List, Edit3, Save, Youtube, Plus, Trash2, ExternalLink, Search, Hash, ChevronLeft, ChevronRight, Image as ImageIcon } from 'lucide-react';
+import { X, Download, Music, Grid, List, Edit3, Save, Youtube, Plus, Trash2, ExternalLink, Search, Hash, ChevronLeft, ChevronRight, Image as ImageIcon, Filter, LayoutGrid } from 'lucide-react';
 import { collection, query, onSnapshot, where, doc, updateDoc } from 'firebase/firestore';
 import { db, storage } from '../firebase';
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
@@ -38,6 +38,7 @@ export const HymnGallery: React.FC<HymnGalleryProps> = ({ isAdmin = false, curre
     const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
     const [selectedCodes, setSelectedCodes] = useState<string[]>([]);
     const [showCategoryPicker, setShowCategoryPicker] = useState(false);
+    const [showBottomSheet, setShowBottomSheet] = useState(false);
 
     const codes = useMemo(() => Array.from(new Set(hymns.map(h => h.code).filter((c): c is string => !!c))).sort(), [hymns]);
     const categories = useMemo(() => {
@@ -332,12 +333,13 @@ export const HymnGallery: React.FC<HymnGalleryProps> = ({ isAdmin = false, curre
             <div className="flex flex-col gap-4 mb-2 md:absolute md:top-0 md:right-10 md:w-auto md:mb-0 z-20 pointer-events-auto items-end">
                 <div className="flex items-center gap-4">
                     {/* Filters */}
-                    <div className="flex flex-col gap-2 items-end mr-4">
-                        {/* Code Filter (Multi-select) */}
-                        <div className="flex flex-wrap gap-1.5 items-center justify-end max-w-none">
+                    {/* Filters - Horizontal Scroll */}
+                    <div className="flex flex-col gap-2 items-end mr-4 max-w-[calc(100vw-40px)] md:max-w-none overflow-hidden">
+                        {/* Code Filter (Horizontal Scroll) */}
+                        <div className="flex w-full md:w-auto overflow-x-auto no-scrollbar gap-1.5 px-1 pb-1 mask-gradient-right">
                             <button
                                 onClick={() => setSelectedCodes([])}
-                                className={`px-2.5 py-1 text-[10px] rounded-full transition-all border ${selectedCodes.length === 0 ? 'bg-emerald-500/30 text-emerald-300 border-emerald-500/50' : 'bg-white/5 text-white/50 border-white/10 hover:bg-white/10'}`}
+                                className={`flex-shrink-0 px-2.5 py-1 text-[10px] rounded-full transition-all border whitespace-nowrap ${selectedCodes.length === 0 ? 'bg-emerald-500/30 text-emerald-300 border-emerald-500/50' : 'bg-white/5 text-white/50 border-white/10 hover:bg-white/10'}`}
                             >
                                 All Key
                             </button>
@@ -345,37 +347,43 @@ export const HymnGallery: React.FC<HymnGalleryProps> = ({ isAdmin = false, curre
                                 <button
                                     key={code}
                                     onClick={() => setSelectedCodes(prev => prev.includes(code) ? prev.filter(c => c !== code) : [...prev, code])}
-                                    className={`px-2.5 py-1 text-[10px] rounded-full transition-all border ${selectedCodes.includes(code) ? 'bg-emerald-500/30 text-emerald-300 border-emerald-500/50' : 'bg-white/5 text-white/50 border-white/10 hover:bg-white/10'}`}
+                                    className={`flex-shrink-0 px-2.5 py-1 text-[10px] rounded-full transition-all border whitespace-nowrap ${selectedCodes.includes(code) ? 'bg-emerald-500/30 text-emerald-300 border-emerald-500/50' : 'bg-white/5 text-white/50 border-white/10 hover:bg-white/10'}`}
                                 >
                                     {code}
                                 </button>
                             ))}
                         </div>
-                        {/* Category Filter - Widened (Multi-select) */}
-                        <div className="flex flex-wrap gap-1.5 items-center justify-end max-w-[800px]">
+
+                        {/* Category Filter - Horizontal Scroll with Sticky Button */}
+                        <div className="relative flex w-full md:w-auto max-w-[800px] items-center">
+                            <div className="flex w-full overflow-x-auto no-scrollbar gap-1.5 px-1 pr-12 mask-gradient-right pb-1">
+                                <button
+                                    onClick={() => setSelectedCategories([])}
+                                    className={`flex-shrink-0 px-2.5 py-1 text-[10px] rounded-full transition-all border whitespace-nowrap ${selectedCategories.length === 0 ? 'bg-emerald-500/30 text-emerald-300 border-emerald-500/50' : 'bg-white/5 text-white/50 border-white/10 hover:bg-white/10'}`}
+                                >
+                                    All Tags
+                                </button>
+                                {categories.map(cat => (
+                                    <button
+                                        key={cat}
+                                        onClick={() => setSelectedCategories(prev => prev.includes(cat) ? prev.filter(c => c !== cat) : [...prev, cat])}
+                                        className={`flex-shrink-0 px-2.5 py-1 text-[10px] rounded-full transition-all border whitespace-nowrap ${selectedCategories.includes(cat) ? 'bg-emerald-500/30 text-emerald-300 border-emerald-500/50' : 'bg-white/5 text-white/50 border-white/10 hover:bg-white/10'}`}
+                                    >
+                                        #{cat}
+                                    </button>
+                                ))}
+                            </div>
+
+                            {/* Sticky View All Button */}
                             <button
-                                onClick={() => setSelectedCategories([])}
-                                className={`px-2.5 py-1 text-[10px] rounded-full transition-all border ${selectedCategories.length === 0 ? 'bg-emerald-500/30 text-emerald-300 border-emerald-500/50' : 'bg-white/5 text-white/50 border-white/10 hover:bg-white/10'}`}
+                                onClick={() => setShowBottomSheet(true)}
+                                className="absolute right-0 top-0 bottom-1 w-10 flex items-center justify-center bg-gradient-to-l from-[#121212] via-[#121212] to-transparent z-10"
+                                title="전체 보기"
                             >
-                                All
+                                <div className="w-6 h-6 rounded-full bg-white/10 border border-white/10 flex items-center justify-center text-white/70 hover:bg-white/20 hover:text-white transition-colors shadow-lg">
+                                    <LayoutGrid size={12} />
+                                </div>
                             </button>
-                            {categories.slice(0, showCategoryPicker ? categories.length : 15).map(cat => (
-                                <button
-                                    key={cat}
-                                    onClick={() => setSelectedCategories(prev => prev.includes(cat) ? prev.filter(c => c !== cat) : [...prev, cat])}
-                                    className={`px-2.5 py-1 text-[10px] rounded-full transition-all border ${selectedCategories.includes(cat) ? 'bg-emerald-500/30 text-emerald-300 border-emerald-500/50' : 'bg-white/5 text-white/50 border-white/10 hover:bg-white/10'}`}
-                                >
-                                    #{cat}
-                                </button>
-                            ))}
-                            {categories.length > 15 && (
-                                <button
-                                    onClick={() => setShowCategoryPicker(!showCategoryPicker)}
-                                    className="px-2.5 py-1 text-[10px] rounded-full bg-white/5 text-white/50 border border-white/10 hover:bg-white/10"
-                                >
-                                    {showCategoryPicker ? '접기' : `+${categories.length - 15}`}
-                                </button>
-                            )}
                         </div>
                     </div>
 
@@ -984,6 +992,115 @@ export const HymnGallery: React.FC<HymnGalleryProps> = ({ isAdmin = false, curre
                     </motion.div>
                 )}
             </AnimatePresence>
+            {/* Bottom Sheet for Tags/Categories */}
+            {showBottomSheet && (
+                <div className="fixed inset-0 z-[60] flex items-end justify-center md:items-center p-0 md:p-4" onClick={() => setShowBottomSheet(false)}>
+                    {/* Backdrop */}
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="absolute inset-0 bg-black/80 backdrop-blur-sm"
+                    />
+
+                    {/* Sheet Content */}
+                    <motion.div
+                        initial={{ y: "100%" }}
+                        animate={{ y: 0 }}
+                        exit={{ y: "100%" }}
+                        transition={{ type: "spring", damping: 25, stiffness: 200 }}
+                        className="relative w-full max-w-2xl bg-[#1a1a1a] border-t md:border border-white/10 rounded-t-3xl md:rounded-3xl p-6 shadow-2xl max-h-[85vh] overflow-y-auto"
+                        onClick={e => e.stopPropagation()}
+                    >
+                        {/* Handle bar for mobile */}
+                        <div className="w-12 h-1 bg-white/20 rounded-full mx-auto mb-6 md:hidden" />
+
+                        <div className="flex justify-between items-center mb-6">
+                            <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                                <LayoutGrid size={18} className="text-emerald-400" />
+                                필터 전체보기
+                            </h3>
+                            <button
+                                onClick={() => setShowBottomSheet(false)}
+                                className="p-2 rounded-full bg-white/5 hover:bg-white/10 text-white/60 hover:text-white transition-colors"
+                            >
+                                <X size={20} />
+                            </button>
+                        </div>
+
+                        {/* Keys Section */}
+                        <div className="mb-8">
+                            <h4 className="text-xs uppercase tracking-wider text-white/40 mb-3 flex items-center gap-2">
+                                <Music size={12} /> KEY (조성)
+                            </h4>
+                            <div className="grid grid-cols-4 sm:grid-cols-6 gap-2">
+                                <button
+                                    onClick={() => setSelectedCodes([])}
+                                    className={`px-3 py-2 text-xs rounded-xl transition-all border font-medium ${selectedCodes.length === 0
+                                        ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/50'
+                                        : 'bg-white/5 text-white/60 border-white/5 hover:bg-white/10 hover:text-white'}`}
+                                >
+                                    All Key
+                                </button>
+                                {codes.map(code => (
+                                    <button
+                                        key={code}
+                                        onClick={() => setSelectedCodes(prev => prev.includes(code) ? prev.filter(c => c !== code) : [...prev, code])}
+                                        className={`px-3 py-2 text-xs rounded-xl transition-all border font-medium ${selectedCodes.includes(code)
+                                            ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/50'
+                                            : 'bg-white/5 text-white/60 border-white/5 hover:bg-white/10 hover:text-white'}`}
+                                    >
+                                        {code}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* Divider */}
+                        <div className="h-px bg-white/10 w-full mb-8" />
+
+                        {/* Categories Section */}
+                        <div>
+                            <h4 className="text-xs uppercase tracking-wider text-white/40 mb-3 flex items-center gap-2">
+                                <Hash size={12} /> THEME (주제)
+                            </h4>
+                            <div className="flex flex-wrap gap-2">
+                                <button
+                                    onClick={() => setSelectedCategories([])}
+                                    className={`px-3 py-2 text-xs rounded-xl transition-all border font-medium ${selectedCategories.length === 0
+                                        ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/50'
+                                        : 'bg-white/5 text-white/60 border-white/5 hover:bg-white/10 hover:text-white'}`}
+                                >
+                                    All Tags
+                                </button>
+                                {categories.map(cat => (
+                                    <button
+                                        key={cat}
+                                        onClick={() => setSelectedCategories(prev => prev.includes(cat) ? prev.filter(c => c !== cat) : [...prev, cat])}
+                                        className={`px-3 py-2 text-xs rounded-xl transition-all border font-medium ${selectedCategories.includes(cat)
+                                            ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/50'
+                                            : 'bg-white/5 text-white/60 border-white/5 hover:bg-white/10 hover:text-white'}`}
+                                    >
+                                        #{cat}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* Footer / Apply Button (Mobile only mostly) */}
+                        <div className="mt-8 pt-4 border-t border-white/10 flex justify-end">
+                            <button
+                                onClick={() => setShowBottomSheet(false)}
+                                className="px-6 py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl transition-colors w-full md:w-auto shadow-lg shadow-emerald-900/20"
+                            >
+                                {selectedCodes.length + selectedCategories.length > 0
+                                    ? `${selectedCodes.length + selectedCategories.length}개 필터 적용하기`
+                                    : '닫기'}
+                            </button>
+                        </div>
+                    </motion.div>
+                </div>
+            )}
         </div >
     );
 };
