@@ -99,8 +99,7 @@ export const HymnGallery: React.FC<HymnGalleryProps> = ({ isAdmin = false, curre
                 imageUrl: editImages[0] || ''
             });
 
-            // Update local state
-            setSelectedHymn({
+            const updatedHymn = {
                 ...selectedHymn,
                 title: editTitle,
                 lyrics: editLyrics,
@@ -109,7 +108,16 @@ export const HymnGallery: React.FC<HymnGalleryProps> = ({ isAdmin = false, curre
                 youtubeLinks: editYoutubeLinks,
                 imageUrls: editImages,
                 imageUrl: editImages[0] || ''
-            });
+            };
+
+            // Update local state
+            setSelectedHymn(updatedHymn);
+
+            // Update hymns array so changes persist when clicking other songs
+            setHymns(prevHymns =>
+                prevHymns.map(h => h.id === selectedHymn.id ? updatedHymn : h)
+            );
+
             setIsEditing(false);
             alert('저장되었습니다.');
         } catch (error: any) {
