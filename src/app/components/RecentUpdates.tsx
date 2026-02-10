@@ -441,6 +441,12 @@ export const RecentUpdates: React.FC<RecentUpdatesProps> = ({ isAdmin = false })
                 relatedIds: editingItem.relatedIds || [],
                 imageRotation: editingItem.imageRotation || 0
             });
+
+            // 저장 후 selectedItem도 업데이트 (즉시 반영)
+            if (selectedItem && selectedItem.id === editingItem.id) {
+                setSelectedItem(editingItem);
+            }
+
             setEditingItem(null);
         } catch (error) {
             console.error('Save error:', error);
