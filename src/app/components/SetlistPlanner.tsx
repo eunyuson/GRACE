@@ -703,38 +703,40 @@ export const SetlistPlanner: React.FC = () => {
                 {/* Setlist */}
                 <div className="w-full lg:w-[420px] print:w-full flex-shrink-0 flex flex-col gap-4">
                     <div className="bg-white/5 border border-white/10 rounded-2xl p-4 flex flex-col gap-3 print-hide">
-                        <div className="flex items-center gap-2">
+                        <div className="flex flex-col gap-2">
                             <input
                                 value={setlistTitle}
                                 onChange={(e) => setSetlistTitle(e.target.value)}
                                 placeholder="콘티 제목"
-                                className="flex-1 bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-sm text-white/90 focus:outline-none focus:border-emerald-500/40"
+                                className="w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-sm text-white/90 focus:outline-none focus:border-emerald-500/40"
                             />
-                            <button
-                                onClick={handleSave}
-                                disabled={saving}
-                                className="flex-1 lg:flex-none px-3 py-2 bg-emerald-500/20 text-emerald-300 rounded-lg border border-emerald-500/30 hover:bg-emerald-500/30 transition-colors flex items-center justify-center gap-1.5"
-                                title="서버에 저장"
-                            >
-                                <Cloud size={16} />
-                                <span className="text-xs font-bold">저장</span>
-                            </button>
-                            <button
-                                onClick={() => window.print()}
-                                className="flex-1 lg:flex-none px-3 py-2 bg-white/10 text-white/80 rounded-lg border border-white/10 hover:bg-white/20 transition-colors flex items-center justify-center gap-1.5"
-                                title="인쇄"
-                            >
-                                <Printer size={16} />
-                                <span className="text-xs font-bold">인쇄</span>
-                            </button>
-                            <button
-                                onClick={playYoutubePlaylist}
-                                className="flex-1 lg:flex-none px-3 py-2 bg-red-500/20 text-red-300 rounded-lg border border-red-500/30 hover:bg-red-500/30 transition-colors flex items-center justify-center gap-1.5"
-                                title="유튜브 연속 재생"
-                            >
-                                <Youtube size={16} />
-                                <span className="text-xs font-bold">연속재생</span>
-                            </button>
+                            <div className="flex items-center gap-2 flex-wrap">
+                                <button
+                                    onClick={handleSave}
+                                    disabled={saving}
+                                    className="flex-1 min-w-[80px] px-3 py-2 bg-emerald-500/20 text-emerald-300 rounded-lg border border-emerald-500/30 hover:bg-emerald-500/30 transition-colors flex items-center justify-center gap-1.5"
+                                    title="서버에 저장"
+                                >
+                                    <Cloud size={16} />
+                                    <span className="text-xs font-bold">저장</span>
+                                </button>
+                                <button
+                                    onClick={() => window.print()}
+                                    className="flex-1 min-w-[80px] px-3 py-2 bg-white/10 text-white/80 rounded-lg border border-white/10 hover:bg-white/20 transition-colors flex items-center justify-center gap-1.5"
+                                    title="인쇄"
+                                >
+                                    <Printer size={16} />
+                                    <span className="text-xs font-bold">인쇄</span>
+                                </button>
+                                <button
+                                    onClick={playYoutubePlaylist}
+                                    className="flex-1 min-w-[100px] px-3 py-2 bg-red-500/20 text-red-300 rounded-lg border border-red-500/30 hover:bg-red-500/30 transition-colors flex items-center justify-center gap-1.5"
+                                    title="유튜브 연속 재생"
+                                >
+                                    <Youtube size={16} />
+                                    <span className="text-xs font-bold">연속재생</span>
+                                </button>
+                            </div>
                         </div>
 
                         <textarea
