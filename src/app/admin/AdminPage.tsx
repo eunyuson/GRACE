@@ -622,6 +622,40 @@ const AdminPageContent: React.FC = () => {
     }
   };
 
+  // Sync displayItems with items
+  useEffect(() => {
+    setDisplayItems(items);
+  }, [items]);
+
+  // Handle drag and drop move
+  const handleMoveItem = useCallback((dragIndex: number, hoverIndex: number) => {
+    setDisplayItems((prevItems) => {
+      const newItems = [...prevItems];
+      const [draggedItem] = newItems.splice(dragIndex, 1);
+      newItems.splice(hoverIndex, 0, draggedItem);
+      return newItems;
+    });
+  }, []);
+
+  // Handle drag end - save to database
+  const handleDragEnd = useCallback(async () => {
+    // Find the differences between displayItems and items
+    const hasChanges = displayItems.some((item, idx) => item.id !== items[idx]?.id);
+    if (hasChanges) {
+      const startIndex = items.findIndex((item, idx) => item.id !== displayItems[idx]?.id);
+      const endIndex = displayItems.findIndex((item, idx) => item.id !== items[idx]?.id);
+      if (startIndex !== -1 && endIndex !== -1) {
+        try {
+          await reorderItems(startIndex, endIndex);
+        } catch (err) {
+          console.error('Failed to reorder items:', err);
+          // Revert to original order on error
+          setDisplayItems(items);
+        }
+      }
+    }
+  }, [displayItems, items, reorderItems]);
+
   // 인증 상태 확인 중
   if (isAuthenticated === null) {
     return (
@@ -706,39 +740,7 @@ const AdminPageContent: React.FC = () => {
     }
   };
 
-  // Sync displayItems with items
-  useEffect(() => {
-    setDisplayItems(items);
-  }, [items]);
 
-  // Handle drag and drop move
-  const handleMoveItem = useCallback((dragIndex: number, hoverIndex: number) => {
-    setDisplayItems((prevItems) => {
-      const newItems = [...prevItems];
-      const [draggedItem] = newItems.splice(dragIndex, 1);
-      newItems.splice(hoverIndex, 0, draggedItem);
-      return newItems;
-    });
-  }, []);
-
-  // Handle drag end - save to database
-  const handleDragEnd = useCallback(async () => {
-    // Find the differences between displayItems and items
-    const hasChanges = displayItems.some((item, idx) => item.id !== items[idx]?.id);
-    if (hasChanges) {
-      const startIndex = items.findIndex((item, idx) => item.id !== displayItems[idx]?.id);
-      const endIndex = displayItems.findIndex((item, idx) => item.id !== items[idx]?.id);
-      if (startIndex !== -1 && endIndex !== -1) {
-        try {
-          await reorderItems(startIndex, endIndex);
-        } catch (err) {
-          console.error('Failed to reorder items:', err);
-          // Revert to original order on error
-          setDisplayItems(items);
-        }
-      }
-    }
-  }, [displayItems, items, reorderItems]);
 
 
   // Content Section Handlers
