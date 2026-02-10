@@ -531,7 +531,50 @@ const DraggableGalleryItem: React.FC<{
   );
 };
 
-export const AdminPage: React.FC = () => {
+// Error Boundary Component
+class ErrorBoundary extends React.Component<
+  { children: React.ReactNode },
+  { hasError: boolean; error: Error | null; errorInfo: React.ErrorInfo | null }
+> {
+  constructor(props: { children: React.ReactNode }) {
+    super(props);
+    this.state = { hasError: false, error: null, errorInfo: null };
+  }
+
+  static getDerivedStateFromError(error: Error) {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+    console.error('AdminPage Error:', error, errorInfo);
+    this.setState({ errorInfo });
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="min-h-screen bg-black text-white p-8 flex flex-col items-center justify-center">
+          <h1 className="text-2xl text-red-500 mb-4 font-bold">⚠️ 관리자 페이지 오류 발생</h1>
+          <div className="bg-gray-900 p-6 rounded-lg max-w-2xl w-full border border-red-500/30 overflow-auto">
+            <p className="font-bold mb-2 text-lg">{this.state.error?.toString()}</p>
+            <pre className="text-xs text-white/50 whitespace-pre-wrap">
+              {this.state.errorInfo?.componentStack}
+            </pre>
+          </div>
+          <button
+            onClick={() => window.location.reload()}
+            className="mt-8 px-6 py-3 bg-white text-black font-bold hover:bg-gray-200 transaction-colors"
+          >
+            페이지 새로고침
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
+const AdminPageContent: React.FC = () => {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
   const { items, loading, error, addItem, updateItem, deleteItem, reorderItems } = useGallery();
   const [editingItem, setEditingItem] = useState<GalleryItemType | null>(null);
@@ -590,6 +633,31 @@ export const AdminPage: React.FC = () => {
 
   if (!isAuthenticated) {
     return <AdminLogin onLogin={() => setIsAuthenticated(true)} />;
+  }
+
+  // 데이터 로딩 중 체크 (안전장치)
+  if (loading) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen bg-black text-white gap-4">
+        <div className="w-8 h-8 border-2 border-white/20 border-t-white rounded-full animate-spin"></div>
+        <p className="text-xs tracking-widest opacity-50">LOADING DATA...</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen bg-black text-white gap-4">
+        <p className="text-red-500 font-bold">데이터 로딩 오류</p>
+        <p className="text-xs opacity-50">{error}</p>
+        <button
+          onClick={() => window.location.reload()}
+          className="px-4 py-2 border border-white/20 hover:bg-white hover:text-black transition-colors text-xs"
+        >
+          RETRY
+        </button>
+      </div>
+    );
   }
 
   const handleSave = async () => {
@@ -1477,5 +1545,13 @@ export const AdminPage: React.FC = () => {
         </div>
       )}
     </div>
+  );
+};
+
+export const AdminPage: React.FC = () => {
+  return (
+    <ErrorBoundary>
+      <AdminPageContent />
+    </ErrorBoundary>
   );
 };
