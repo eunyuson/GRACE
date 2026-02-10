@@ -29,6 +29,7 @@ interface UpdateItem {
     externalLinks?: { title: string; url: string }[];
     additionalImages?: string[];
     relatedIds?: string[];
+    imageRotation?: number; // 이미지 회전 각도 (0, 90, 180, 270)
 }
 
 interface RecentUpdatesProps {
@@ -437,7 +438,8 @@ export const RecentUpdates: React.FC<RecentUpdatesProps> = ({ isAdmin = false })
                 question: editingItem.question || '', // Question Bridge
                 externalLinks: editingItem.externalLinks || [],
                 additionalImages: editingItem.additionalImages || [],
-                relatedIds: editingItem.relatedIds || []
+                relatedIds: editingItem.relatedIds || [],
+                imageRotation: editingItem.imageRotation || 0
             });
             setEditingItem(null);
         } catch (error) {
@@ -574,6 +576,17 @@ export const RecentUpdates: React.FC<RecentUpdatesProps> = ({ isAdmin = false })
             console.warn('URL conversion failed', e);
         }
         return url;
+    };
+
+    // 이미지 회전 함수 (왼쪽으로 90도)
+    const rotateImage = () => {
+        if (!editingItem) return;
+        const currentRotation = editingItem.imageRotation || 0;
+        const newRotation = (currentRotation - 90 + 360) % 360;
+        setEditingItem({
+            ...editingItem,
+            imageRotation: newRotation
+        });
     };
 
     // Image Upload Handler
@@ -837,17 +850,30 @@ export const RecentUpdates: React.FC<RecentUpdatesProps> = ({ isAdmin = false })
                                         <img
                                             src={editingItem.image}
                                             alt="Preview"
-                                            className="w-full max-h-48 object-contain bg-black/30"
+                                            style={{
+                                                transform: `rotate(${editingItem.imageRotation || 0}deg)`
+                                            }}
+                                            className="w-full max-h-48 object-contain bg-black/30 transition-transform"
                                             onError={(e) => {
                                                 (e.target as HTMLImageElement).style.display = 'none';
                                             }}
                                         />
-                                        <button
-                                            onClick={() => handleEditChange('image', '')}
-                                            className="absolute top-2 right-2 bg-red-500 text-white w-6 h-6 rounded-full flex items-center justify-center shadow-lg opacity-0 group-hover:opacity-100 transition-opacity"
-                                        >
-                                            ×
-                                        </button>
+                                        <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                            <button
+                                                onClick={rotateImage}
+                                                className="bg-blue-500/80 hover:bg-blue-500 text-white w-8 h-8 rounded-full flex items-center justify-center shadow-lg"
+                                                title="왼쪽으로 회전"
+                                            >
+                                                ↺
+                                            </button>
+                                            <button
+                                                onClick={() => handleEditChange('image', '')}
+                                                className="bg-red-500/80 hover:bg-red-500 text-white w-8 h-8 rounded-full flex items-center justify-center shadow-lg"
+                                                title="이미지 제거"
+                                            >
+                                                ×
+                                            </button>
+                                        </div>
                                     </div>
                                 )}
 
@@ -1211,6 +1237,9 @@ export const RecentUpdates: React.FC<RecentUpdatesProps> = ({ isAdmin = false })
                                                     src={selectedItem.image}
                                                     alt={selectedItem.title}
                                                     referrerPolicy="no-referrer"
+                                                    style={{
+                                                        transform: `rotate(${selectedItem.imageRotation || 0}deg)`
+                                                    }}
                                                     className="w-full h-auto max-h-[85vh] md:max-h-[90vh] object-contain cursor-pointer hover:scale-[1.02] transition-transform duration-300"
                                                     onClick={() => window.open(selectedItem.image, '_blank')}
                                                     onError={(e) => {
@@ -1921,6 +1950,9 @@ export const RecentUpdates: React.FC<RecentUpdatesProps> = ({ isAdmin = false })
                                                 src={item.image}
                                                 alt={item.title}
                                                 referrerPolicy="no-referrer"
+                                                style={{
+                                                    transform: `rotate(${item.imageRotation || 0}deg)`
+                                                }}
                                                 className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
                                                 onError={(e) => {
                                                     (e.target as HTMLImageElement).style.display = 'none';
