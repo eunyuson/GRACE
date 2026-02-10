@@ -69,6 +69,7 @@ export const HymnGallery: React.FC<HymnGalleryProps> = ({ isAdmin = false, curre
     // Start editing mode
     const startEditing = () => {
         if (selectedHymn) {
+            console.log('Starting edit mode. Current YouTube links:', selectedHymn.youtubeLinks);
             setEditLyrics(selectedHymn.lyrics || '');
             setEditTitle(selectedHymn.title || '');
             setEditCode(selectedHymn.code || '');
@@ -141,11 +142,13 @@ export const HymnGallery: React.FC<HymnGalleryProps> = ({ isAdmin = false, curre
         }
 
         const title = newYoutubeTitle.trim() || `영상 ${editYoutubeLinks.length + 1}`;
-
-        setEditYoutubeLinks([...editYoutubeLinks, {
+        const newLink = {
             url: videoId ? `https://www.youtube.com/embed/${videoId}` : newYoutubeUrl,
             title
-        }]);
+        };
+
+        console.log('Adding YouTube link:', newLink);
+        setEditYoutubeLinks([...editYoutubeLinks, newLink]);
         setNewYoutubeUrl('');
         setNewYoutubeTitle('');
     };
