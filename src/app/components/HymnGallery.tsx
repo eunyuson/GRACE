@@ -87,6 +87,7 @@ export const HymnGallery: React.FC<HymnGalleryProps> = ({ isAdmin = false, curre
 
         setSaving(true);
         try {
+            console.log('Saving YouTube links:', editYoutubeLinks);
             const hymnRef = doc(db, 'gallery', selectedHymn.id);
             await updateDoc(hymnRef, {
                 title: editTitle,
@@ -110,6 +111,7 @@ export const HymnGallery: React.FC<HymnGalleryProps> = ({ isAdmin = false, curre
                 imageUrl: editImages[0] || ''
             });
             setIsEditing(false);
+            alert('저장되었습니다.');
         } catch (error: any) {
             console.error('Error saving hymn:', error);
             alert(`저장 중 오류가 발생했습니다: ${error.message || '알 수 없는 오류'}`);
@@ -124,7 +126,8 @@ export const HymnGallery: React.FC<HymnGalleryProps> = ({ isAdmin = false, curre
 
         // Extract video ID and create embed-friendly URL
         let videoId = '';
-        const urlMatch = newYoutubeUrl.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([^&\n?#]+)/);
+        // Supports: standard watch, short URL, embed URL, and Shorts
+        const urlMatch = newYoutubeUrl.match(/(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/)([^&\n?#]+)/);
         if (urlMatch) {
             videoId = urlMatch[1];
         }
