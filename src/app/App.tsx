@@ -27,14 +27,14 @@ const Home = () => {
 
   return (
     <>
-      <nav className="fixed top-6 left-4 md:top-10 md:left-10 z-[2100] text-white mix-blend-difference print-hide">
-        <Link to="/" className="pointer-events-auto cursor-pointer hover:opacity-100 transition-opacity">
+      <nav className="fixed top-6 left-4 md:top-10 md:left-10 z-[2100] text-white mix-blend-difference print-hide flex flex-col md:flex-row md:items-center gap-4 md:gap-8">
+        <Link to="/" className="pointer-events-auto cursor-pointer hover:opacity-100 transition-opacity flex-shrink-0">
           <h1 className="font-bold text-[10px] md:text-xs tracking-[0.2em] md:tracking-[0.3em] opacity-80 font-['Inter'] hover:opacity-100">GRACE SURF DAILY</h1>
           <p className="text-[8px] md:text-[9px] tracking-[0.3em] md:tracking-[0.4em] opacity-40 mt-1 uppercase font-['Inter']">매일 은혜 서핑</p>
         </Link>
 
         {/* Tab Navigation */}
-        <div className="flex flex-wrap gap-1 mt-6 p-1 bg-white/5 rounded-2xl backdrop-blur-sm max-w-[320px] md:max-w-none">
+        <div className="flex flex-wrap gap-1 p-1 bg-white/5 rounded-2xl backdrop-blur-sm max-w-[320px] md:max-w-none">
           <button
             onClick={() => setActiveTab('gallery')}
             className={`px-3 md:px-4 py-1.5 text-[8px] md:text-[10px] tracking-[0.1em] md:tracking-[0.15em] uppercase transition-all duration-300 rounded-full ${activeTab === 'gallery'
