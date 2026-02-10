@@ -1,10 +1,10 @@
 import React, { useEffect, useMemo, useState, useRef } from 'react';
-import { motion } from 'motion/react';
+import { motion, AnimatePresence } from 'motion/react';
 import { onAuthStateChanged, signInAnonymously, User } from 'firebase/auth';
 import { addDoc, collection, doc, onSnapshot, query, serverTimestamp, updateDoc, where, deleteDoc, increment, writeBatch } from 'firebase/firestore';
 import { db, auth } from '../firebase';
 import { getAllCategories, getHymnByNumber } from '../data';
-import { Plus, Trash2, ArrowUp, ArrowDown, Save, Printer, X, Cloud, Search, Hash, Music, Image as ImageIcon, Edit, Menu, Youtube, Filter, LayoutGrid } from 'lucide-react';
+import { Plus, Trash2, ArrowUp, ArrowDown, Save, Printer, X, Cloud, Search, Hash, Music, Image as ImageIcon, Edit, Menu, Youtube, Filter, LayoutGrid, ListMusic, ChevronUp, ChevronDown } from 'lucide-react';
 
 // Re-use the interface or define locally
 interface LibraryItemVersion {
@@ -76,6 +76,10 @@ export const SetlistPlanner: React.FC = () => {
 
     // Bottom Sheet for Tags/Categories
     const [showBottomSheet, setShowBottomSheet] = useState(false);
+
+    // Mobile Setlist Bottom Sheet
+    const [showSetlistSheet, setShowSetlistSheet] = useState(false);
+    const [sheetHeight, setSheetHeight] = useState<'min' | 'half' | 'full'>('half');
 
     const setlistContainerRef = useRef<HTMLDivElement>(null);
 
@@ -524,7 +528,7 @@ export const SetlistPlanner: React.FC = () => {
                     {/* Filters - Horizontal Scroll */}
                     <div className="flex flex-col gap-2 items-end mr-4 max-w-[calc(100vw-40px)] md:max-w-none overflow-hidden">
                         {/* Code Filter (Horizontal Scroll) */}
-                        <div className="flex w-full md:w-auto overflow-x-auto no-scrollbar gap-1.5 px-1 pb-1 mask-gradient-right">
+                        <div className="flex w-full md:w-auto overflow-x-auto sensual-scrollbar gap-1.5 px-1 pb-2 mb-1 mask-gradient-right">
                             <button
                                 onClick={() => setSelectedCodes([])}
                                 className={`flex-shrink-0 px-2.5 py-1 text-[10px] rounded-full transition-all border whitespace-nowrap ${selectedCodes.length === 0 ? 'bg-emerald-500/30 text-emerald-300 border-emerald-500/50' : 'bg-white/5 text-white/50 border-white/10 hover:bg-white/10'}`}
@@ -544,7 +548,7 @@ export const SetlistPlanner: React.FC = () => {
 
                         {/* Category Filter - Horizontal Scroll with Sticky Button */}
                         <div className="relative flex w-full md:w-auto max-w-[800px] items-center">
-                            <div className="flex w-full overflow-x-auto no-scrollbar gap-1.5 px-1 pr-12 mask-gradient-right pb-1">
+                            <div className="flex w-full overflow-x-auto sensual-scrollbar gap-1.5 px-1 pr-12 mask-gradient-right pb-2 mb-1">
                                 <button
                                     onClick={() => setSelectedTags([])}
                                     className={`flex-shrink-0 px-2.5 py-1 text-[10px] rounded-full transition-all border whitespace-nowrap ${selectedTags.length === 0 ? 'bg-emerald-500/30 text-emerald-300 border-emerald-500/50' : 'bg-white/5 text-white/50 border-white/10 hover:bg-white/10'}`}
@@ -711,8 +715,8 @@ export const SetlistPlanner: React.FC = () => {
                     </div>
                 </div>
 
-                {/* Setlist */}
-                <div className="w-full lg:w-[420px] print:w-full flex-shrink-0 flex flex-col gap-4">
+                {/* Setlist - Desktop (Hidden on Mobile) */}
+                <div className="hidden lg:flex w-full lg:w-[420px] print:w-full flex-shrink-0 flex-col gap-4">
                     <div className="bg-white/5 border border-white/10 rounded-2xl p-4 flex flex-col gap-3 print-hide">
                         <div className="flex flex-col gap-2">
                             <input
@@ -1128,6 +1132,180 @@ export const SetlistPlanner: React.FC = () => {
                     </motion.div>
                 </div>
             )}
+            {/* Mobile Floating Action Button (FAB) for Setlist */}
+            <div className="fixed bottom-6 right-6 z-40 lg:hidden print:hidden">
+                <button
+                    onClick={() => {
+                        setShowSetlistSheet(true);
+                        setSheetHeight('half');
+                    }}
+                    className="w-14 h-14 bg-indigo-600 rounded-full shadow-lg shadow-indigo-900/40 flex items-center justify-center text-white hover:bg-indigo-500 transition-colors border border-indigo-400/30"
+                >
+                    <ListMusic size={24} />
+                    {setlistItems.length > 0 && (
+                        <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 rounded-full text-[10px] font-bold flex items-center justify-center border border-[#121212]">
+                            {setlistItems.length}
+                        </span>
+                    )}
+                </button>
+            </div>
+
+            {/* Mobile Setlist Bottom Sheet */}
+            <AnimatePresence>
+                {showSetlistSheet && (
+                    <>
+                        {/* Backdrop */}
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            onClick={() => setShowSetlistSheet(false)}
+                            className="fixed inset-0 bg-black/60 z-[50] lg:hidden backdrop-blur-sm"
+                        />
+
+                        {/* Sheet */}
+                        <motion.div
+                            initial={{ y: "100%" }}
+                            animate={{ y: 0 }}
+                            exit={{ y: "100%" }}
+                            transition={{ type: "spring", damping: 25, stiffness: 200 }}
+                            className={`fixed left-0 right-0 bottom-0 bg-[#1a1a1a] rounded-t-3xl z-[60] lg:hidden flex flex-col shadow-2xl border-t border-white/10 transition-[height] duration-300 ease-in-out ${sheetHeight === 'full' ? 'h-[90vh]' : sheetHeight === 'half' ? 'h-[50vh]' : 'h-[15vh]'}`}
+                        >
+                            {/* Drag Handle & Header */}
+                            <div
+                                className="w-full p-4 flex flex-col items-center gap-2 cursor-grab active:cursor-grabbing border-b border-white/5 flex-shrink-0"
+                                onClick={() => {
+                                    if (sheetHeight === 'min') setSheetHeight('half');
+                                    else if (sheetHeight === 'half') setSheetHeight('full');
+                                    else setSheetHeight('min');
+                                }}
+                            >
+                                <div className="w-12 h-1.5 bg-white/20 rounded-full" />
+                                <div className="w-full flex items-center justify-between px-2">
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-white font-bold">콘티 ({setlistItems.length})</span>
+                                        <div className="flex gap-1" onClick={e => e.stopPropagation()}>
+                                            <button
+                                                onClick={() => setSheetHeight('min')}
+                                                className={`p-1 rounded hover:bg-white/10 ${sheetHeight === 'min' ? 'text-indigo-400' : 'text-white/40'}`}
+                                            >
+                                                <ChevronDown size={16} />
+                                            </button>
+                                            <button
+                                                onClick={() => setSheetHeight('half')}
+                                                className={`p-1 rounded hover:bg-white/10 ${sheetHeight === 'half' ? 'text-indigo-400' : 'text-white/40'}`}
+                                            >
+                                                <div className="w-4 h-2 border-2 border-current rounded-sm border-t-0" />
+                                            </button>
+                                            <button
+                                                onClick={() => setSheetHeight('full')}
+                                                className={`p-1 rounded hover:bg-white/10 ${sheetHeight === 'full' ? 'text-indigo-400' : 'text-white/40'}`}
+                                            >
+                                                <ChevronUp size={16} />
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <button
+                                        onClick={(e) => { e.stopPropagation(); setShowSetlistSheet(false); }}
+                                        className="p-2 text-white/50 hover:text-white"
+                                    >
+                                        <X size={20} />
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* Content */}
+                            <div className="flex-1 overflow-hidden flex flex-col p-4 gap-4">
+                                {sheetHeight !== 'min' && (
+                                    <>
+                                        {/* Controls */}
+                                        <div className="flex flex-col gap-3 flex-shrink-0">
+                                            <div className="flex flex-col gap-2">
+                                                <input
+                                                    value={setlistTitle}
+                                                    onChange={(e) => setSetlistTitle(e.target.value)}
+                                                    placeholder="콘티 제목"
+                                                    className="w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-sm text-white/90 focus:outline-none focus:border-emerald-500/40"
+                                                />
+                                                <div className="flex items-center gap-2">
+                                                    <button
+                                                        onClick={handleSave}
+                                                        disabled={saving}
+                                                        className="flex-1 px-3 py-2 bg-emerald-500/20 text-emerald-300 rounded-lg border border-emerald-500/30 hover:bg-emerald-500/30 transition-colors flex items-center justify-center gap-1.5"
+                                                    >
+                                                        <Cloud size={16} />
+                                                        <span className="text-xs font-bold">저장</span>
+                                                    </button>
+                                                    <button
+                                                        onClick={playYoutubePlaylist}
+                                                        className="flex-1 px-3 py-2 bg-red-500/20 text-red-300 rounded-lg border border-red-500/30 hover:bg-red-500/30 transition-colors flex items-center justify-center gap-1.5"
+                                                    >
+                                                        <Youtube size={16} />
+                                                        <span className="text-xs font-bold">연속재생</span>
+                                                    </button>
+                                                </div>
+                                            </div>
+
+                                            <div className="flex items-center gap-2">
+                                                <select
+                                                    value={activeSetlistId}
+                                                    onChange={(e) => handleSelectSetlist(e.target.value)}
+                                                    className="flex-1 bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-xs text-white/70 focus:outline-none"
+                                                >
+                                                    <option value="">새 콘티</option>
+                                                    {savedSetlists.map(list => (
+                                                        <option key={list.id} value={list.id}>{list.title}</option>
+                                                    ))}
+                                                </select>
+                                                <button
+                                                    onClick={handleNewSetlist}
+                                                    className="px-3 py-2 text-xs bg-white/10 text-white/60 rounded-lg border border-white/10 hover:bg-white/20"
+                                                >
+                                                    초기화
+                                                </button>
+                                            </div>
+                                        </div>
+
+                                        {/* List */}
+                                        <div className="flex-1 overflow-y-auto space-y-2 custom-scrollbar pb-20">
+                                            {setlistItems.map((item, index) => (
+                                                <div key={item.id} className="flex items-center gap-3 bg-black/30 border border-white/10 rounded-xl p-2">
+                                                    <div className="w-8 h-8 rounded-lg bg-black/60 text-white flex items-center justify-center text-xs font-bold">
+                                                        {item.number}
+                                                    </div>
+                                                    <div className="flex-1 min-w-0">
+                                                        <div className="flex items-baseline gap-2">
+                                                            <div className="text-white text-sm truncate">{item.title}</div>
+                                                            {item.code && <span className="text-emerald-400 text-[10px] font-bold">{item.code}</span>}
+                                                        </div>
+                                                        <div className="text-white/40 text-[10px]">
+                                                            {item.type === 'hymn' ? '찬송가' : '찬양곡'}
+                                                        </div>
+                                                    </div>
+                                                    <div className="flex items-center gap-1">
+                                                        <button onClick={() => moveSetlistItem(index, -1)} disabled={index === 0} className="p-1 text-white/60">
+                                                            <ArrowUp size={14} />
+                                                        </button>
+                                                        <button onClick={() => moveSetlistItem(index, 1)} disabled={index === setlistItems.length - 1} className="p-1 text-white/60">
+                                                            <ArrowDown size={14} />
+                                                        </button>
+                                                        <button onClick={() => removeSetlistItem(index)} className="p-1 text-red-400">
+                                                            <Trash2 size={14} />
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                            {setlistItems.length === 0 && (
+                                                <div className="text-center text-white/30 text-sm py-8">콘티가 비어있습니다.</div>
+                                            )}
+                                        </div>
+                                    </>
+                                )}
+                            </div>
+                        </motion.div>
+                    </>
+                )}
+            </AnimatePresence>
         </div >
     );
 };

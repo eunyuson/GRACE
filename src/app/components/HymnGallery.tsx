@@ -336,7 +336,7 @@ export const HymnGallery: React.FC<HymnGalleryProps> = ({ isAdmin = false, curre
                     {/* Filters - Horizontal Scroll */}
                     <div className="flex flex-col gap-2 items-end mr-4 max-w-[calc(100vw-40px)] md:max-w-none overflow-hidden">
                         {/* Code Filter (Horizontal Scroll) */}
-                        <div className="flex w-full md:w-auto overflow-x-auto no-scrollbar gap-1.5 px-1 pb-1 mask-gradient-right">
+                        <div className="flex w-full md:w-auto overflow-x-auto sensual-scrollbar gap-1.5 px-1 pb-2 mb-1 mask-gradient-right">
                             <button
                                 onClick={() => setSelectedCodes([])}
                                 className={`flex-shrink-0 px-2.5 py-1 text-[10px] rounded-full transition-all border whitespace-nowrap ${selectedCodes.length === 0 ? 'bg-emerald-500/30 text-emerald-300 border-emerald-500/50' : 'bg-white/5 text-white/50 border-white/10 hover:bg-white/10'}`}
@@ -356,7 +356,7 @@ export const HymnGallery: React.FC<HymnGalleryProps> = ({ isAdmin = false, curre
 
                         {/* Category Filter - Horizontal Scroll with Sticky Button */}
                         <div className="relative flex w-full md:w-auto max-w-[800px] items-center">
-                            <div className="flex w-full overflow-x-auto no-scrollbar gap-1.5 px-1 pr-12 mask-gradient-right pb-1">
+                            <div className="flex w-full overflow-x-auto sensual-scrollbar gap-1.5 px-1 pr-12 mask-gradient-right pb-2 mb-1">
                                 <button
                                     onClick={() => setSelectedCategories([])}
                                     className={`flex-shrink-0 px-2.5 py-1 text-[10px] rounded-full transition-all border whitespace-nowrap ${selectedCategories.length === 0 ? 'bg-emerald-500/30 text-emerald-300 border-emerald-500/50' : 'bg-white/5 text-white/50 border-white/10 hover:bg-white/10'}`}
