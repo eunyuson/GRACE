@@ -4,7 +4,7 @@ import { onAuthStateChanged, signInAnonymously, User } from 'firebase/auth';
 import { addDoc, collection, doc, onSnapshot, query, serverTimestamp, updateDoc, where, deleteDoc, increment, writeBatch } from 'firebase/firestore';
 import { db, auth } from '../firebase';
 import { getAllCategories, getHymnByNumber } from '../data';
-import { Plus, Trash2, ArrowUp, ArrowDown, Save, Printer, X, Cloud, Search, Hash, Music, Image as ImageIcon, Edit, Menu } from 'lucide-react';
+import { Plus, Trash2, ArrowUp, ArrowDown, Save, Printer, X, Cloud, Search, Hash, Music, Image as ImageIcon, Edit, Menu, Youtube } from 'lucide-react';
 
 // Re-use the interface or define locally
 interface LibraryItemVersion {
@@ -24,6 +24,7 @@ interface LibraryItem {
     tags?: string[];
     category?: string;
     code?: string;
+    youtubeLinks?: { url: string; title: string }[];
 }
 
 interface SetlistItem {
@@ -38,6 +39,7 @@ interface SetlistItem {
     selectedVersionId?: string; // 'default' or version ID
     code?: string;
     fullPage?: boolean;
+    youtubeLinks?: { url: string; title: string }[];
 }
 
 interface SetlistDoc {
@@ -289,6 +291,31 @@ export const SetlistPlanner: React.FC = () => {
         });
     }, [libraryItems, searchQuery, selectedTags, selectedCodes]);
 
+    // Play YouTube playlist for setlist items
+    const playYoutubePlaylist = () => {
+        const videoIds: string[] = [];
+
+        setlistItems.forEach(item => {
+            if (item.youtubeLinks && item.youtubeLinks.length > 0) {
+                // Extract video ID from first YouTube link
+                const url = item.youtubeLinks[0].url;
+                const match = url.match(/(?:embed\/|watch\?v=)([^&\n?#]+)/);
+                if (match && match[1]) {
+                    videoIds.push(match[1]);
+                }
+            }
+        });
+
+        if (videoIds.length === 0) {
+            alert('콘티에 유튜브 링크가 있는 곡이 없습니다.');
+            return;
+        }
+
+        // Create YouTube playlist URL
+        const playlistUrl = `https://www.youtube.com/watch_videos?video_ids=${videoIds.join(',')}`;
+        window.open(playlistUrl, '_blank');
+    };
+
     const addToSetlist = (item: LibraryItem) => {
         const images = item.imageUrls && item.imageUrls.length > 0
             ? item.imageUrls
@@ -304,7 +331,8 @@ export const SetlistPlanner: React.FC = () => {
             imageUrls: images,
             code: item.code,
             versions: item.versions,
-            selectedVersionId: 'default'
+            selectedVersionId: 'default',
+            youtubeLinks: item.youtubeLinks
         };
 
         setSetlistItems(prev => [...prev, newItem]);
@@ -355,7 +383,10 @@ export const SetlistPlanner: React.FC = () => {
                 imageUrl: item.imageUrl || '',
                 imageUrls: (item.imageUrls || []).filter(Boolean),
                 code: item.code || '',
-                fullPage: item.fullPage || false
+                fullPage: item.fullPage || false,
+                youtubeLinks: item.youtubeLinks || [],
+                versions: item.versions || [],
+                selectedVersionId: item.selectedVersionId || 'default'
             }));
 
             if (activeSetlistId) {
@@ -695,6 +726,14 @@ export const SetlistPlanner: React.FC = () => {
                             >
                                 <Printer size={16} />
                                 <span className="text-xs font-bold">인쇄</span>
+                            </button>
+                            <button
+                                onClick={playYoutubePlaylist}
+                                className="flex-1 lg:flex-none px-3 py-2 bg-red-500/20 text-red-300 rounded-lg border border-red-500/30 hover:bg-red-500/30 transition-colors flex items-center justify-center gap-1.5"
+                                title="유튜브 연속 재생"
+                            >
+                                <Youtube size={16} />
+                                <span className="text-xs font-bold">연속재생</span>
                             </button>
                         </div>
 
