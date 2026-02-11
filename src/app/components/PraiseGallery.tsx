@@ -674,13 +674,13 @@ export const PraiseGallery: React.FC<PraiseGalleryProps> = ({ isAdmin = false, c
     }, [selectedHymn?.id]);
 
     return (
-        <div className="w-full h-full overflow-hidden flex flex-col pt-40 md:pt-60 px-4 md:px-10 pb-10 relative">
+        <div className="w-full h-full overflow-hidden flex flex-col pt-32 md:pt-48 px-4 md:px-10 pb-10 relative">
             {/* Filters & Toggle (Right Top) */}
             <div className="flex flex-col gap-4 mb-2 md:absolute md:top-16 md:right-10 md:w-auto md:mb-0 z-20 pointer-events-auto items-end">
                 <div className="flex items-center gap-4">
                     {/* Filters */}
                     {/* Filters - Horizontal Scroll */}
-                    <div className="flex flex-col gap-2 items-end mr-4 max-w-[calc(100vw-40px)] md:max-w-[500px] overflow-hidden">
+                    <div className="flex flex-col gap-2 items-end mr-4 max-w-[calc(100vw-40px)] md:max-w-[600px] overflow-hidden">
                         {/* Code Filter (Horizontal Scroll) */}
                         <div className="flex w-full md:w-auto overflow-x-auto sensual-scrollbar gap-1.5 px-1 pb-2 mb-1 mask-gradient-right">
                             <button
@@ -701,7 +701,7 @@ export const PraiseGallery: React.FC<PraiseGalleryProps> = ({ isAdmin = false, c
                         </div>
 
                         {/* Category Filter - Horizontal Scroll with Sticky Button */}
-                        <div className="relative flex w-full md:w-auto max-w-[500px] items-center">
+                        <div className="relative flex w-full md:w-auto max-w-[600px] items-center">
                             <div className="flex w-full overflow-x-auto sensual-scrollbar gap-1.5 px-1 pr-12 mask-gradient-right pb-2 mb-1">
                                 <button
                                     onClick={() => setSelectedCategories([])}
@@ -752,7 +752,7 @@ export const PraiseGallery: React.FC<PraiseGalleryProps> = ({ isAdmin = false, c
             </div>
 
             {/* Search Bar & Tabs (Left Above Toggle) */}
-            <div className="relative mb-2 md:mb-0 md:absolute md:top-36 md:left-10 z-20 pointer-events-auto w-full md:w-auto flex flex-row items-center gap-2 md:gap-4 overflow-x-auto no-scrollbar pr-4 md:pr-0">
+            <div className="relative mb-2 md:mb-0 md:absolute md:top-24 md:left-10 z-20 pointer-events-auto w-full md:w-auto flex flex-row items-center gap-2 md:gap-4 overflow-x-auto no-scrollbar pr-4 md:pr-0">
                 {/* Tab Buttons */}
                 {onTabChange && (
                     <div className="flex gap-1 p-1 rounded-full bg-white/10 backdrop-blur-sm border border-white/15 shadow-lg flex-shrink-0">
