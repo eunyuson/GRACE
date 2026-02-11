@@ -88,6 +88,7 @@ export const SetlistPlanner: React.FC = () => {
     const [editTitle, setEditTitle] = useState('');
     const [editCode, setEditCode] = useState('');
     const [editCategory, setEditCategory] = useState('');
+    const [previewItem, setPreviewItem] = useState<LibraryItem | null>(null);
 
     // Auto-scroll to bottom of setlist when items are added
     useEffect(() => {
@@ -666,7 +667,16 @@ export const SetlistPlanner: React.FC = () => {
                                 >
                                     <div className="aspect-[3/4] bg-zinc-100 relative">
                                         {thumb ? (
-                                            <img src={thumb} alt={item.title} className="w-full h-full object-cover" loading="lazy" />
+                                            <img
+                                                src={thumb}
+                                                alt={item.title}
+                                                className="w-full h-full object-cover cursor-zoom-in"
+                                                loading="lazy"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    setPreviewItem(item);
+                                                }}
+                                            />
                                         ) : (
                                             <div className="w-full h-full flex items-center justify-center text-zinc-300 text-xs">No Image</div>
                                         )}
@@ -948,7 +958,12 @@ export const SetlistPlanner: React.FC = () => {
                                                 key={`${item.id}-${index}`}
                                                 src={url}
                                                 alt={item.title}
-                                                className="w-full h-auto object-contain"
+                                                className="w-full h-auto object-contain cursor-zoom-in"
+                                                onClick={() => setPreviewItem({
+                                                    ...item,
+                                                    imageUrl: url,
+                                                    imageUrls: [url] // Only show this specific image or all? User likely wants to see just this one enlarged, or maybe all images of this song. Let's show all for context? But user clicked one. Let's show all.
+                                                })}
                                             />
                                         ))}
                                     </div>
@@ -1306,6 +1321,40 @@ export const SetlistPlanner: React.FC = () => {
                     </>
                 )}
             </AnimatePresence>
-        </div >
+            {/* Preview Modal */}
+            <AnimatePresence>
+                {previewItem && (
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="fixed inset-0 z-[3000] bg-black/95 backdrop-blur-md flex items-center justify-center p-4"
+                        onClick={() => setPreviewItem(null)}
+                    >
+                        <button
+                            onClick={() => setPreviewItem(null)}
+                            className="absolute top-4 right-4 z-50 p-2 bg-white/10 rounded-full text-white/70 hover:text-white hover:bg-white/20 transition-all border border-white/10"
+                        >
+                            <X size={24} />
+                        </button>
+
+                        <div
+                            className="w-full h-full flex flex-col items-center overflow-auto py-8"
+                            onClick={e => e.stopPropagation()}
+                        >
+                            {(previewItem.imageUrls && previewItem.imageUrls.length > 0 ? previewItem.imageUrls : (previewItem.imageUrl ? [previewItem.imageUrl] : [])).map((url, idx) => (
+                                <img
+                                    key={idx}
+                                    src={url}
+                                    alt={previewItem.title}
+                                    className="max-w-full min-h-[50vh] object-contain mb-8 shadow-2xl rounded-sm"
+                                    onClick={(e) => e.stopPropagation()}
+                                />
+                            ))}
+                        </div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+        </div>
     );
 };
