@@ -49,7 +49,7 @@ export const PraiseGallery: React.FC<PraiseGalleryProps> = ({ isAdmin = false, c
     const [selectedCodes, setSelectedCodes] = useState<string[]>([]);
     const [showBottomSheet, setShowBottomSheet] = useState(false);
 
-    const codes = useMemo(() => Array.from(new Set(hymns.map(h => h.code).filter((c): c is string => !!c))).sort(), [hymns]);
+    const codes = useMemo(() => Array.from(new Set(hymns.map(h => h.code).filter((c): c is string => !!c && !c.endsWith('m')))).sort(), [hymns]);
     const categories = useMemo(() => {
         const uniqueTags = new Set<string>();
         hymns.forEach(h => {

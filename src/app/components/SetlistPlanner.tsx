@@ -267,7 +267,7 @@ export const SetlistPlanner: React.FC = () => {
         return Array.from(unique).filter(Boolean).sort();
     }, [libraryItems]);
 
-    const codes = useMemo(() => Array.from(new Set(libraryItems.map(i => i.code).filter((c): c is string => !!c))).sort(), [libraryItems]);
+    const codes = useMemo(() => Array.from(new Set(libraryItems.map(i => i.code).filter((c): c is string => !!c && !c.endsWith('m')))).sort(), [libraryItems]);
 
     const filteredLibrary = useMemo(() => {
         let results = libraryItems;

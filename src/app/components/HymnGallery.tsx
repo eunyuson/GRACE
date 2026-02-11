@@ -40,7 +40,7 @@ export const HymnGallery: React.FC<HymnGalleryProps> = ({ isAdmin = false, curre
     const [showCategoryPicker, setShowCategoryPicker] = useState(false);
     const [showBottomSheet, setShowBottomSheet] = useState(false);
 
-    const codes = useMemo(() => Array.from(new Set(hymns.map(h => h.code).filter((c): c is string => !!c))).sort(), [hymns]);
+    const codes = useMemo(() => Array.from(new Set(hymns.map(h => h.code).filter((c): c is string => !!c && !c.endsWith('m')))).sort(), [hymns]);
     const categories = useMemo(() => {
         const uniqueTags = new Set<string>();
         hymns.forEach(h => {
