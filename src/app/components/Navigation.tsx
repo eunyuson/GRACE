@@ -51,7 +51,7 @@ export const Navigation: React.FC<NavigationProps> = ({ currentIndex, total, onN
   };
 
   return (
-    <div className="fixed top-[40px] left-1/2 -translate-x-1/2 w-[90vw] max-w-[1200px] flex items-center justify-between z-[2000] transition-opacity duration-500 text-white">
+    <div className="fixed top-[100px] left-1/2 -translate-x-1/2 w-[90vw] max-w-[1200px] flex items-center justify-between z-[2000] transition-opacity duration-500 text-white">
       <div className="flex items-center justify-center gap-[8px] grow">
         {Array.from({ length: total }).map((_, i) => (
           <div
