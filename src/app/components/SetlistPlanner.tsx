@@ -646,7 +646,7 @@ export const SetlistPlanner: React.FC = () => {
                 </div>
             </div>
 
-            <div className="flex flex-col lg:flex-row gap-6 h-full">
+            <div className="flex flex-col lg:flex-row gap-6 h-full print:block print:h-auto print:overflow-visible">
                 {/* Library */}
                 <div className="flex-1 min-h-0 print-hide">
 
@@ -726,7 +726,7 @@ export const SetlistPlanner: React.FC = () => {
                 </div>
 
                 {/* Setlist - Desktop (Hidden on Mobile) */}
-                <div className="hidden lg:flex w-full lg:w-[420px] print:w-full flex-shrink-0 flex-col gap-4">
+                <div className="hidden lg:flex print:flex w-full lg:w-[420px] print:w-full flex-shrink-0 flex-col gap-4 print:h-auto print:overflow-visible">
                     <div className="bg-white/5 border border-white/10 rounded-2xl p-4 flex flex-col gap-3 print-hide">
                         <div className="flex flex-col gap-2">
                             <input
