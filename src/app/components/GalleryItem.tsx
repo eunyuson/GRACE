@@ -82,24 +82,7 @@ export const GalleryItem = forwardRef<HTMLDivElement, GalleryItemProps>(({ item,
 
       <div className="image-wrapper w-full h-full overflow-hidden relative bg-[#111] rounded-[2px]">
         {/* Admin Controls */}
-        {isAdmin && (
-          <div className="absolute top-4 left-4 z-50 flex gap-2" onClick={(e) => e.stopPropagation()}>
-            <button
-              onClick={(e) => { e.stopPropagation(); onMoveLeft?.(); }}
-              className="p-3 bg-black/60 text-white rounded-full hover:bg-white hover:text-black transition-colors backdrop-blur-md border border-white/20"
-              title="Move Left"
-            >
-              <ArrowLeft size={20} />
-            </button>
-            <button
-              onClick={(e) => { e.stopPropagation(); onMoveRight?.(); }}
-              className="p-3 bg-black/60 text-white rounded-full hover:bg-white hover:text-black transition-colors backdrop-blur-md border border-white/20"
-              title="Move Right"
-            >
-              <ArrowRight size={20} />
-            </button>
-          </div>
-        )}
+
 
         <img
           src={thumbnailUrl}
