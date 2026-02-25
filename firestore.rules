@@ -111,5 +111,17 @@ service cloud.firestore {
       // 필요시 request.auth != null로 변경하여 로그인 필수로 설정 가능
       allow write: if true;
     }
+
+    // 개인 메모장 (독립 메모) 컬렉션 규칙
+    match /userNotes/{noteId} {
+      // 본인 메모만 읽기 가능
+      allow read: if request.auth != null && resource.data.userId == request.auth.uid;
+      
+      // 본인이 작성하는 메모만 생성 가능
+      allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
+      
+      // 본인 메모만 수정/삭제 가능
+      allow update, delete: if request.auth != null && resource.data.userId == request.auth.uid;
+    }
   }
 }
