@@ -13,10 +13,10 @@ import { ConceptCards } from './components/ConceptCards';
 
 import { HymnTabs } from './components/HymnTabs';
 import { SetlistPlanner } from './components/SetlistPlanner';
-import { Notepad } from './components/Notepad';
+
 
 const Home = () => {
-  const [activeTab, setActiveTab] = useState<'gallery' | 'updates' | 'concepts' | 'reflections' | 'hymns' | 'setlist' | 'notepad'>('gallery');
+  const [activeTab, setActiveTab] = useState<'gallery' | 'updates' | 'concepts' | 'reflections' | 'hymns' | 'setlist'>('gallery');
   const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
@@ -90,15 +90,7 @@ const Home = () => {
           >
             📝 콘티
           </button>
-          <button
-            onClick={() => setActiveTab('notepad')}
-            className={`px-3 md:px-4 py-1.5 text-[8px] md:text-[10px] tracking-[0.1em] md:tracking-[0.15em] uppercase transition-all duration-300 rounded-full ${activeTab === 'notepad'
-              ? 'bg-gradient-to-r from-yellow-500/30 to-amber-500/30 text-white'
-              : 'text-white/50 hover:text-white/80'
-              }`}
-          >
-            📒 메모장
-          </button>
+
 
         </div>
       </nav>
@@ -114,8 +106,6 @@ const Home = () => {
         <HymnTabs isAdmin={isAdmin} />
       ) : activeTab === 'setlist' ? (
         <SetlistPlanner />
-      ) : activeTab === 'notepad' ? (
-        <Notepad />
       ) : (
         <MyReflections
           onSelectCallback={(parentId) => {
