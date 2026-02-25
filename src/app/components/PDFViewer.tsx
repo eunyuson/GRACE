@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Document, Page, pdfjs } from 'react-pdf';
-import { ChevronLeft, ChevronRight, ZoomIn, ZoomOut, Save, Menu, X, List, Edit2, Plus, Trash, Check, RefreshCw, Maximize, Minimize, Book } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ZoomIn, ZoomOut, Save, Menu, X, List, Edit2, Plus, Trash, Check, RefreshCw, Maximize, Minimize, Book, FileText, Image as ImageIcon } from 'lucide-react';
 import 'react-pdf/dist/Page/AnnotationLayer.css';
 import 'react-pdf/dist/Page/TextLayer.css';
 import { db } from '../firebase';
@@ -141,6 +141,12 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
     const [tocItems, setTocItems] = useState<TOCItem[]>(tableOfContents);
     const [isEditingTOC, setIsEditingTOC] = useState(false);
     const [pdfDocument, setPdfDocument] = useState<any>(null); // Store PDF proxy for outline extraction
+
+    // Text View State
+    const [viewMode, setViewMode] = useState<'pdf' | 'text'>('text'); // Default to text view as requested
+    const [textContent, setTextContent] = useState<string>('');
+    const [isExtracting, setIsExtracting] = useState(false);
+    const [extractProgress, setExtractProgress] = useState(0);
 
     const containerRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<HTMLInputElement>(null);
@@ -286,6 +292,48 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
     const onDocumentLoadSuccess = (pdf: any) => {
         setNumPages(pdf.numPages);
         setPdfDocument(pdf);
+
+        // Auto-extract text if in text mode
+        if (viewMode === 'text') {
+            extractAllText(pdf);
+        }
+    };
+
+    const extractAllText = async (pdf: any) => {
+        if (!pdf) return;
+        if (textContent) return; // Already extracted
+
+        setIsExtracting(true);
+        setExtractProgress(0);
+
+        try {
+            let fullText = '';
+            for (let i = 1; i <= pdf.numPages; i++) {
+                const page = await pdf.getPage(i);
+                const textContent = await page.getTextContent();
+                const pageText = textContent.items.map((item: any) => item.str).join(' ');
+                fullText += `\n\n--- Page ${i} ---\n\n${pageText}`;
+                setExtractProgress(Math.round((i / pdf.numPages) * 100));
+            }
+            setTextContent(fullText);
+        } catch (e) {
+            console.error('Text extraction failed:', e);
+            setTextContent('텍스트를 추출하는 중 오류가 발생했습니다.');
+        } finally {
+            setIsExtracting(false);
+        }
+    };
+
+    // Toggle View Mode
+    const toggleViewMode = () => {
+        if (viewMode === 'pdf') {
+            setViewMode('text');
+            if (pdfDocument && !textContent) {
+                extractAllText(pdfDocument);
+            }
+        } else {
+            setViewMode('pdf');
+        }
     };
 
     // Handle Page Render Success (for Auto-Fit)
@@ -573,28 +621,47 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
                     </div>
 
                     <div className="flex items-center gap-2 md:gap-4">
-                        {/* Auto Fit Controls */}
+                        {/* View Mode Toggle */}
                         <button
-                            onClick={toggleFitMode}
-                            className="flex items-center gap-2 px-3 py-1.5 rounded bg-[#1a1a1a] hover:bg-[#252525] border border-[#333] text-xs text-white/80 transition-colors"
-                            title={fitMode === 'height' ? "가로 맞춤으로 변경" : "세로 맞춤(전체)으로 변경"}
+                            onClick={toggleViewMode}
+                            className={`flex items-center gap-2 px-3 py-1.5 rounded border transition-colors ${viewMode === 'text'
+                                    ? 'bg-indigo-600 border-indigo-500 text-white'
+                                    : 'bg-[#1a1a1a] hover:bg-[#252525] border-[#333] text-white/80'
+                                }`}
+                            title={viewMode === 'pdf' ? "텍스트로 보기" : "PDF로 보기"}
                         >
-                            {fitMode === 'height' ? <Maximize size={14} /> : <Minimize size={14} />}
-                            <span className="hidden md:inline">{fitMode === 'height' ? '한눈에 보기' : '너비 맞춤'}</span>
+                            {viewMode === 'pdf' ? <FileText size={14} /> : <ImageIcon size={14} />}
+                            <span className="hidden md:inline">{viewMode === 'pdf' ? '텍스트 보기' : 'PDF 보기'}</span>
                         </button>
 
                         <div className="h-6 w-px bg-white/10 mx-1 hidden md:block"></div>
 
-                        {/* Zoom Controls */}
-                        <div className="hidden md:flex items-center bg-[#1a1a1a] rounded-lg border border-[#333] p-0.5">
-                            <button onClick={() => { setScale(s => Math.max(0.2, s - 0.1)); setFitMode('manual'); }} className="p-1.5 hover:bg-white/10 rounded">
-                                <ZoomOut size={16} />
+                        {/* Auto Fit Controls (Only in PDF mode) */}
+                        {viewMode === 'pdf' && (
+                            <button
+                                onClick={toggleFitMode}
+                                className="flex items-center gap-2 px-3 py-1.5 rounded bg-[#1a1a1a] hover:bg-[#252525] border border-[#333] text-xs text-white/80 transition-colors"
+                                title={fitMode === 'height' ? "가로 맞춤으로 변경" : "세로 맞춤(전체)으로 변경"}
+                            >
+                                {fitMode === 'height' ? <Maximize size={14} /> : <Minimize size={14} />}
+                                <span className="hidden md:inline">{fitMode === 'height' ? '한눈에 보기' : '너비 맞춤'}</span>
                             </button>
-                            <span className="text-xs w-12 text-center text-white/50">{Math.round(scale * 100)}%</span>
-                            <button onClick={() => { setScale(s => Math.min(3.0, s + 0.1)); setFitMode('manual'); }} className="p-1.5 hover:bg-white/10 rounded">
-                                <ZoomIn size={16} />
-                            </button>
-                        </div>
+                        )}
+
+                        {viewMode === 'pdf' && <div className="h-6 w-px bg-white/10 mx-1 hidden md:block"></div>}
+
+                        {/* Zoom Controls (Only in PDF mode) */}
+                        {viewMode === 'pdf' && (
+                            <div className="hidden md:flex items-center bg-[#1a1a1a] rounded-lg border border-[#333] p-0.5">
+                                <button onClick={() => { setScale(s => Math.max(0.2, s - 0.1)); setFitMode('manual'); }} className="p-1.5 hover:bg-white/10 rounded">
+                                    <ZoomOut size={16} />
+                                </button>
+                                <span className="text-xs w-12 text-center text-white/50">{Math.round(scale * 100)}%</span>
+                                <button onClick={() => { setScale(s => Math.min(3.0, s + 0.1)); setFitMode('manual'); }} className="p-1.5 hover:bg-white/10 rounded">
+                                    <ZoomIn size={16} />
+                                </button>
+                            </div>
+                        )}
 
                         {/* Save Button */}
                         {!isDailyReading && (
@@ -620,22 +687,47 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
                     onTouchMove={handleTouchMove}
                     onTouchEnd={handleTouchEnd}
                 >
-                    {/* Floating Navigation Arrows - More transparent, less intrusive */}
-                    <button
-                        onClick={() => changePage(-1)}
-                        disabled={pageNumber <= 1}
-                        className="absolute left-4 top-1/2 -translate-y-1/2 z-30 w-12 h-12 rounded-full bg-black/10 hover:bg-black/60 hover:backdrop-blur-sm border border-white/5 hover:border-white/20 flex items-center justify-center text-white/40 hover:text-white transition-all transform hover:scale-110 disabled:opacity-0 disabled:pointer-events-none group"
-                    >
-                        <ChevronLeft size={28} className="group-hover:-translate-x-0.5 transition-transform" />
-                    </button>
 
-                    <button
-                        onClick={() => changePage(1)}
-                        disabled={pageNumber >= (numPages || 1)}
-                        className="absolute right-4 top-1/2 -translate-y-1/2 z-30 w-12 h-12 rounded-full bg-black/10 hover:bg-black/60 hover:backdrop-blur-sm border border-white/5 hover:border-white/20 flex items-center justify-center text-white/40 hover:text-white transition-all transform hover:scale-110 disabled:opacity-0 disabled:pointer-events-none group"
-                    >
-                        <ChevronRight size={28} className="group-hover:translate-x-0.5 transition-transform" />
-                    </button>
+                    {/* Text Viewer Area */}
+                    {viewMode === 'text' && (
+                        <div className="absolute inset-0 z-30 bg-[#0a0a0a] overflow-auto p-4 md:p-8">
+                            <div className="max-w-4xl mx-auto">
+                                {isExtracting ? (
+                                    <div className="flex flex-col items-center justify-center min-h-[50vh] text-white/50 gap-4">
+                                        <div className="w-12 h-12 border-4 border-white/10 border-t-indigo-500 rounded-full animate-spin"></div>
+                                        <div>텍스트 추출 중... {extractProgress}%</div>
+                                    </div>
+                                ) : (
+                                    <div className="prose prose-invert max-w-none">
+                                        <div className="whitespace-pre-wrap leading-relaxed text-gray-300 font-serif text-lg">
+                                            {textContent || "텍스트를 추출할 수 없습니다."}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Floating Navigation Arrows - More transparent, less intrusive (Only in PDF mode) */}
+                    {viewMode === 'pdf' && (
+                        <>
+                            <button
+                                onClick={() => changePage(-1)}
+                                disabled={pageNumber <= 1}
+                                className="absolute left-4 top-1/2 -translate-y-1/2 z-30 w-12 h-12 rounded-full bg-black/10 hover:bg-black/60 hover:backdrop-blur-sm border border-white/5 hover:border-white/20 flex items-center justify-center text-white/40 hover:text-white transition-all transform hover:scale-110 disabled:opacity-0 disabled:pointer-events-none group"
+                            >
+                                <ChevronLeft size={28} className="group-hover:-translate-x-0.5 transition-transform" />
+                            </button>
+
+                            <button
+                                onClick={() => changePage(1)}
+                                disabled={pageNumber >= (numPages || 1)}
+                                className="absolute right-4 top-1/2 -translate-y-1/2 z-30 w-12 h-12 rounded-full bg-black/10 hover:bg-black/60 hover:backdrop-blur-sm border border-white/5 hover:border-white/20 flex items-center justify-center text-white/40 hover:text-white transition-all transform hover:scale-110 disabled:opacity-0 disabled:pointer-events-none group"
+                            >
+                                <ChevronRight size={28} className="group-hover:translate-x-0.5 transition-transform" />
+                            </button>
+                        </>
+                    )}
 
 
                     {/* Document Area */}

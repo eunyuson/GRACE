@@ -845,14 +845,16 @@ export const DetailView: React.FC<DetailViewProps> = ({ isOpen, onClose, item, o
                       const pdfUrlWithPage = `${displayPdfUrl}#toolbar=1&navpanes=0&scrollbar=1&view=FitV`;
 
                       return (
-                        <PDFViewer
-                          key={activeTab + '-pdf'}
-                          pdfId={`gallery-${item.id}-${activeTab}`}
-                          url={displayPdfUrl}
-                          initialPage={pdfPage}
-                          isDailyReading={false}
-                          todayInfo={todayInfo}
-                        />
+                        <div className="relative w-full h-full">
+                          <PDFViewer
+                            key={activeTab + '-pdf'}
+                            pdfId={`gallery-${item.id}-${activeTab}`}
+                            url={displayPdfUrl}
+                            initialPage={pdfPage}
+                            isDailyReading={false}
+                            todayInfo={todayInfo}
+                          />
+                        </div>
                       );
                     }
 
@@ -908,6 +910,177 @@ export const DetailView: React.FC<DetailViewProps> = ({ isOpen, onClose, item, o
                   })()
                 )}
               </motion.div>
+            )}
+
+            {/* Floating Memo Panel for Normal PDF (non-QT) */}
+            {isPdfView && !isDailyReading && (
+              <>
+                {/* Floating Button */}
+                <button
+                  onClick={() => setIsFloatingPanelOpen(!isFloatingPanelOpen)}
+                  className={`fixed bottom-6 right-6 z-[60] w-14 h-14 rounded-full shadow-2xl flex items-center justify-center transition-all duration-300 ${isFloatingPanelOpen
+                    ? 'bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-400 hover:to-orange-400'
+                    : 'bg-gradient-to-r from-gray-700 to-gray-600 hover:from-gray-600 hover:to-gray-500'
+                    }`}
+                  style={{ boxShadow: '0 8px 32px rgba(0,0,0,0.5)' }}
+                >
+                  <span className="text-white text-2xl">{isFloatingPanelOpen ? '✕' : '📝'}</span>
+                  {!isFloatingPanelOpen && recentMemos.length > 0 && (
+                    <span className="absolute -top-1 -right-1 w-3 h-3 bg-yellow-400 rounded-full border border-black/50"></span>
+                  )}
+                </button>
+
+                {/* Floating Memo Panel */}
+                <div
+                  id="pdf-memo-panel"
+                  style={panelSize ? { width: panelSize.width, height: panelSize.height } : undefined}
+                  className={`fixed bottom-24 right-6 z-[55] ${!panelSize ? 'w-[90vw] md:w-[500px] h-[60vh] max-h-[800px]' : ''} bg-[#0a0a0a]/30 backdrop-blur-2xl rounded-3xl border border-white/20 overflow-hidden transition-all duration-500 transform ${isFloatingPanelOpen
+                    ? 'translate-y-0 opacity-100 scale-100 shadow-[0_20px_80px_rgba(0,0,0,0.8)]'
+                    : 'translate-y-12 opacity-0 scale-95 pointer-events-none'
+                    }`}
+                >
+                  {/* Resize Handle */}
+                  <div
+                    onMouseDown={handleResizeStart}
+                    className="absolute top-2 left-2 w-8 h-8 z-[60] cursor-nw-resize flex items-center justify-center group bg-black/20 hover:bg-black/40 rounded-full backdrop-blur-sm transition-all border border-white/10"
+                    title="Resize Panel"
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-white/50 group-hover:text-white transition-colors rotate-90">
+                      <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7" />
+                    </svg>
+                  </div>
+
+                  {/* Panel Header */}
+                  <div className="flex items-center justify-between px-6 py-4 border-b border-white/10 bg-white/5">
+                    <div className="flex gap-4">
+                      <span className="text-sm font-medium text-white">나의 묵상</span>
+                    </div>
+                    {isSaving && (
+                      <div className="flex items-center gap-2 text-[10px] text-white/50 animate-pulse">
+                        <div className="w-1.5 h-1.5 rounded-full bg-yellow-400"></div>
+                        저장 중...
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Panel Content */}
+                  <div className="h-[calc(100%-57px)]">
+                    <div className="h-full flex flex-col p-6">
+                      {currentUser ? (
+                        <>
+                          <div className="mb-2 text-xs text-white/30 font-light flex justify-between">
+                            <span>{new Date().toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' })}</span>
+                            <span>{memoText.length}자</span>
+                          </div>
+                          <textarea
+                            value={memoText}
+                            onChange={(e) => setMemoText(e.target.value)}
+                            placeholder="이 PDF에 대한 묵상을 기록하세요..."
+                            className="flex-1 w-full bg-transparent border-0 text-white/90 placeholder-white/20 text-base leading-relaxed resize-none focus:outline-none focus:ring-0 selection:bg-yellow-500/30"
+                            spellCheck={false}
+                          />
+                          <div className="mt-4 flex gap-2">
+                            <button
+                              onClick={async () => {
+                                if (!currentUser || !item?.id || memoText.trim() === '') return;
+                                setIsSaving(true);
+                                const tags = extractHashtags(memoText);
+                                const mainImage = item.image || (item.content && item.content.find(c => c.image)?.image) || '';
+                                try {
+                                  if (editingMemoId) {
+                                    await updateDoc(doc(db, 'gallery', String(item.id), 'memos', editingMemoId), {
+                                      text: memoText,
+                                      tags: tags,
+                                      updatedAt: serverTimestamp()
+                                    });
+                                    alert('수정되었습니다! ✅');
+                                    setEditingMemoId(null);
+                                  } else {
+                                    await addDoc(collection(db, 'gallery', String(item.id), 'memos'), {
+                                      text: memoText,
+                                      tags: tags,
+                                      userId: currentUser.uid,
+                                      userName: currentUser.displayName || '익명',
+                                      userPhoto: currentUser.photoURL || '',
+                                      createdAt: serverTimestamp(),
+                                      updatedAt: serverTimestamp(),
+                                      parentId: item.id,
+                                      parentTitle: item.title,
+                                      parentImage: mainImage,
+                                      parentDate: item.date || ''
+                                    });
+                                    alert('저장되었습니다! ✅');
+                                  }
+                                  setMemoText('');
+                                  setLastSavedText('');
+                                } catch (e) {
+                                  console.error('Save failed:', e);
+                                  alert('저장에 실패했습니다.');
+                                } finally {
+                                  setIsSaving(false);
+                                }
+                              }}
+                              disabled={isSaving || memoText.trim() === ''}
+                              className={`flex-1 py-2.5 px-4 text-white font-semibold rounded-lg transition-all disabled:opacity-40 disabled:cursor-not-allowed ${editingMemoId
+                                ? 'bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-400 hover:to-emerald-400'
+                                : 'bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-400 hover:to-cyan-400'
+                                }`}
+                            >
+                              {isSaving ? '저장 중...' : (editingMemoId ? '📝 수정 완료' : '💾 저장')}
+                            </button>
+                            {editingMemoId && (
+                              <button
+                                onClick={() => { setEditingMemoId(null); setMemoText(''); setLastSavedText(''); }}
+                                className="px-4 py-2.5 bg-white/10 hover:bg-white/20 text-white/70 rounded-lg transition-colors"
+                              >
+                                취소
+                              </button>
+                            )}
+                          </div>
+
+                          {/* Recent Memos */}
+                          {recentMemos.length > 0 && (
+                            <div className="mt-6 pt-4 border-t border-white/10">
+                              <h4 className="text-xs text-white/40 uppercase tracking-wider mb-3">이전 묵상 ({recentMemos.length})</h4>
+                              <div className="space-y-3 max-h-[200px] overflow-y-auto pr-2 custom-scrollbar">
+                                {recentMemos.map((memo) => (
+                                  <div
+                                    key={memo.id}
+                                    onClick={() => {
+                                      if (confirm('이 메모를 불러와서 수정하시겠습니까?\n작성 중인 내용은 사라집니다.')) {
+                                        setMemoText(memo.text);
+                                        setEditingMemoId(memo.id);
+                                      }
+                                    }}
+                                    className={`bg-white/5 rounded-lg p-3 text-sm cursor-pointer hover:bg-white/10 transition-colors border ${editingMemoId === memo.id ? 'border-green-500/50 ring-1 ring-green-500/20' : 'border-transparent'}`}
+                                  >
+                                    <p className="text-white/70 line-clamp-3 whitespace-pre-wrap">{memo.text}</p>
+                                    <p className="text-white/30 text-[10px] mt-2">
+                                      {memo.createdAt?.toDate?.()
+                                        ? new Date(memo.createdAt.toDate()).toLocaleDateString('ko-KR', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+                                        : ''}
+                                    </p>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </>
+                      ) : (
+                        <div className="h-full flex flex-col items-center justify-center text-center space-y-4">
+                          <div className="w-16 h-16 rounded-full bg-white/5 flex items-center justify-center">
+                            <span className="text-2xl">🔒</span>
+                          </div>
+                          <div>
+                            <h3 className="text-white font-medium mb-1">로그인이 필요합니다</h3>
+                            <p className="text-white/40 text-sm">나만의 묵상 노트를 작성하려면 로그인해주세요.</p>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </>
             )}
 
             {/* Content Grid - Hidden for Daily Meditation QT */}
