@@ -6,12 +6,15 @@ import { db, storage } from '../firebase';
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 import { allHymnData, getAllCategories, getHymnByNumber, HymnInfo } from '../data';
 
+import { HymnVersion } from './PraiseGallery';
+
 interface Hymn {
     id: string;
     number: number;
     title: string;
     imageUrl: string;
     imageUrls?: string[];
+    versions?: HymnVersion[];
     pptUrl?: string;
     lyrics?: string;
     youtubeLinks?: { url: string; title: string }[];
@@ -62,6 +65,13 @@ export const HymnGallery: React.FC<HymnGalleryProps> = ({ isAdmin = false, curre
     const [editCategory, setEditCategory] = useState('');
     const [editYoutubeLinks, setEditYoutubeLinks] = useState<{ url: string; title: string }[]>([]);
     const [editImages, setEditImages] = useState<string[]>([]);
+    // Version editing state
+    const [editVersions, setEditVersions] = useState<HymnVersion[]>([]);
+    const [currentVersionId, setCurrentVersionId] = useState<string>('default');
+    const [newVersionName, setNewVersionName] = useState('');
+    const [defaultImageUrls, setDefaultImageUrls] = useState<string[]>([]);
+    // View mode version selection
+    const [viewVersionId, setViewVersionId] = useState<string>('default');
     const [newYoutubeUrl, setNewYoutubeUrl] = useState('');
     const [newYoutubeTitle, setNewYoutubeTitle] = useState('');
     const [saving, setSaving] = useState(false);
@@ -76,7 +86,12 @@ export const HymnGallery: React.FC<HymnGalleryProps> = ({ isAdmin = false, curre
             setEditCode(selectedHymn.code || '');
             setEditCategory(selectedHymn.category || '');
             setEditYoutubeLinks(selectedHymn.youtubeLinks || []);
-            setEditImages(selectedHymn.imageUrls && selectedHymn.imageUrls.length > 0 ? selectedHymn.imageUrls : (selectedHymn.imageUrl ? [selectedHymn.imageUrl] : []));
+            const imgs = selectedHymn.imageUrls && selectedHymn.imageUrls.length > 0 ? selectedHymn.imageUrls : (selectedHymn.imageUrl ? [selectedHymn.imageUrl] : []);
+            setEditImages(imgs);
+            setDefaultImageUrls(imgs);
+            setEditVersions(selectedHymn.versions || []);
+            setCurrentVersionId('default');
+            setNewVersionName('');
             setNewYoutubeUrl('');
             setNewYoutubeTitle('');
             setIsEditing(true);
@@ -89,6 +104,17 @@ export const HymnGallery: React.FC<HymnGalleryProps> = ({ isAdmin = false, curre
 
         setSaving(true);
         try {
+            // Finalize images for the active version before saving
+            let finalDefaultImages = defaultImageUrls;
+            let finalVersions = editVersions;
+            if (currentVersionId === 'default') {
+                finalDefaultImages = editImages.map(u => u.trim()).filter(Boolean);
+            } else {
+                finalVersions = editVersions.map(v =>
+                    v.id === currentVersionId ? { ...v, imageUrls: editImages } : v
+                );
+            }
+
             console.log('Saving YouTube links:', editYoutubeLinks);
             const hymnRef = doc(db, 'gallery', selectedHymn.id);
             await updateDoc(hymnRef, {
@@ -97,8 +123,9 @@ export const HymnGallery: React.FC<HymnGalleryProps> = ({ isAdmin = false, curre
                 code: editCode,
                 category: editCategory,
                 youtubeLinks: editYoutubeLinks,
-                imageUrls: editImages,
-                imageUrl: editImages[0] || ''
+                imageUrls: finalDefaultImages,
+                imageUrl: finalDefaultImages[0] || '',
+                versions: finalVersions,
             });
 
             const updatedHymn = {
@@ -108,8 +135,9 @@ export const HymnGallery: React.FC<HymnGalleryProps> = ({ isAdmin = false, curre
                 code: editCode,
                 category: editCategory,
                 youtubeLinks: editYoutubeLinks,
-                imageUrls: editImages,
-                imageUrl: editImages[0] || ''
+                imageUrls: finalDefaultImages,
+                imageUrl: finalDefaultImages[0] || '',
+                versions: finalVersions,
             };
 
             // Update local state
@@ -128,6 +156,47 @@ export const HymnGallery: React.FC<HymnGalleryProps> = ({ isAdmin = false, curre
         } finally {
             setSaving(false);
         }
+    };
+
+    // Version management
+    const changeVersion = (targetId: string) => {
+        if (currentVersionId === 'default') {
+            setDefaultImageUrls([...editImages]);
+        } else {
+            setEditVersions(prev => prev.map(v =>
+                v.id === currentVersionId ? { ...v, imageUrls: [...editImages] } : v
+            ));
+        }
+        if (targetId === 'default') {
+            if (currentVersionId !== 'default') {
+                setEditImages(defaultImageUrls);
+            }
+        } else {
+            const target = editVersions.find(v => v.id === targetId);
+            setEditImages(target ? target.imageUrls : []);
+        }
+        setCurrentVersionId(targetId);
+    };
+
+    const addVersion = () => {
+        const name = newVersionName.trim();
+        if (!name) return;
+        const newVer: HymnVersion = { id: Date.now().toString(), name, imageUrls: [] };
+        setEditVersions(prev => [...prev, newVer]);
+        setNewVersionName('');
+    };
+
+    const removeVersion = (id: string) => {
+        setEditVersions(prev => prev.filter(v => v.id !== id));
+        if (currentVersionId === id) changeVersion('default');
+    };
+
+    // View mode: get images for the selected view version
+    const getViewImages = () => {
+        if (!selectedHymn) return [];
+        if (viewVersionId === 'default') return getImagesForHymn(selectedHymn);
+        const version = selectedHymn.versions?.find(v => v.id === viewVersionId);
+        return version?.imageUrls || [];
     };
 
     // Add YouTube link
@@ -167,6 +236,9 @@ export const HymnGallery: React.FC<HymnGalleryProps> = ({ isAdmin = false, curre
         setNewYoutubeUrl('');
         setNewYoutubeTitle('');
         setEditImages([]);
+        setEditVersions([]);
+        setCurrentVersionId('default');
+        setNewVersionName('');
     };
 
     const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -225,6 +297,10 @@ export const HymnGallery: React.FC<HymnGalleryProps> = ({ isAdmin = false, curre
 
         return () => unsubscribe();
     }, []);
+
+    useEffect(() => {
+        setViewVersionId('default');
+    }, [selectedHymn?.id]);
 
     useEffect(() => {
         const handleKeyDown = (event: KeyboardEvent) => {
@@ -637,20 +713,47 @@ export const HymnGallery: React.FC<HymnGalleryProps> = ({ isAdmin = false, curre
 
                             {/* Image Section - Fit to screen on desktop */}
                             <div className="w-full h-full md:flex-[1.2] bg-black flex flex-col items-center justify-start pt-16 md:pt-0 md:justify-center pb-48 md:pb-0 overflow-auto relative">
-                                {selectedImages.length > 0 ? (
-                                    selectedImages.length === 1 ? (
-                                        /* Single image - fit to viewport */
+                                {/* Version Tabs - view mode only */}
+                                {selectedHymn.versions && selectedHymn.versions.length > 0 && !isEditing && (
+                                    <div className="w-full flex gap-2 mb-4 overflow-x-auto pb-2 flex-shrink-0 sticky top-0 z-10 bg-black/80 backdrop-blur-sm py-2 px-2">
+                                        <button
+                                            onClick={() => setViewVersionId('default')}
+                                            className={`px-4 py-2 rounded-lg text-sm font-bold whitespace-nowrap transition-all ${viewVersionId === 'default'
+                                                ? 'bg-indigo-500/30 text-indigo-300 border border-indigo-500/50'
+                                                : 'bg-white/10 text-white/60 border border-white/10 hover:bg-white/20'
+                                                }`}
+                                        >
+                                            기본
+                                        </button>
+                                        {selectedHymn.versions.map(v => (
+                                            <button
+                                                key={v.id}
+                                                onClick={() => setViewVersionId(v.id)}
+                                                className={`px-4 py-2 rounded-lg text-sm font-bold whitespace-nowrap transition-all ${viewVersionId === v.id
+                                                    ? 'bg-emerald-500/30 text-emerald-300 border border-emerald-500/50'
+                                                    : 'bg-white/10 text-white/60 border border-white/10 hover:bg-white/20'
+                                                    }`}
+                                            >
+                                                {v.name}
+                                            </button>
+                                        ))}
+                                    </div>
+                                )}
+
+                                {getViewImages().length > 0 ? (
+                                    getViewImages().length === 1 ? (
+                                        /* Single image */
                                         <div className="w-full h-full flex items-center justify-center p-4">
                                             <img
-                                                src={selectedImages[0]}
+                                                src={getViewImages()[0]}
                                                 alt={selectedHymn.title}
                                                 className="max-w-full max-h-full object-contain"
                                             />
                                         </div>
                                     ) : (
-                                        /* Multiple images - scrollable */
+                                        /* Multiple images */
                                         <div className="w-full h-full flex flex-col items-center gap-4 py-4 overflow-y-auto">
-                                            {selectedImages.map((url, index) => (
+                                            {getViewImages().map((url, index) => (
                                                 <img
                                                     key={`${url}-${index}`}
                                                     src={url}
@@ -852,6 +955,56 @@ export const HymnGallery: React.FC<HymnGalleryProps> = ({ isAdmin = false, curre
                                                 className="w-full h-48 bg-black/40 border border-white/10 rounded-xl p-4 text-white/90 text-sm resize-none focus:outline-none focus:border-indigo-500/50 placeholder-white/30"
                                                 placeholder="가사를 입력하세요..."
                                             />
+                                        </div>
+
+                                        {/* Version Management */}
+                                        <div>
+                                            <h3 className="text-xs uppercase tracking-wider text-white/40 mb-3 font-bold flex items-center gap-2">
+                                                <List size={14} /> 버전 관리
+                                            </h3>
+                                            <div className="bg-white/5 border border-white/10 rounded-lg p-3 mb-4">
+                                                <div className="flex items-center gap-2 mb-3">
+                                                    <select
+                                                        value={currentVersionId}
+                                                        onChange={(e) => changeVersion(e.target.value)}
+                                                        className="flex-1 bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-white/90 text-sm focus:outline-none focus:border-indigo-500/50"
+                                                    >
+                                                        <option value="default">기본 (Default)</option>
+                                                        {editVersions.map(v => (
+                                                            <option key={v.id} value={v.id}>{v.name}</option>
+                                                        ))}
+                                                    </select>
+                                                    {currentVersionId !== 'default' && (
+                                                        <button
+                                                            onClick={() => {
+                                                                if (confirm('이 버전을 삭제하시겠습니까?')) {
+                                                                    removeVersion(currentVersionId);
+                                                                }
+                                                            }}
+                                                            className="p-2 bg-red-500/20 text-red-300 rounded-lg hover:bg-red-500/30 transition-colors"
+                                                            title="버전 삭제"
+                                                        >
+                                                            <Trash2 size={16} />
+                                                        </button>
+                                                    )}
+                                                </div>
+                                                <div className="flex gap-2">
+                                                    <input
+                                                        type="text"
+                                                        value={newVersionName}
+                                                        onChange={(e) => setNewVersionName(e.target.value)}
+                                                        placeholder="새 버전 이름 (예: G Key, 드럼악보)"
+                                                        className="flex-1 bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-white/90 text-sm focus:outline-none focus:border-indigo-500/50 placeholder-white/30"
+                                                    />
+                                                    <button
+                                                        onClick={addVersion}
+                                                        disabled={!newVersionName.trim()}
+                                                        className="px-3 py-2 bg-indigo-500/20 text-indigo-300 rounded-lg hover:bg-indigo-500/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1 text-sm font-bold"
+                                                    >
+                                                        <Plus size={14} /> 추가
+                                                    </button>
+                                                </div>
+                                            </div>
                                         </div>
 
                                         {/* YouTube Links Editor */}
