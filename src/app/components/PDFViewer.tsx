@@ -227,32 +227,6 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
         return () => window.removeEventListener('resize', checkMobile);
     }, []);
 
-    // Touch swipe handling for mobile
-    const touchStartX = useRef<number>(0);
-    const touchEndX = useRef<number>(0);
-
-    const handleTouchStart = (e: React.TouchEvent) => {
-        touchStartX.current = e.touches[0].clientX;
-    };
-
-    const handleTouchMove = (e: React.TouchEvent) => {
-        touchEndX.current = e.touches[0].clientX;
-    };
-
-    const handleTouchEnd = () => {
-        const swipeThreshold = 50; // Minimum swipe distance
-        const diff = touchStartX.current - touchEndX.current;
-
-        if (Math.abs(diff) > swipeThreshold) {
-            if (diff > 0) {
-                // Swiped left - next page
-                changePage(1);
-            } else {
-                // Swiped right - previous page
-                changePage(-1);
-            }
-        }
-    };
 
     // Container Resize Observer
     useEffect(() => {
@@ -683,9 +657,6 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
                 <div
                     ref={containerRef}
                     className="flex-1 overflow-auto flex justify-center items-center bg-[#0a0a0a] relative"
-                    onTouchStart={handleTouchStart}
-                    onTouchMove={handleTouchMove}
-                    onTouchEnd={handleTouchEnd}
                 >
 
                     {/* Text Viewer Area */}
