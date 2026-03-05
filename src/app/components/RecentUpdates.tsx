@@ -49,6 +49,8 @@ export const RecentUpdates: React.FC<RecentUpdatesProps> = ({ isAdmin = false })
     const [allTags, setAllTags] = useState<{ tag: string; count: number }[]>([]);
     const [activeCategory, setActiveCategory] = useState("전체");
     const [showSuggestions, setShowSuggestions] = useState(false);
+    const [tagCloudExpanded, setTagCloudExpanded] = useState(false);
+    const [showSyncConfirm, setShowSyncConfirm] = useState(false);
 
     // Constants for Category Tabs
     const CATEGORIES = ['전체', '신앙', '삶', '사회', '기술'];
@@ -767,6 +769,53 @@ export const RecentUpdates: React.FC<RecentUpdatesProps> = ({ isAdmin = false })
                                 className="flex-1 py-2 rounded-lg bg-red-500 text-white hover:bg-red-600 transition"
                             >
                                 삭제
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Sync Confirmation Modal */}
+            {showSyncConfirm && (
+                <div className="fixed inset-0 bg-black/80 z-[60] flex items-center justify-center p-4">
+                    <div className="bg-[#1a1a2e] border border-green-500/30 rounded-2xl p-6 max-w-sm w-full shadow-2xl">
+                        <h3 className="text-white text-lg font-bold mb-2">🔄 새로고침</h3>
+                        <p className="text-white/60 text-sm mb-1">구글 시트에서 최신 데이터를 가져오시겠습니까?</p>
+                        <p className="text-white/40 text-xs mb-6">(잠시 시간이 소요될 수 있습니다)</p>
+                        <div className="flex gap-3">
+                            <button
+                                onClick={() => setShowSyncConfirm(false)}
+                                className="flex-1 py-2 rounded-lg bg-white/10 text-white/70 hover:bg-white/20 transition"
+                            >
+                                취소
+                            </button>
+                            <button
+                                onClick={async () => {
+                                    setShowSyncConfirm(false);
+                                    setLoading(true);
+                                    try {
+                                        const response = await fetch('/api/sync', { method: 'GET' });
+                                        const contentType = response.headers.get('content-type');
+                                        if (!contentType || !contentType.includes('application/json')) {
+                                            throw new Error('로컬 환경에서는 동기화 기능을 사용할 수 없습니다.\n(배포된 사이트에서 실행하거나 vercel dev를 사용하세요)');
+                                        }
+                                        if (response.ok) {
+                                            const result = await response.json();
+                                            alert(`업데이트 완료! ${result.added}개의 새 항목을 가져왔습니다.`);
+                                            window.location.reload();
+                                        } else {
+                                            const err = await response.json();
+                                            throw new Error(err.error || 'Sync failed');
+                                        }
+                                    } catch (e: any) {
+                                        console.error(e);
+                                        alert(`동기화 실패: ${e.message || '잠시 후 다시 시도해주세요.'}`);
+                                        setLoading(false);
+                                    }
+                                }}
+                                className="flex-1 py-2 rounded-lg bg-green-500 text-white hover:bg-green-600 transition font-medium"
+                            >
+                                가져오기
                             </button>
                         </div>
                     </div>
@@ -1682,35 +1731,7 @@ export const RecentUpdates: React.FC<RecentUpdatesProps> = ({ isAdmin = false })
                         </div>
                         <div className="flex items-center gap-3">
                             <button
-                                onClick={async () => {
-                                    if (confirm('구글 시트에서 최신 데이터를 가져오시겠습니까?\n(잠시 시간이 소요될 수 있습니다)')) {
-                                        setLoading(true);
-                                        try {
-                                            // Call the new Vercel API endpoint
-                                            const response = await fetch('/api/sync', {
-                                                method: 'GET',
-                                            });
-
-                                            const contentType = response.headers.get('content-type');
-                                            if (!contentType || !contentType.includes('application/json')) {
-                                                throw new Error('로컬 환경에서는 동기화 기능을 사용할 수 없습니다.\n(배포된 사이트에서 실행하거나 vercel dev를 사용하세요)');
-                                            }
-
-                                            if (response.ok) {
-                                                const result = await response.json();
-                                                alert(`업데이트 완료! ${result.added}개의 새 항목을 가져왔습니다.`);
-                                                window.location.reload();
-                                            } else {
-                                                const err = await response.json();
-                                                throw new Error(err.error || 'Sync failed');
-                                            }
-                                        } catch (e: any) {
-                                            console.error(e);
-                                            alert(`동기화 실패: ${e.message || '잠시 후 다시 시도해주세요.'}`);
-                                            setLoading(false);
-                                        }
-                                    }
-                                }}
+                                onClick={() => setShowSyncConfirm(true)}
                                 className="px-3 py-1.5 bg-green-500/10 hover:bg-green-500/20 border border-green-500/20 rounded-lg text-xs text-green-400 transition flex items-center gap-2"
                             >
                                 <span>🔄</span> 새로고침
@@ -1736,81 +1757,106 @@ export const RecentUpdates: React.FC<RecentUpdatesProps> = ({ isAdmin = false })
                     {/* Tag Cloud & Category Tabs */}
                     {allTags.length > 0 && (
                         <div className="mb-6 bg-white/5 rounded-2xl border border-white/10 overflow-hidden">
-                            {/* Category Tabs */}
-                            <div className="flex overflow-x-auto no-scrollbar border-b border-white/10">
-                                {CATEGORIES.map(cat => (
-                                    <button
-                                        key={cat}
-                                        onClick={() => setActiveCategory(cat)}
-                                        className={`flex-1 min-w-[60px] px-4 py-3 text-sm font-medium whitespace-nowrap transition-colors relative ${activeCategory === cat ? 'text-white bg-white/5' : 'text-white/40 hover:text-white/70 hover:bg-white/5'
-                                            }`}
-                                    >
-                                        {cat}
-                                        {activeCategory === cat && (
-                                            <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-500 shadow-[0_0_10px_rgba(59,130,246,0.5)]" />
-                                        )}
-                                    </button>
-                                ))}
-                            </div>
-
-                            <div className="p-4">
-                                <div className="flex items-center gap-2 mb-3">
-                                    <span className="text-white/50 text-xs uppercase tracking-wider">{activeCategory} 태그</span>
-                                    <span className="text-white/30 text-[10px]">(클릭하여 필터링)</span>
+                            {/* Collapsible Header */}
+                            <button
+                                onClick={() => setTagCloudExpanded(prev => !prev)}
+                                className="w-full flex items-center justify-between px-4 py-3 hover:bg-white/5 transition-colors"
+                            >
+                                <div className="flex items-center gap-2">
+                                    <Hash size={14} className="text-blue-400" />
+                                    <span className="text-white/60 text-sm font-medium">전체 태그</span>
                                     {Object.keys(tagFilters).length > 0 && (
-                                        <button
-                                            onClick={() => setTagFilters({})}
-                                            className="text-xs text-blue-400 hover:text-blue-300 ml-auto"
-                                        >
-                                            필터 초기화
-                                        </button>
+                                        <span className="px-2 py-0.5 bg-blue-500/20 text-blue-300 text-xs rounded-full">
+                                            {Object.keys(tagFilters).length}개 필터 적용 중
+                                        </span>
                                     )}
                                 </div>
-                                <div className="flex flex-wrap gap-2">
-                                    {filteredTagsByCategory.filter(t => (dynamicTagCounts[t.tag] || 0) > 0).map(({ tag }) => {
-                                        const filterMode = tagFilters[tag];
-                                        const dynamicCount = dynamicTagCounts[tag] || 0;
-                                        const isL3 = tag.startsWith('###');
-                                        const isL2 = tag.startsWith('##') && !isL3;
-                                        const baseColor = isL3 ? 'pink' : isL2 ? 'purple' : 'blue';
+                                <div className="flex items-center gap-2">
+                                    {Object.keys(tagFilters).length > 0 && (
+                                        <span
+                                            onClick={(e) => { e.stopPropagation(); setTagFilters({}); }}
+                                            className="text-xs text-blue-400 hover:text-blue-300 px-2 py-0.5 rounded hover:bg-blue-500/10"
+                                        >
+                                            초기화
+                                        </span>
+                                    )}
+                                    <span className={`text-white/30 transition-transform duration-200 ${tagCloudExpanded ? 'rotate-180' : ''}`}>
+                                        ▼
+                                    </span>
+                                </div>
+                            </button>
 
-                                        return (
+                            {/* Collapsible Content */}
+                            {tagCloudExpanded && (
+                                <>
+                                    {/* Category Tabs */}
+                                    <div className="flex overflow-x-auto no-scrollbar border-t border-b border-white/10">
+                                        {CATEGORIES.map(cat => (
                                             <button
-                                                key={tag}
-                                                onClick={() => setTagFilters(prev => {
-                                                    const current = prev[tag];
-                                                    if (!current) {
-                                                        return { ...prev, [tag]: 'include' };
-                                                    } else if (current === 'include') {
-                                                        return { ...prev, [tag]: 'exclude' };
-                                                    } else {
-                                                        const { [tag]: _, ...rest } = prev;
-                                                        return rest;
-                                                    }
-                                                })}
-                                                className={`px-3 py-2 text-sm rounded-full transition-all flex items-center gap-1.5 ${filterMode === 'include'
-                                                    ? `bg-gradient-to-r from-${baseColor}-500 to-${isL3 ? 'yellow' : isL2 ? 'pink' : 'purple'}-500 text-white shadow-lg`
-                                                    : filterMode === 'exclude'
-                                                        ? 'bg-gradient-to-r from-red-500 to-orange-500 text-white shadow-lg line-through'
-                                                        : `bg-white/5 text-${baseColor}-200/60 border border-${baseColor}-500/10 hover:border-${baseColor}-500/30 hover:bg-white/10`
+                                                key={cat}
+                                                onClick={() => setActiveCategory(cat)}
+                                                className={`flex-1 min-w-[60px] px-4 py-3 text-sm font-medium whitespace-nowrap transition-colors relative ${activeCategory === cat ? 'text-white bg-white/5' : 'text-white/40 hover:text-white/70 hover:bg-white/5'
                                                     }`}
                                             >
-                                                {filterMode === 'include' && <span>✓</span>}
-                                                {filterMode === 'exclude' && <span>✗</span>}
-                                                {tag.replace(/^#{1,3}/, '')}
-                                                <span className="ml-1 text-[10px] opacity-60">
-                                                    {dynamicCount}
-                                                </span>
+                                                {cat}
+                                                {activeCategory === cat && (
+                                                    <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-500 shadow-[0_0_10px_rgba(59,130,246,0.5)]" />
+                                                )}
                                             </button>
-                                        );
-                                    })}
-                                    {filteredTagsByCategory.length === 0 && (
-                                        <div className="text-white/30 text-sm py-4 w-full text-center">
-                                            해당 카테고리의 태그가 없습니다.
+                                        ))}
+                                    </div>
+
+                                    <div className="p-4">
+                                        <div className="flex items-center gap-2 mb-3">
+                                            <span className="text-white/40 text-[10px]">(클릭하여 필터링 / 재클릭하여 제외)</span>
                                         </div>
-                                    )}
-                                </div>
-                            </div>
+                                        <div className="flex flex-wrap gap-2">
+                                            {filteredTagsByCategory.filter(t => (dynamicTagCounts[t.tag] || 0) > 0).map(({ tag }) => {
+                                                const filterMode = tagFilters[tag];
+                                                const dynamicCount = dynamicTagCounts[tag] || 0;
+                                                const isL3 = tag.startsWith('###');
+                                                const isL2 = tag.startsWith('##') && !isL3;
+                                                const baseColor = isL3 ? 'pink' : isL2 ? 'purple' : 'blue';
+
+                                                return (
+                                                    <button
+                                                        key={tag}
+                                                        onClick={() => setTagFilters(prev => {
+                                                            const current = prev[tag];
+                                                            if (!current) {
+                                                                return { ...prev, [tag]: 'include' };
+                                                            } else if (current === 'include') {
+                                                                return { ...prev, [tag]: 'exclude' };
+                                                            } else {
+                                                                const { [tag]: _, ...rest } = prev;
+                                                                return rest;
+                                                            }
+                                                        })}
+                                                        className={`px-3 py-2 text-sm rounded-full transition-all flex items-center gap-1.5 ${filterMode === 'include'
+                                                            ? `bg-gradient-to-r from-${baseColor}-500 to-${isL3 ? 'yellow' : isL2 ? 'pink' : 'purple'}-500 text-white shadow-lg`
+                                                            : filterMode === 'exclude'
+                                                                ? 'bg-gradient-to-r from-red-500 to-orange-500 text-white shadow-lg line-through'
+                                                                : `bg-white/5 text-${baseColor}-200/60 border border-${baseColor}-500/10 hover:border-${baseColor}-500/30 hover:bg-white/10`
+                                                            }`}
+                                                    >
+                                                        {filterMode === 'include' && <span>✓</span>}
+                                                        {filterMode === 'exclude' && <span>✗</span>}
+                                                        {tag.replace(/^#{1,3}/, '')}
+                                                        <span className="ml-1 text-[10px] opacity-60">
+                                                            {dynamicCount}
+                                                        </span>
+                                                    </button>
+                                                );
+                                            })}
+                                            {filteredTagsByCategory.length === 0 && (
+                                                <div className="text-white/30 text-sm py-4 w-full text-center">
+                                                    해당 카테고리의 태그가 없습니다.
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                </>
+                            )}
                         </div>
                     )}
 
