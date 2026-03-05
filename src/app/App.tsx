@@ -137,7 +137,7 @@ const Home = () => {
 
 export default function App() {
   return (
-    <div className="bg-[#050505] text-[#f0f0f0] h-screen w-screen overflow-hidden select-none font-['Inter'] relative">
+    <div className="bg-[#050505] text-[#f0f0f0] h-screen w-screen overflow-hidden font-['Inter'] relative">
       <GalleryProvider>
         <CursorProvider>
           <BrowserRouter>

@@ -297,7 +297,7 @@ export const Gallery: React.FC<GalleryProps> = ({ isAdmin = false }) => {
 
       <main
         ref={containerRef}
-        className="scroll-container absolute top-0 left-0 h-full flex items-center will-change-transform pl-[35vw] transition-opacity duration-600 ease-[cubic-bezier(0.23,1,0.32,1)]"
+        className="scroll-container absolute top-0 left-0 h-full flex items-center will-change-transform pl-[35vw] transition-opacity duration-600 ease-[cubic-bezier(0.23,1,0.32,1)] select-none"
       >
         {items.map((item, i) => (
           <GalleryItem
