@@ -143,7 +143,7 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
     const [pdfDocument, setPdfDocument] = useState<any>(null); // Store PDF proxy for outline extraction
 
     // Text View State
-    const [viewMode, setViewMode] = useState<'pdf' | 'text'>('text'); // Default to text view as requested
+    const [viewMode, setViewMode] = useState<'pdf' | 'text'>('pdf'); // Default to PDF view
     const [textContent, setTextContent] = useState<string>('');
     const [isExtracting, setIsExtracting] = useState(false);
     const [extractProgress, setExtractProgress] = useState(0);
@@ -625,8 +625,8 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
                         <button
                             onClick={toggleViewMode}
                             className={`flex items-center gap-2 px-3 py-1.5 rounded border transition-colors ${viewMode === 'text'
-                                    ? 'bg-indigo-600 border-indigo-500 text-white'
-                                    : 'bg-[#1a1a1a] hover:bg-[#252525] border-[#333] text-white/80'
+                                ? 'bg-indigo-600 border-indigo-500 text-white'
+                                : 'bg-[#1a1a1a] hover:bg-[#252525] border-[#333] text-white/80'
                                 }`}
                             title={viewMode === 'pdf' ? "텍스트로 보기" : "PDF로 보기"}
                         >
