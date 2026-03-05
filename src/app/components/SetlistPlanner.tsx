@@ -1145,7 +1145,7 @@ export const SetlistPlanner: React.FC = () => {
                 <button
                     onClick={() => {
                         setShowSetlistSheet(true);
-                        setSheetHeight('half');
+                        setSheetHeight('full');
                     }}
                     className="w-14 h-14 bg-indigo-600 rounded-full shadow-lg shadow-indigo-900/40 flex items-center justify-center text-white hover:bg-indigo-500 transition-colors border border-indigo-400/30"
                 >
