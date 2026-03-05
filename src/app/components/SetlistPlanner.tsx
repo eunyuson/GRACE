@@ -298,7 +298,17 @@ export const SetlistPlanner: React.FC = () => {
             if (item.code?.toLowerCase() === q) return true;
             return false;
         });
-    }, [libraryItems, searchQuery, selectedTags, selectedCodes]);
+
+        // Sort: items currently in setlist come first (in setlist order), then the rest
+        const setlistSourceIds = setlistItems.map(s => s.sourceId);
+        const inSetlist = results.filter(item => setlistSourceIds.includes(item.id));
+        const notInSetlist = results.filter(item => !setlistSourceIds.includes(item.id));
+
+        // Sort inSetlist by their order in setlistItems
+        inSetlist.sort((a, b) => setlistSourceIds.indexOf(a.id) - setlistSourceIds.indexOf(b.id));
+
+        return [...inSetlist, ...notInSetlist];
+    }, [libraryItems, searchQuery, selectedTags, selectedCodes, setlistItems]);
 
     // Play YouTube playlist for setlist items
     const playYoutubePlaylist = () => {
@@ -627,6 +637,7 @@ export const SetlistPlanner: React.FC = () => {
                         {filteredLibrary.map(item => {
                             const thumb = item.imageUrls && item.imageUrls.length > 0 ? item.imageUrls[0] : item.imageUrl;
                             const isSelected = selectedLibraryIds.has(item.id);
+                            const isInSetlist = setlistItems.some(s => s.sourceId === item.id);
                             return (
                                 <motion.div
                                     key={item.id}
@@ -634,7 +645,9 @@ export const SetlistPlanner: React.FC = () => {
                                     onClick={() => toggleSelection(item.id)}
                                     className={`group relative bg-white rounded-xl overflow-hidden border shadow-md cursor-pointer transition-all ${isSelected
                                         ? 'border-indigo-500 ring-2 ring-indigo-500/50 transform scale-[0.98]'
-                                        : 'border-white/10 hover:border-indigo-500/30'
+                                        : isInSetlist
+                                            ? 'border-emerald-400 ring-1 ring-emerald-400/40'
+                                            : 'border-white/10 hover:border-indigo-500/30'
                                         }`}
                                     whileHover={{ y: -4 }}
                                 >
@@ -660,6 +673,13 @@ export const SetlistPlanner: React.FC = () => {
                                         <div className={`absolute top-2 left-2 w-5 h-5 rounded-full border border-black/20 flex items-center justify-center transition-all ${isSelected ? 'bg-indigo-500' : 'bg-white/80'}`}>
                                             {isSelected && <div className="w-2.5 h-2.5 bg-white rounded-full" />}
                                         </div>
+
+                                        {/* In Setlist Badge */}
+                                        {isInSetlist && (
+                                            <div className="absolute bottom-1 left-1 right-1 bg-emerald-500/90 text-white text-[9px] text-center py-0.5 rounded font-bold tracking-wide">
+                                                ✓ 콘티
+                                            </div>
+                                        )}
                                     </div>
                                     <div className="p-2 text-zinc-900">
                                         <div className="text-[10px] uppercase tracking-wider text-zinc-500 flex items-center justify-between">
