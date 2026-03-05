@@ -1720,7 +1720,7 @@ export const RecentUpdates: React.FC<RecentUpdatesProps> = ({ isAdmin = false })
             )}
 
             {/* Main Content */}
-            <div className="p-6 md:p-10 pt-24 md:pt-28">
+            <div className="p-6 md:p-10 pt-14 md:pt-28">
                 <div className="max-w-6xl mx-auto">
                     {/* Header */}
                     <div className="mb-6 flex items-center justify-between">

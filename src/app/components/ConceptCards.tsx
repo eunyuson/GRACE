@@ -330,7 +330,7 @@ export const ConceptCards: React.FC<ConceptCardsProps> = ({ onViewRelated, maxIt
         <div className="w-full h-full overflow-y-auto bg-[#050505] relative">
             <div
                 ref={containerRef}
-                className="w-full max-w-[1600px] mx-auto px-4 md:px-10 py-20 md:py-32 min-h-screen relative"
+                className="w-full max-w-[1600px] mx-auto px-4 md:px-10 pt-14 pb-20 md:py-32 min-h-screen relative"
             >
                 {/* Connection Lines Layer */}
                 <svg className="absolute inset-0 w-full h-full pointer-events-none z-0 overflow-visible">

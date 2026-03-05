@@ -404,7 +404,7 @@ export const HymnGallery: React.FC<HymnGalleryProps> = ({ isAdmin = false, curre
     const primaryImage = selectedImages[0] || '';
 
     return (
-        <div className="w-full h-full overflow-hidden print:overflow-visible flex flex-col pt-32 md:pt-48 px-4 md:px-10 pb-10 print:p-0 print:h-auto relative">
+        <div className="w-full h-full overflow-hidden print:overflow-visible flex flex-col pt-14 md:pt-48 px-4 md:px-10 pb-10 print:p-0 print:h-auto relative">
             {/* Filters & Toggle (Right Top) */}
             <div className="flex flex-col gap-4 mb-2 md:absolute md:top-16 md:right-10 md:w-auto md:mb-0 z-20 pointer-events-auto items-end">
                 <div className="flex items-center gap-4">
