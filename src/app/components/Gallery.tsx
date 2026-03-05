@@ -8,7 +8,7 @@ import { DetailView } from './DetailView';
 import { useCursor } from '../context/CursorContext';
 
 const CONFIG = {
-  ease: 0.08,
+  ease: 0.12,
   parallax: 0.15,
   minScale: 0.72,
   maxScale: 1.0
@@ -178,36 +178,56 @@ export const Gallery: React.FC<GalleryProps> = ({ isAdmin = false }) => {
 
     const onWheel = (e: WheelEvent) => {
       if (state.current.isDetailOpen) return;
-      // Original logic: state.target += (e.deltaY + e.deltaX) * 1.2;
-      // We might need to prevent default if it's strictly a horizontal experience without vertical scroll page.
-      // e.preventDefault(); // Original did this.
       state.current.target += (e.deltaY + e.deltaX) * 1.2;
     };
 
     let startX = 0;
     let startTarget = 0;
+    let lastX = 0;
+    let lastTime = 0;
+    let velocity = 0;
 
     const onTouchStart = (e: TouchEvent) => {
       if (state.current.isDetailOpen) return;
       startX = e.touches[0].clientX;
+      lastX = startX;
+      lastTime = Date.now();
+      velocity = 0;
       startTarget = state.current.target;
     };
 
     const onTouchMove = (e: TouchEvent) => {
       if (state.current.isDetailOpen) return;
-      const delta = (startX - e.touches[0].clientX) * 1.5;
+      const now = Date.now();
+      const currentX = e.touches[0].clientX;
+      const dt = now - lastTime;
+      if (dt > 0) {
+        velocity = (lastX - currentX) / dt; // px per ms
+      }
+      lastX = currentX;
+      lastTime = now;
+      const delta = (startX - currentX) * 2.5;
       state.current.target = startTarget + delta;
     };
 
-    window.addEventListener('wheel', onWheel, { passive: false }); // passive: false to allow preventDefault if we add it
-    window.addEventListener('touchstart', onTouchStart);
-    window.addEventListener('touchmove', onTouchMove);
+    const onTouchEnd = () => {
+      if (state.current.isDetailOpen) return;
+      // Apply momentum: velocity * multiplier
+      const momentum = velocity * 300; // tune this value for feel
+      state.current.target += momentum;
+    };
+
+    window.addEventListener('wheel', onWheel, { passive: false });
+    window.addEventListener('touchstart', onTouchStart, { passive: true });
+    window.addEventListener('touchmove', onTouchMove, { passive: true });
+    window.addEventListener('touchend', onTouchEnd);
 
     return () => {
       window.removeEventListener('resize', updateMetrics);
       window.removeEventListener('wheel', onWheel);
       window.removeEventListener('touchstart', onTouchStart);
       window.removeEventListener('touchmove', onTouchMove);
+      window.removeEventListener('touchend', onTouchEnd);
       cancelAnimationFrame(requestRef.current);
     };
   }, [animate, updateMetrics]);
