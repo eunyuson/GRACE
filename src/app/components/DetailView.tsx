@@ -506,6 +506,7 @@ export const DetailView: React.FC<DetailViewProps> = ({ isOpen, onClose, item, o
                             initialPage={pdfPage}
                             isDailyReading={true}
                             todayInfo={todayInfo}
+                            readerTitle={item.title}
                           />
                         );
                       })()}
@@ -853,6 +854,7 @@ export const DetailView: React.FC<DetailViewProps> = ({ isOpen, onClose, item, o
                             initialPage={pdfPage}
                             isDailyReading={false}
                             todayInfo={todayInfo}
+                            readerTitle={item.title}
                           />
                         </div>
                       );
